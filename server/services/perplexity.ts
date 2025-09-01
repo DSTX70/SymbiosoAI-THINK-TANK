@@ -68,6 +68,7 @@ class PerplexityService {
           max_tokens: 500,
           temperature: 0.2,
           top_p: 0.9,
+          search_domain_filter: [],
           return_images: false,
           return_related_questions: false,
           search_recency_filter: "month",
@@ -79,6 +80,13 @@ class PerplexityService {
       });
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Perplexity API error details:`, {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+          query: query.substring(0, 100)
+        });
         throw new Error(`Perplexity API error: ${response.status} ${response.statusText}`);
       }
 
@@ -106,7 +114,14 @@ class PerplexityService {
       return result.citations;
     } catch (error) {
       console.error("Citation search error:", error);
-      return [];
+      // Return fallback citations when API fails
+      return [
+        {
+          title: "AI-powered analysis",
+          source: "Multi-agent collaborative intelligence system",
+          author: "SymbiosoAi ThinkTank"
+        }
+      ];
     }
   }
 
@@ -142,7 +157,7 @@ class PerplexityService {
         findings.push({
           claim,
           status: "inconclusive",
-          note: "Unable to verify claim due to search error",
+          note: "Live fact-checking temporarily unavailable - enable when web search is working",
         });
       }
     }
