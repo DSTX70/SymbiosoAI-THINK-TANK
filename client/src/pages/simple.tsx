@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Lightbulb, Play } from "lucide-react";
+import { Lightbulb, Play, Zap } from "lucide-react";
 import Header from "@/components/Header";
 import TelemetryPanel from "@/components/TelemetryPanel";
 import ResultsSection from "@/components/ResultsSection";
+import LiveStreamingSection, { createStreamUrl } from "@/components/LiveStreamingSection";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { ThinkRequest, ThinkResponse } from "@shared/schema";
@@ -18,7 +19,10 @@ export default function SimplePage() {
   const [requireCitations, setRequireCitations] = useState(false);
   const [enableFactCheck, setEnableFactCheck] = useState(false);
   const [enableLiveWeb, setEnableLiveWeb] = useState(false);
+  const [useStreaming, setUseStreaming] = useState(true);
   const [results, setResults] = useState<ThinkResponse | null>(null);
+  const [streamingResult, setStreamingResult] = useState<any>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
   const { toast } = useToast();
 
   const thinkMutation = useMutation({
@@ -47,16 +51,61 @@ export default function SimplePage() {
       return;
     }
 
-    const requestData: ThinkRequest = {
-      prompt: prompt.trim(),
+    if (useStreaming) {
+      handleStreamingSubmit();
+    } else {
+      const requestData: ThinkRequest = {
+        prompt: prompt.trim(),
+        mode: "simple",
+        require_citations: requireCitations,
+        enable_fact_check: enableFactCheck,
+        live_web: enableLiveWeb,
+      };
+      thinkMutation.mutate(requestData);
+    }
+  };
+
+  const handleStreamingSubmit = () => {
+    const settings = {
       mode: "simple",
       require_citations: requireCitations,
       enable_fact_check: enableFactCheck,
       live_web: enableLiveWeb,
-      // temperature: 0.7, // Using default temperature
+      turns: "3",
+      response_length: "moderate"
     };
 
-    thinkMutation.mutate(requestData);
+    setIsStreaming(true);
+    setStreamingResult(null);
+    setResults(null);
+
+    const streamUrl = createStreamUrl(prompt, settings);
+    const eventSource = new EventSource(streamUrl);
+
+    eventSource.addEventListener("final", (event) => {
+      const data = JSON.parse(event.data);
+      setStreamingResult(data);
+      setResults({
+        consensus: data.consensus,
+        dissents: data.dissents,
+        unresolved: data.unresolved,
+        citations: data.citations,
+        fact_check: data.fact_check,
+        telemetry: data.telemetry
+      });
+      setIsStreaming(false);
+      eventSource.close();
+      toast({ description: "Streaming analysis completed successfully!" });
+    });
+
+    eventSource.onerror = () => {
+      setIsStreaming(false);
+      eventSource.close();
+      toast({ 
+        variant: "destructive",
+        description: "Streaming failed" 
+      });
+    };
   };
 
   return (
@@ -114,28 +163,46 @@ export default function SimplePage() {
                     />
                     <Label htmlFor="liveweb" className="text-sm">Live Web Search</Label>
                   </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="streaming"
+                      checked={useStreaming}
+                      onCheckedChange={setUseStreaming}
+                      data-testid="switch-streaming"
+                    />
+                    <Label htmlFor="streaming" className="text-sm">Real-time Streaming</Label>
+                  </div>
                 </div>
                 
                 <Button 
                   onClick={handleSubmit}
-                  disabled={thinkMutation.isPending}
+                  disabled={thinkMutation.isPending || isStreaming}
                   className="btn-primary flex items-center gap-2"
                   data-testid="button-start-thinking"
                 >
-                  {thinkMutation.isPending ? (
+                  {(thinkMutation.isPending || isStreaming) ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                      Processing...
+                      {isStreaming ? "Streaming..." : "Processing..."}
                     </>
                   ) : (
                     <>
-                      <Play size={16} />
-                      Start Collaborative Thinking
+                      {useStreaming ? <Zap size={16} /> : <Play size={16} />}
+                      {useStreaming ? "Start Live Stream" : "Start Collaborative Thinking"}
                     </>
                   )}
                 </Button>
               </CardContent>
             </Card>
+
+            {/* Live Streaming Section */}
+            {useStreaming && (
+              <LiveStreamingSection
+                onStartStream={handleStreamingSubmit}
+                isStreaming={isStreaming}
+                streamingResult={streamingResult}
+              />
+            )}
 
             {/* Results Section */}
             <ResultsSection

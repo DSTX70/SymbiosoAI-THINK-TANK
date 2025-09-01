@@ -4,9 +4,13 @@ import { storage } from "./storage";
 import { thinkRequestSchema, type ThinkResponse } from "@shared/schema";
 import { runMultiAgentDebate } from "../client/src/lib/ai-service";
 import { perplexityService } from "./services/perplexity";
+import { registerStreamingRoutes } from "./streaming";
 import type { Citation, FactCheckFinding } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Register SSE streaming routes
+  registerStreamingRoutes(app);
+  
   // Think API - Multi-agent AI debate endpoint
   app.post("/api/think", async (req, res) => {
     try {

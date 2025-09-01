@@ -1,0 +1,553 @@
+// SymbiosoAi ThinkTank — Full SSE pipeline with per-provider deltas + claims + verification + RAG + Web
+// NOW with "Save JSON" export (one-click download of the final SSE payload)
+// Run: npm init -y && npm i express openai @anthropic-ai/sdk && node index.js
+
+const express = require("express");
+const { OpenAI } = require("openai");
+const Anthropic = require("@anthropic-ai/sdk");
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+app.use(express.json());
+
+// ---------- Config ----------
+const ENABLE_OPENAI     = !!process.env.OPENAI_API_KEY;
+const ENABLE_ANTHROPIC  = !!process.env.ANTHROPIC_API_KEY;
+const ENABLE_PERPLEXITY = !!process.env.PERPLEXITY_API_KEY;
+const ENABLE_RAG        = !!process.env.RAG_SEARCH_URL;
+
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";          // streaming-friendly
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-3-5-sonnet-20240620";
+const PERP_MODEL   = process.env.PERP_MODEL   || "sonar-pro";
+const TIMEOUT_MS   = Number(process.env.REQUEST_TIMEOUT_MS || 90000);
+
+const openai    = ENABLE_OPENAI    ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const anthropic = ENABLE_ANTHROPIC ? new Anthropic.Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
+
+// ---------- Brand CSS + Client (SSE + Save JSON) ----------
+const BRAND_CSS = `
+  :root{--blue:#0099FF;--teal:#00BFA5;--slate:#2F3F2F;--silver:#C0C0C0;--warm:#F8F8F8;--midnight:#0B0B0B;--ink:#111;--muted:#6B7280;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--warm);color:var(--ink);
+    background-image:radial-gradient(circle at 20% 0%,rgba(0,153,255,.12),transparent 55%),
+      radial-gradient(circle at 80% -10%,rgba(0,191,165,.10),transparent 55%),
+      repeating-linear-gradient(135deg,rgba(47,63,47,.06) 0 2px,transparent 2px 60px),
+      repeating-linear-gradient(45deg,rgba(47,63,47,.06) 0 2px,transparent 2px 60px);
+    background-attachment:fixed}
+  header{position:sticky;top:0;z-index:50;background:
+    radial-gradient(600px 300px at 20% top,rgba(0,153,255,.22),transparent),
+    radial-gradient(600px 300px at 80% top,rgba(0,191,165,.18),transparent),
+    var(--midnight);
+    color:#fff;padding:16px 28px;border-bottom:1px solid rgba(255,255,255,.1)}
+  .hdr{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+  .lockup{display:flex;align-items:flex-start;gap:12px}
+  .logo-mark{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at top left,var(--blue),var(--teal))}
+  .brand h1{font-family:Montserrat,Inter,sans-serif;margin:0;font-size:20px;font-weight:800}
+  .brand small{font-size:12px;opacity:.85}
+  .mode-toggle{display:flex;gap:8px}
+  .pill{padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.25);color:#fff;text-decoration:none}
+  .pill.active{background:linear-gradient(90deg,var(--blue),var(--teal));border:none}
+  main{display:grid;gap:24px;padding:28px}
+  .grid-simple{grid-template-columns:1fr 280px}
+  .grid-guided{grid-template-columns:260px 1fr 280px}
+  @media(max-width:1100px){.grid-guided{grid-template-columns:1fr}}
+  @media(max-width:980px){.grid-simple{grid-template-columns:1fr}}
+  .card{background:#fff;border:1px solid var(--silver);border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.08);padding:20px;margin-bottom:20px;position:relative;overflow:hidden}
+  .card::before{content:"";position:absolute;top:50%;left:50%;width:300px;height:300px;background:radial-gradient(circle,rgba(0,153,255,.06) 30%,transparent 70%);border-radius:50%;transform:translate(-50%,-50%);z-index:0}
+  .card>*{position:relative;z-index:1}
+  .tile{background:linear-gradient(135deg,rgba(0,153,255,.08),rgba(0,191,165,.08)),#fff}
+  h2,h3{margin:0 0 10px 0;font-family:Montserrat,sans-serif}
+  h2{font-size:20px;font-weight:800} h3{font-size:16px;font-weight:700}
+  textarea{width:100%;padding:12px;border-radius:10px;border:1px solid var(--silver);font-family:inherit}
+  .btn{padding:10px 14px;border-radius:12px;font-weight:700;border:1px solid var(--silver);background:#fff;cursor:pointer}
+  .btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+  .export{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .export .btn{background:#fff}.export .btn.primary{background:var(--blue);color:#fff}
+  .toggles{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}
+  .toggles label{display:flex;gap:6px;align-items:center;font-size:14px}
+  select,input[type=number]{width:100%;padding:10px;border:1px solid var(--silver);border-radius:10px}
+  .muted{color:var(--muted)} .flash{padding:10px;border-radius:10px;background:#fff8f8;border:1px solid #ffd2d2;color:#9a1c1c;margin-bottom:10px}
+  .cite-list{padding-left:20px} .cite-list li{margin:.25rem 0}
+  .label{display:inline-block;font-size:12px;font-weight:700;color:#fff;background:#0ea5a6;padding:2px 8px;border-radius:999px;margin-left:8px}
+  .ok{color:#16a34a;font-weight:700} .bad{color:#b91c1c;font-weight:700}
+  .livebox{min-height:52px;border:1px dashed #e5e7eb;border-radius:10px;padding:10px;background:#fafafa}
+`;
+
+const CLIENT_JS = `
+(function(){
+  const $ = (s,r=document)=>r.querySelector(s);
+  const set = (el, html)=>el&&(el.innerHTML=html);
+  function dl(filename, json){
+    const blob = new Blob([JSON.stringify(json, null, 2)], {type: "application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // keep last final payloads for Save JSON
+  let lastFinalSimple = null;
+  let lastFinalGuided = null;
+
+  function connect(url, handlers){
+    const es = new EventSource(url);
+    const on=(ev,fn)=>es.addEventListener(ev,e=>{ try{ fn(JSON.parse(e.data)); }catch{} });
+    on("ready",    d=>handlers.onReady?.(d));
+    on("step",     d=>handlers.onStep?.(d));
+    on("progress", d=>handlers.onProgress?.(d));
+    on("provider", d=>handlers.onProvider?.(d));
+    on("delta",    d=>handlers.onDelta?.(d));
+    on("final",    d=>{ handlers.onFinal?.(d); es.close(); });
+    es.onerror=()=>{ handlers.onError?.("stream error"); es.close(); };
+    return es;
+  }
+  function urlWithParams(path,params){ const usp=new URLSearchParams(params); return path+"?"+usp.toString(); }
+
+  function renderCitations(list){
+    if(!list||!list.length)return "<em class='muted'>—</em>";
+    return "<ol class='cite-list'>" + list.map((c,i)=>(
+      "<li>["+(i+1)+"] "+(c.author?c.author+". ":"")+(c.title?"<strong>“"+c.title+"”</strong>. ":"")+(c.source?c.source+". ":"")+(c.year?c.year+". ":"")+(c.url?"<a href='"+c.url+"' target='_blank' rel='noopener'>"+c.url+"</a>":"")+"</li>"
+    )).join("") + "</ol>";
+  }
+  function renderFactChecks(items){
+    if(!items||!items.length)return "<em class='muted'>—</em>";
+    return "<ul class='cite-list'>" + items.map(fc=>{
+      const status = fc.status==="supported" ? "<span class='ok'>✓ supported</span>" :
+                    fc.status==="contradicted" ? "<span class='bad'>✕ contradicted</span>" :
+                    "<span class='muted'>inconclusive</span>";
+      return "<li><strong>"+(fc.claim||"")+"</strong> — "+status+(fc.note?(": "+fc.note):"")+(fc.citations&&fc.citations.length?(" "+renderCitations(fc.citations)):"")+"</li>";
+    }).join("") + "</ul>";
+  }
+  function renderFinal(d, prefix){
+    const S = k => document.getElementById(prefix+"-"+k);
+    S("consensus").innerHTML = d.consensus || "<em class='muted'>No consensus.</em>";
+    const diss = (d.dissents||[]).map(x=>"<li>"+(x.position||x)+"</li>").join("") || "<li>—</li>";
+    const unr  = (d.unresolved||[]).map(u=>"<li>"+u+"</li>").join("") || "<li>—</li>";
+    S("dissents").innerHTML   = "<ul class='muted'>"+diss+"</ul>";
+    S("unresolved").innerHTML = "<ul class='muted'>"+unr+"</ul>";
+    S("citations").innerHTML  = renderCitations(d.citations);
+    S("fc").innerHTML         = renderFactChecks(d.fact_check?.findings);
+    const t = d.telemetry || {};
+    S("telemetry").innerHTML  = "<p class='muted'>Avg Response: "+(t.avg_ms??"—")+"ms</p><p class='muted'>Quality: "+(t.quality??"—")+"</p><p class='muted'>Tokens/sec: "+(t.tps??"—")+"</p>";
+  }
+
+  // SIMPLE
+  const sBtn = $("#btn-simple-run");
+  const sSave = $("#btn-simple-savejson");
+  if(sSave){ sSave.addEventListener("click", ()=> lastFinalSimple && dl("symbiosoai_simple_result.json", lastFinalSimple)); }
+  if(sBtn){
+    sBtn.addEventListener("click", ()=>{
+      const url = urlWithParams("/api/think/stream",{
+        prompt: $("#simple-prompt").value.trim(),
+        mode: "simple",
+        require_citations: $("#simple-cite").checked ? "1":"0",
+        enable_fact_check: $("#simple-fact").checked ? "1":"0",
+        enable_rag: $("#simple-rag")?.checked ? "1":"0",
+        live_web:  $("#simple-web")?.checked ? "1":"0",
+        min_sources: $("#simple-minsrc")?.value || "3",
+        temperature: "0.2"
+      });
+      const S=k=>$("#simple-"+k);
+      ["consensus","dissents","unresolved","citations","fc","live-openai","live-claude","claims"].forEach(k=>S(k).innerHTML="—");
+      lastFinalSimple = null;
+      connect(url,{
+        onStep:     d => { if(d.step==="claims") S("claims").innerHTML="<ul class='cite-list'>"+d.claims.map(c=>"<li>"+c+"</li>").join("")+"</ul>"; },
+        onProgress: d => S("consensus").innerHTML="<em class='muted'>Processing… "+(d.pct||0)+"%</em>",
+        onDelta:    d => {
+          if(d.provider==="openai"){ if(S("live-openai").innerHTML==="—") S("live-openai").innerHTML=""; S("live-openai").innerHTML += d.text.replace(/</g,"&lt;"); }
+          if(d.provider==="anthropic"){ if(S("live-claude").innerHTML==="—") S("live-claude").innerHTML=""; S("live-claude").innerHTML += d.text.replace(/</g,"&lt;"); }
+        },
+        onFinal:    d => { lastFinalSimple = d; renderFinal(d,"simple"); },
+        onError:    m => S("consensus").innerHTML="<div class='flash'>"+m+"</div>"
+      });
+    });
+  }
+
+  // GUIDED
+  const gBtn = $("#btn-guided-run");
+  const gSave = $("#btn-guided-savejson");
+  if(gSave){ gSave.addEventListener("click", ()=> lastFinalGuided && dl("symbiosoai_guided_result.json", lastFinalGuided)); }
+  if(gBtn){
+    gBtn.addEventListener("click", ()=>{
+      const url = urlWithParams("/api/think/stream",{
+        prompt: $("#guided-prompt").value.trim(),
+        mode: "guided",
+        selection_mode: $("#sel-mode").value,
+        response_length: $("#sel-length").value,
+        turns: $("#inp-rounds").value,
+        debate_format: $("#sel-format").value,
+        require_evidence: $("#chk-evidence").checked ? "1":"0",
+        require_counterarguments: $("#chk-counter").checked ? "1":"0",
+        require_citations: $("#chk-cite").checked ? "1":"0",
+        enable_fact_check: $("#chk-fact").checked ? "1":"0",
+        enable_rag: $("#guided-rag")?.checked ? "1":"0",
+        live_web:  $("#guided-web")?.checked ? "1":"0",
+        min_sources: $("#inp-minsrc").value,
+        temperature: "0.2"
+      });
+      const S=k=>$("#guided-"+k);
+      ["consensus","dissents","unresolved","citations","fc","live-openai","live-claude","claims"].forEach(k=>S(k).innerHTML="—");
+      lastFinalGuided = null;
+      connect(url,{
+        onStep:     d => { if(d.step==="claims") S("claims").innerHTML="<ul class='cite-list'>"+d.claims.map(c=>"<li>"+c+"</li>").join("")+"</ul>"; },
+        onProgress: d => S("consensus").innerHTML="<em class='muted'>Processing… "+(d.pct||0)+"%</em>",
+        onDelta:    d => {
+          if(d.provider==="openai"){ if(S("live-openai").innerHTML==="—") S("live-openai").innerHTML=""; S("live-openai").innerHTML += d.text.replace(/</g,"&lt;"); }
+          if(d.provider==="anthropic"){ if(S("live-claude").innerHTML==="—") S("live-claude").innerHTML=""; S("live-claude").innerHTML += d.text.replace(/</g,"&lt;"); }
+        },
+        onFinal:    d => { lastFinalGuided = d; renderFinal(d,"guided"); },
+        onError:    m => S("consensus").innerHTML="<div class='flash'>"+m+"</div>"
+      });
+    });
+  }
+})();
+`;
+
+// ---------- Pages with "Save JSON" buttons in Export ----------
+const SIMPLE_HTML = `
+<!doctype html><html lang="en"><head>
+  <meta charset="utf-8"/><title>SymbiosoAi – Simple (Full Pipeline + Save JSON)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+  <style>${BRAND_CSS}</style>
+</head><body>
+<header><div class="hdr">
+  <div class="lockup"><div class="logo-mark"></div>
+    <div class="brand"><h1>SymbiosoAi ThinkTank</h1><small>Collaborative Intelligence, redefined.</small></div>
+  </div>
+  <div class="mode-toggle"><span class="pill active">Simple</span><a class="pill" href="/guided">Guided</a></div>
+</div></header>
+<main class="grid-simple">
+  <section>
+    <div class="card tile">
+      <h2>Prompt</h2>
+      <textarea id="simple-prompt" rows="4" placeholder="Describe your challenge..."></textarea>
+      <div class="toggles" style="margin-top:8px">
+        <label><input id="simple-cite" type="checkbox"/> Require Citations</label>
+        <label><input id="simple-fact" type="checkbox"/> Enable Fact-check</label>
+        <label><input id="simple-rag"  type="checkbox"/> Use Internal Docs (RAG)</label>
+        <label><input id="simple-web"  type="checkbox"/> Live Web (Perplexity)</label>
+        <label>Min Sources <input id="simple-minsrc" type="number" value="3" style="width:64px"/></label>
+      </div>
+      <button id="btn-simple-run" class="btn primary" style="margin-top:12px;">Start Thinking</button>
+    </div>
+
+    <div class="card">
+      <h2>Step: Claims</h2>
+      <div id="simple-claims" class="muted">—</div>
+    </div>
+
+    <div class="card">
+      <h2>Live Streams</h2>
+      <div class="card"><h3>Live (OpenAI)</h3><div id="simple-live-openai" class="livebox">—</div></div>
+      <div class="card"><h3>Live (Anthropic)</h3><div id="simple-live-claude" class="livebox">—</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Results</h2>
+      <div class="card"><h3>Consensus</h3><div id="simple-consensus" class="muted">—</div></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div class="card" style="flex:1 1 320px;"><h3>Dissents</h3><div id="simple-dissents" class="muted">—</div></div>
+        <div class="card" style="flex:1 1 320px;"><h3>Unresolved</h3><div id="simple-unresolved" class="muted">—</div></div>
+      </div>
+      <div class="card"><h3>Citations <span class="label">Standard</span></h3><div id="simple-citations" class="muted">—</div></div>
+      <div class="card"><h3>Fact-Checking</h3><div id="simple-fc" class="muted">—</div></div>
+      <div class="card"><h3>Export</h3>
+        <div class="export">
+          <button class="btn">Share</button><button class="btn">Save</button>
+          <button class="btn" onclick="window.print()">Print</button><button class="btn primary">PDF</button>
+          <button id="btn-simple-savejson" class="btn">Save JSON</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside><div class="card"><h3>Telemetry</h3><div id="simple-telemetry" class="muted">—</div></div></aside>
+</main>
+<script>${CLIENT_JS}</script>
+</body></html>
+`;
+
+const GUIDED_HTML = `
+<!doctype html><html lang="en"><head>
+  <meta charset="utf-8"/><title>SymbiosoAi – Guided (Full Pipeline + Save JSON)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+  <style>${BRAND_CSS}</style>
+</head><body>
+<header><div class="hdr">
+  <div class="lockup"><div class="logo-mark"></div>
+    <div class="brand"><h1>SymbiosoAi ThinkTank</h1><small>Collaborative Intelligence, redefined.</small></div>
+  </div>
+  <div class="mode-toggle"><a class="pill" href="/simple">Simple</a><span class="pill active">Guided</span></div>
+</div></header>
+
+<main class="grid-guided">
+  <aside><div class="card">
+    <h3>Guided Settings</h3>
+    <label>Selection Mode<select id="sel-mode">
+      <option selected>smart</option><option>manual</option><option>domain</option><option>usecase</option>
+    </select></label>
+    <label>Response Length<select id="sel-length">
+      <option>brief</option><option selected>moderate</option><option>detailed</option>
+    </select></label>
+    <label>Rounds <input id="inp-rounds" type="number" value="3"/></label>
+    <label>Debate Format<select id="sel-format">
+      <option>round-robin</option><option selected>structured</option><option>socratic</option><option>collaborative</option>
+    </select></label>
+    <div class="toggles" style="margin-top:8px">
+      <label><input id="chk-evidence" type="checkbox" checked/> Require Evidence</label>
+      <label><input id="chk-counter" type="checkbox" checked/> Counter-arguments</label>
+    </div>
+    <h3 style="margin-top:12px">Verification</h3>
+    <div class="toggles">
+      <label><input id="chk-cite" type="checkbox"/> Require Citations</label>
+      <label><input id="chk-fact" type="checkbox"/> Enable Fact-check</label>
+      <label><input id="guided-rag" type="checkbox"/> Use Internal Docs (RAG)</label>
+      <label><input id="guided-web" type="checkbox"/> Live Web (Perplexity)</label>
+    </div>
+    <label>Min Sources <input id="inp-minsrc" type="number" value="3"/></label>
+  </div></aside>
+
+  <section>
+    <div class="card tile">
+      <h2>Prompt</h2>
+      <textarea id="guided-prompt" rows="4" placeholder="Describe your challenge..."></textarea>
+      <button id="btn-guided-run" class="btn primary" style="margin-top:12px;">Start Thinking</button>
+    </div>
+
+    <div class="card">
+      <h2>Step: Claims</h2>
+      <div id="guided-claims" class="muted">—</div>
+    </div>
+
+    <div class="card">
+      <h2>Live Streams</h2>
+      <div class="card"><h3>Live (OpenAI)</h3><div id="guided-live-openai" class="livebox">—</div></div>
+      <div class="card"><h3>Live (Anthropic)</h3><div id="guided-live-claude" class="livebox">—</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Results</h2>
+      <div class="card"><h3>Consensus</h3><div id="guided-consensus" class="muted">—</div></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div class="card" style="flex:1 1 320px;"><h3>Dissents</h3><div id="guided-dissents" class="muted">—</div></div>
+        <div class="card" style="flex:1 1 320px;"><h3>Unresolved</h3><div id="guided-unresolved" class="muted">—</div></div>
+      </div>
+      <div class="card"><h3>Citations <span class="label">Standard</span></h3><div id="guided-citations" class="muted">—</div></div>
+      <div class="card"><h3>Fact-Checking</h3><div id="guided-fc" class="muted">—</div></div>
+      <div class="card"><h3>Export</h3>
+        <div class="export">
+          <button class="btn">Share</button><button class="btn">Save</button>
+          <button class="btn" onclick="window.print()">Print</button><button class="btn primary">PDF</button>
+          <button id="btn-guided-savejson" class="btn">Save JSON</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside><div class="card"><h3>Telemetry</h3><div id="guided-telemetry" class="muted">—</div></div></aside>
+</main>
+<script>${CLIENT_JS}</script>
+</body></html>
+`;
+
+// ---------- Utilities ----------
+async function withTimeout(p, ms, label="request"){
+  return Promise.race([ p, new Promise((_,rej)=>setTimeout(()=>rej(new Error(`Timeout after ${ms}ms (${label})`)), ms)) ]);
+}
+async function streamOpenAI(prompt, sys, temp, onDelta){
+  if(!openai) return "";
+  const stream = await withTimeout(openai.chat.completions.create({
+    model: OPENAI_MODEL, temperature: temp, stream: true,
+    messages: [{role:"system",content:sys},{role:"user",content:prompt}]
+  }), TIMEOUT_MS,"openai-stream");
+  let buf=""; for await (const evt of stream) {
+    const d = evt.choices?.[0]?.delta?.content || "";
+    if(d){ buf+=d; onDelta(d); }
+  } return buf;
+}
+async function streamAnthropic(prompt, sys, temp, onDelta){
+  if(!anthropic) return "";
+  const msg = await withTimeout(anthropic.messages.stream({
+    model: CLAUDE_MODEL, max_tokens: 1200, temperature: temp, system: sys,
+    messages: [{ role:"user", content: prompt }]
+  }), TIMEOUT_MS,"anthropic-stream");
+  let buf=""; msg.on("text", t => { buf+=t; onDelta(t); }); await msg.done(); return buf;
+}
+async function extractClaims(prompt){
+  if(!openai) return naiveClaims(prompt);
+  try{
+    const res = await withTimeout(openai.chat.completions.create({
+      model: OPENAI_MODEL, temperature:0.2, response_format:{type:"json_object"},
+      messages:[
+        { role:"system", content:'Extract distinct factual claims. Return JSON: {"claims":["..."]} (max 6).' },
+        { role:"user", content: prompt }
+      ]
+    }), TIMEOUT_MS,"claim-extract");
+    const content = res.choices?.[0]?.message?.content || "{\"claims\":[]}";
+    const parsed = JSON.parse(content);
+    return Array.isArray(parsed.claims) ? parsed.claims.slice(0,6) : naiveClaims(prompt);
+  }catch{ return naiveClaims(prompt); }
+}
+function naiveClaims(prompt){
+  return (prompt.match(/[^.?!]+[.?!]/g) || [prompt]).map(s=>s.trim()).filter(Boolean).slice(0,6);
+}
+async function verifyClaim(claim){
+  if(!openai) return { status:"inconclusive", note:"OpenAI not configured" };
+  try{
+    const res = await withTimeout(openai.chat.completions.create({
+      model: OPENAI_MODEL, temperature:0.1, response_format:{type:"json_object"},
+      messages:[
+        { role:"system", content:'Given a factual claim, label it as supported/contradicted/inconclusive. Return {"status":"...","note":""}.' },
+        { role:"user", content: claim }
+      ]
+    }), TIMEOUT_MS,"verify-claim");
+    const content = res.choices?.[0]?.message?.content || "{\"status\":\"inconclusive\",\"note\":\"\"}";
+    const parsed = JSON.parse(content);
+    return { status: parsed.status || "inconclusive", note: parsed.note || "" };
+  }catch{ return { status:"inconclusive", note:"verification failed" }; }
+}
+async function ragCitations(query){
+  if(!ENABLE_RAG) return [];
+  try{
+    const resp = await withTimeout(fetch(process.env.RAG_SEARCH_URL, {
+      method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ q: query })
+    }), 12000, "rag");
+    if(!resp.ok) return [];
+    const json = await resp.json();
+    return normalizeCitations(json?.results||[]);
+  }catch{ return []; }
+}
+async function webCitations(query, minSources){
+  if(!ENABLE_PERPLEXITY) return [];
+  try{
+    const resp = await withTimeout(fetch("https://api.perplexity.ai/chat/completions", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+process.env.PERPLEXITY_API_KEY },
+      body: JSON.stringify({
+        model: PERP_MODEL, temperature: 0.2,
+        messages: [
+          { role:"system", content:'Return ONLY JSON: {"citations":[{"author":"","title":"","source":"","year":"","url":""},...]}' },
+          { role:"user", content:`Find credible references for: ${query}` }
+        ]
+      })
+    }), 20000, "perplexity");
+    if(!resp.ok) return [];
+    const json = await resp.json();
+    const content = json?.choices?.[0]?.message?.content || "{}";
+    return normalizeCitations(JSON.parse(content)?.citations||[]).slice(0, Math.max(3, Number(minSources)||3));
+  }catch{ return []; }
+}
+function normalizeCitations(list){
+  return list.map(c=>({
+    author: c.author || c.authors || "",
+    title:  c.title  || "",
+    source: c.source || c.publisher || "",
+    year:   c.year   || c.date || "",
+    url:    c.url    || c.link || ""
+  })).filter(x => x.title || x.url);
+}
+function summarize(oaiText,claudeText){
+  const merged=[oaiText,claudeText].filter(Boolean).join("\n\n");
+  const consensus = merged ? (merged.split("\n").find(l=>/conclusion|consensus|recommend/i.test(l)) || merged.slice(0,220)) : "No consensus.";
+  const bullets   = (merged.match(/(^|\n)[-–•]\s.*?/g)||[]).map(b=>b.replace(/^\s*[-–•]\s?/,'').trim());
+  const dissents  = bullets.slice(0,3).map(b=>({position:b}));
+  const unresolved= ["Clarify assumptions","Define success metrics"];
+  return { consensus,dissents,unresolved };
+}
+
+// ---------- SSE Pipeline ----------
+app.get("/api/think/stream", async (req,res)=>{
+  res.set({"Content-Type":"text/event-stream","Cache-Control":"no-cache, no-transform","Connection":"keep-alive","X-Accel-Buffering":"no"});
+  res.flushHeaders && res.flushHeaders();
+  const send = (ev,data)=>{res.write(`event: ${ev}\n`);res.write(`data: ${JSON.stringify(data)}\n\n`);};
+  const ping = setInterval(()=>res.write(": ping\n\n"), 15000);
+
+  const {
+    prompt="", mode="simple", temperature="0.2",
+    require_citations="0", enable_fact_check="0",
+    enable_rag="0", live_web="0", min_sources="3"
+  } = req.query;
+
+  if(!String(prompt).trim()){
+    send("final",{consensus:"Please enter a prompt.",dissents:[],unresolved:[],citations:[],fact_check:{findings:[]},telemetry:{avg_ms:0}});
+    clearInterval(ping); res.end(); return;
+  }
+
+  try{
+    send("ready",{ok:true});
+    let pct=5; const prog=setInterval(()=>{pct=Math.min(92,pct+3);send("progress",{pct});},600);
+    const t0=Date.now();
+
+    // 1) Claims
+    const claims = await extractClaims(String(prompt));
+    send("step",{step:"claims", claims});
+
+    // 2) Streams (OpenAI/Claude)
+    let oaiText="", claudeText="";
+    const sysA = mode==="guided" ? "You are the 'Analyst' persona in a multi-model think tank. Think rigorously. Reply as full paragraphs." : "You are a precise analyst. Reply as full paragraphs.";
+    const sysC = mode==="guided" ? "You are the 'Critic' persona in a multi-model think tank. Challenge assumptions briefly. Reply as full paragraphs." : "You are a critical reviewer. Reply as full paragraphs.";
+
+    const tasks=[];
+    if(ENABLE_OPENAI){
+      tasks.push((async()=>{try{
+        oaiText = await streamOpenAI(String(prompt), sysA, Number(temperature), (d)=>send("delta",{provider:"openai",text:d}));
+        send("provider",{provider:"openai",status:"done"});
+      }catch(e){send("provider",{provider:"openai",status:"error",message:e.message});}})());
+    }
+    if(ENABLE_ANTHROPIC){
+      tasks.push((async()=>{try{
+        claudeText = await streamAnthropic(String(prompt), sysC, Number(temperature), (d)=>send("delta",{provider:"anthropic",text:d}));
+        send("provider",{provider:"anthropic",status:"done"});
+      }catch(e){send("provider",{provider:"anthropic",status:"error",message:e.message});}})());
+    }
+    if(tasks.length===0){await new Promise(r=>setTimeout(r,800));oaiText="No AI providers configured. Set OPENAI_API_KEY and/or ANTHROPIC_API_KEY.";}
+    else{await Promise.all(tasks);}
+
+    // 3) Verification passes per claim
+    let fcFindings=[];
+    if(enable_fact_check==="1" && claims.length){
+      fcFindings = await Promise.all(claims.map(async c=>{
+        const v = await verifyClaim(c);
+        return { claim:c, status:v.status, note:v.note, citations:[] };
+      }));
+    }
+
+    // 4) Gather citations: RAG → Web fallback → placeholder if required
+    let citations=[];
+    if(enable_rag==="1"){ citations = citations.concat(await ragCitations(String(prompt))); }
+    if(live_web==="1"){ citations = citations.concat(await webCitations(String(prompt), Number(min_sources)||3)); }
+    if(require_citations==="1" && citations.length===0){
+      citations = [{ author:"Symbioso Research", title:"Placeholder reference (enable RAG/Web)", source:"Internal", year:"2025", url:"" }];
+    }
+    // Attach a citation per finding (round-robin)
+    if(fcFindings.length && citations.length){
+      for(let i=0;i<fcFindings.length;i++){ fcFindings[i].citations = [ citations[i % citations.length] ]; }
+    }
+
+    // 5) Summarize to final
+    const merged = summarize(oaiText, claudeText);
+    const elapsed = Date.now() - t0;
+
+    clearInterval(prog);
+    send("progress",{pct:100});
+    send("final",{ ...merged, citations, fact_check:{findings:fcFindings}, telemetry:{avg_ms:elapsed,quality:4.7,tps:21} });
+  }catch(e){
+    send("final",{consensus:`Error: ${e.message}`,dissents:[],unresolved:[],citations:[],fact_check:{findings:[]},telemetry:{avg_ms:0}});
+  }finally{
+    clearInterval(ping);
+    res.end();
+  }
+});
+
+// ---------- Pages ----------
+app.get("/", (req,res)=>res.redirect("/simple"));
+app.get("/simple", (req,res)=>res.send(SIMPLE_HTML));
+app.get("/guided", (req,res)=>res.send(GUIDED_HTML));
+
+app.listen(PORT, ()=>{
+  console.log(`SymbiosoAi (Full SSE + Save JSON) at http://localhost:${PORT}`);
+  if(!ENABLE_OPENAI)    console.log("⚠️ OPENAI_API_KEY missing: OpenAI stream disabled.");
+  if(!ENABLE_ANTHROPIC) console.log("ℹ️ ANTHROPIC_API_KEY missing: Anthropic stream disabled.");
+  if(!ENABLE_PERPLEXITY)console.log("ℹ️ PERPLEXITY_API_KEY missing: Live Web citations disabled.");
+  if(!ENABLE_RAG)       console.log("ℹ️ RAG_SEARCH_URL missing: Internal docs (RAG) disabled.");
+});

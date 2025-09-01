@@ -221,3 +221,56 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--secondary);
 }
+
+/* Live streaming styles */
+.livebox {
+  @apply min-h-16 border border-dashed border-border rounded-lg p-3 bg-muted font-mono text-xs leading-relaxed;
+  background-color: hsla(240, 5%, 84%, 0.3);
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.processing-state {
+  @apply border-l-4 border-primary;
+  background-color: hsla(200, 100%, 50%, 0.05);
+}
+
+/* Enhanced animations */
+@keyframes pulse-glow {
+  0%, 100% { 
+    box-shadow: 0 0 5px hsl(200, 100%, 50%), 0 0 10px hsl(200, 100%, 50%); 
+  }
+  50% { 
+    box-shadow: 0 0 10px hsl(200, 100%, 50%), 0 0 20px hsl(200, 100%, 50%); 
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.cite-list {
+  @apply pl-5;
+}
+
+.cite-list li {
+  @apply mb-1 text-sm;
+}
+
+.cite-list a {
+  @apply text-primary hover:underline;
+}
+
+/* Status indicators */
+.ok {
+  @apply text-green-600 font-semibold;
+}
+
+.bad {
+  @apply text-red-600 font-semibold;
+}
+
+.muted {
+  @apply text-muted-foreground;
+}

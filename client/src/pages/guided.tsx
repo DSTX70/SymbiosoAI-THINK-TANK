@@ -7,10 +7,11 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Compass, Rocket, SlidersHorizontal, Cog } from "lucide-react";
+import { Compass, Rocket, SlidersHorizontal, Cog, Zap } from "lucide-react";
 import Header from "@/components/Header";
 import TelemetryPanel from "@/components/TelemetryPanel";
 import ResultsSection from "@/components/ResultsSection";
+import LiveStreamingSection, { createStreamUrl } from "@/components/LiveStreamingSection";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { ThinkRequest, ThinkResponse } from "@shared/schema";
@@ -26,8 +27,11 @@ export default function GuidedPage() {
   const [requireCitations, setRequireCitations] = useState(false);
   const [enableFactCheck, setEnableFactCheck] = useState(false);
   const [enableLiveWeb, setEnableLiveWeb] = useState(false);
+  const [useStreaming, setUseStreaming] = useState(true);
   const [minSources, setMinSources] = useState(3);
   const [results, setResults] = useState<ThinkResponse | null>(null);
+  const [streamingResult, setStreamingResult] = useState<any>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
   const { toast } = useToast();
 
   const thinkMutation = useMutation({
@@ -56,26 +60,77 @@ export default function GuidedPage() {
       return;
     }
 
-    const requestData: ThinkRequest = {
-      prompt: prompt.trim(),
+    if (useStreaming) {
+      handleStreamingSubmit();
+    } else {
+      const requestData: ThinkRequest = {
+        prompt: prompt.trim(),
+        mode: "guided",
+        selection_mode: selectionMode as any,
+        response_length: responseLength as any,
+        turns: rounds,
+        debate_format: debateFormat as any,
+        require_evidence: requireEvidence,
+        require_counterarguments: requireCounterarguments,
+        require_citations: requireCitations,
+        enable_fact_check: enableFactCheck,
+        live_web: enableLiveWeb,
+        verification: {
+          fact_check: enableFactCheck,
+          min_sources: minSources,
+        },
+      };
+
+      thinkMutation.mutate(requestData);
+    }
+  };
+
+  const handleStreamingSubmit = () => {
+    const settings = {
       mode: "guided",
-      selection_mode: selectionMode as any,
-      response_length: responseLength as any,
-      turns: rounds,
-      debate_format: debateFormat as any,
+      selection_mode: selectionMode,
+      response_length: responseLength,
+      turns: rounds.toString(),
+      debate_format: debateFormat,
       require_evidence: requireEvidence,
       require_counterarguments: requireCounterarguments,
       require_citations: requireCitations,
       enable_fact_check: enableFactCheck,
       live_web: enableLiveWeb,
-      verification: {
-        fact_check: enableFactCheck,
-        min_sources: minSources,
-      },
-      // temperature: 0.7, // Using default temperature
+      min_sources: minSources.toString(),
     };
 
-    thinkMutation.mutate(requestData);
+    setIsStreaming(true);
+    setStreamingResult(null);
+    setResults(null);
+
+    const streamUrl = createStreamUrl(prompt, settings);
+    const eventSource = new EventSource(streamUrl);
+
+    eventSource.addEventListener("final", (event) => {
+      const data = JSON.parse(event.data);
+      setStreamingResult(data);
+      setResults({
+        consensus: data.consensus,
+        dissents: data.dissents,
+        unresolved: data.unresolved,
+        citations: data.citations,
+        fact_check: data.fact_check,
+        telemetry: data.telemetry
+      });
+      setIsStreaming(false);
+      eventSource.close();
+      toast({ description: "Guided streaming analysis completed successfully!" });
+    });
+
+    eventSource.onerror = () => {
+      setIsStreaming(false);
+      eventSource.close();
+      toast({ 
+        variant: "destructive",
+        description: "Streaming failed" 
+      });
+    };
   };
 
   return (
@@ -205,6 +260,15 @@ export default function GuidedPage() {
                       />
                       <Label htmlFor="liveweb-guided" className="text-sm">Live Web Search</Label>
                     </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="streaming-guided"
+                        checked={useStreaming}
+                        onCheckedChange={setUseStreaming}
+                        data-testid="switch-streaming-guided"
+                      />
+                      <Label htmlFor="streaming-guided" className="text-sm">Real-time Streaming</Label>
+                    </div>
                     <div className="space-y-2">
                       <Label htmlFor="min-sources" className="text-sm font-medium">Min Sources</Label>
                       <Input
@@ -246,24 +310,33 @@ export default function GuidedPage() {
                 
                 <Button 
                   onClick={handleSubmit}
-                  disabled={thinkMutation.isPending}
+                  disabled={thinkMutation.isPending || isStreaming}
                   className="btn-primary flex items-center gap-2"
                   data-testid="button-guided-run"
                 >
-                  {thinkMutation.isPending ? (
+                  {(thinkMutation.isPending || isStreaming) ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                      Analyzing...
+                      {isStreaming ? "Streaming..." : "Analyzing..."}
                     </>
                   ) : (
                     <>
-                      <Rocket size={16} />
-                      Launch Guided Analysis
+                      {useStreaming ? <Zap size={16} /> : <Rocket size={16} />}
+                      {useStreaming ? "Launch Live Stream" : "Launch Guided Analysis"}
                     </>
                   )}
                 </Button>
               </CardContent>
             </Card>
+
+            {/* Live Streaming Section */}
+            {useStreaming && (
+              <LiveStreamingSection
+                onStartStream={handleStreamingSubmit}
+                isStreaming={isStreaming}
+                streamingResult={streamingResult}
+              />
+            )}
 
             {/* Analysis Progress */}
             {thinkMutation.isPending && (
