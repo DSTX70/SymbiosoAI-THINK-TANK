@@ -68,7 +68,7 @@ export async function runMultiAgentDebate(
             content: `Round ${round + 1}: Please provide your perspective on: ${prompt}`
           }
         ],
-        max_tokens: settings.response_length === "detailed" ? 800 : settings.response_length === "brief" ? 300 : 500,
+        max_completion_tokens: settings.response_length === "detailed" ? 800 : settings.response_length === "brief" ? 300 : 500,
         temperature: settings.temperature || 0.7
       });
 
@@ -105,7 +105,7 @@ Respond only with valid JSON.`;
       }
     ],
     response_format: { type: "json_object" },
-    max_tokens: 1000,
+    max_completion_tokens: 1000,
     temperature: 0.3
   });
 
