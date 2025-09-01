@@ -69,7 +69,8 @@ export async function runMultiAgentDebate(
           }
         ],
         max_completion_tokens: settings.response_length === "detailed" ? 800 : settings.response_length === "brief" ? 300 : 500,
-        temperature: settings.temperature || 0.7
+        // GPT-5 only supports default temperature of 1
+        // temperature: settings.temperature || 0.7
       });
 
       const content = response.choices[0].message.content || "";
@@ -106,7 +107,8 @@ Respond only with valid JSON.`;
     ],
     response_format: { type: "json_object" },
     max_completion_tokens: 1000,
-    temperature: 0.3
+    // GPT-5 only supports default temperature of 1
+    // temperature: 0.3
   });
 
   try {
