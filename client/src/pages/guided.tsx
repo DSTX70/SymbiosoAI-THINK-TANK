@@ -69,7 +69,7 @@ export default function GuidedPage() {
         fact_check: enableFactCheck,
         min_sources: minSources,
       },
-      // temperature: 0.7, // GPT-5 only supports default temperature
+      temperature: 0.7,
     };
 
     thinkMutation.mutate(requestData);

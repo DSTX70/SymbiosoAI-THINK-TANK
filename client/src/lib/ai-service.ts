@@ -57,7 +57,7 @@ export async function runMultiAgentDebate(
         : '';
       
       const response = await openai.chat.completions.create({
-        model: "gpt-5",
+        model: "gpt-4o",
         messages: [
           {
             role: "system",
@@ -69,8 +69,7 @@ export async function runMultiAgentDebate(
           }
         ],
         max_completion_tokens: settings.response_length === "detailed" ? 800 : settings.response_length === "brief" ? 300 : 500,
-        // GPT-5 only supports default temperature of 1
-        // temperature: settings.temperature || 0.7
+        temperature: settings.temperature || 0.7
       });
 
       const content = response.choices[0].message.content || "";
@@ -94,7 +93,7 @@ ${debate_history.map(h => `${h.agent}: ${h.response}`).join('\n\n')}
 Respond only with valid JSON.`;
 
   const synthesis = await openai.chat.completions.create({
-    model: "gpt-5",
+    model: "gpt-4o",
     messages: [
       {
         role: "system",
@@ -107,8 +106,7 @@ Respond only with valid JSON.`;
     ],
     response_format: { type: "json_object" },
     max_completion_tokens: 1000,
-    // GPT-5 only supports default temperature of 1
-    // temperature: 0.3
+    temperature: 0.3
   });
 
   try {
