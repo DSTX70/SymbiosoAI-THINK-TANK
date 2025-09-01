@@ -1,0 +1,557 @@
+// SymbiosoAi ThinkTank — SSE Streaming with per-provider token deltas + final structured export
+// UI: branded Simple/Guided pages with Require Citations / Fact-check toggles, Live Streams (OpenAI/Claude),
+// and final Results: Consensus, Dissents, Unresolved, Citations (standard), Fact-Checking.
+//
+// ENV: OPENAI_API_KEY (required for OpenAI stream), ANTHROPIC_API_KEY (optional for Claude)
+// Run: npm init -y && npm i express openai @anthropic-ai/sdk && node index.js
+
+const express = require("express");
+const { OpenAI } = require("openai");
+const Anthropic = require("@anthropic-ai/sdk");
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+const ENABLE_OPENAI = !!process.env.OPENAI_API_KEY;
+const ENABLE_ANTHROPIC = !!process.env.ANTHROPIC_API_KEY;
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini"; // streaming-friendly
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-3-5-sonnet-20240620";
+const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 90000); // 90s
+
+const openai = ENABLE_OPENAI ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const anthropic = ENABLE_ANTHROPIC ? new Anthropic.Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
+
+/* ---------------------- Brand CSS + Client (SSE + deltas) ---------------------- */
+const BRAND_CSS = `
+  :root{--blue:#0099FF;--teal:#00BFA5;--slate:#2F3F2F;--silver:#C0C0C0;
+    --warm:#F8F8F8;--midnight:#0B0B0B;--ink:#111;--muted:#6B7280;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--warm);color:var(--ink);
+    background-image:radial-gradient(circle at 20% 0%,rgba(0,153,255,.12),transparent 55%),
+      radial-gradient(circle at 80% -10%,rgba(0,191,165,.10),transparent 55%),
+      repeating-linear-gradient(135deg,rgba(47,63,47,.06) 0px,rgba(47,63,47,.06) 2px,transparent 2px,transparent 60px),
+      repeating-linear-gradient(45deg,rgba(47,63,47,.06) 0px,rgba(47,63,47,.06) 2px,transparent 2px,transparent 60px);
+    background-attachment:fixed}
+  header{position:sticky;top:0;z-index:50;background:
+    radial-gradient(600px 300px at 20% top,rgba(0,153,255,.22),transparent),
+    radial-gradient(600px 300px at 80% top,rgba(0,191,165,.18),transparent),
+    var(--midnight);
+    color:#fff;padding:16px 28px;border-bottom:1px solid rgba(255,255,255,.1)}
+  .hdr{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+  .lockup{display:flex;align-items:flex-start;gap:12px}
+  .logo-mark{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at top left,var(--blue),var(--teal))}
+  .brand h1{font-family:Montserrat,Inter,sans-serif;margin:0;font-size:20px;font-weight:800}
+  .brand small{font-size:12px;opacity:.85}
+  .mode-toggle{display:flex;gap:8px}
+  .pill{padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.25);color:#fff;text-decoration:none}
+  .pill.active{background:linear-gradient(90deg,var(--blue),var(--teal));border:none}
+  main{display:grid;gap:24px;padding:28px}
+  .grid-simple{grid-template-columns:1fr 280px}
+  .grid-guided{grid-template-columns:260px 1fr 280px}
+  @media(max-width:1100px){.grid-guided{grid-template-columns:1fr}}
+  @media(max-width:980px){.grid-simple{grid-template-columns:1fr}}
+  .card{background:#fff;border:1px solid var(--silver);border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.08);padding:20px;margin-bottom:20px;position:relative;overflow:hidden}
+  .card::before{content:"";position:absolute;top:50%;left:50%;width:300px;height:300px;background:radial-gradient(circle,rgba(0,153,255,.06) 30%,transparent 70%);border-radius:50%;transform:translate(-50%,-50%);z-index:0}
+  .card>*{position:relative;z-index:1}
+  .tile{background:linear-gradient(135deg,rgba(0,153,255,.08),rgba(0,191,165,.08)),#fff}
+  h2,h3{margin:0 0 10px 0;font-family:Montserrat,sans-serif}
+  h2{font-size:20px;font-weight:800}
+  h3{font-size:16px;font-weight:700}
+  textarea{width:100%;padding:12px;border-radius:10px;border:1px solid var(--silver);font-family:inherit}
+  .btn{padding:10px 14px;border-radius:12px;font-weight:700;border:1px solid var(--silver);background:#fff;cursor:pointer}
+  .btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+  .export{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .export .btn{background:#fff}
+  .export .btn.primary{background:var(--blue);color:#fff}
+  .toggles{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}
+  .toggles label{display:flex;gap:6px;align-items:center;font-size:14px}
+  select,input[type=number]{width:100%;padding:10px;border:1px solid var(--silver);border-radius:10px}
+  .muted{color:var(--muted)}
+  .flash{padding:10px 12px;border-radius:10px;background:#fff8f8;border:1px solid #ffd2d2;color:#9a1c1c;margin-bottom:10px}
+  .cite-list{padding-left:20px}
+  .cite-list li{margin:.25rem 0}
+  .label{display:inline-block; font-size:12px; font-weight:700; color:#fff; background:#0ea5a6; padding:2px 8px; border-radius:999px; margin-left:8px}
+  .ok{color:#16a34a; font-weight:700}
+  .bad{color:#b91c1c; font-weight:700}
+  .livebox{min-height:52px;border:1px dashed #e5e7eb;border-radius:10px;padding:10px;background:#fafafa}
+`;
+
+// Client JS: SSE with per-provider deltas + final structured result
+const CLIENT_JS_SSE = `
+(function(){
+  const $ = (s,r=document)=>r.querySelector(s);
+  const set = (el, html)=>el&&(el.innerHTML=html);
+  const append = (el, text)=>el&&(el.innerHTML += text.replace(/</g,"&lt;"));
+
+  function connect(url, handlers){
+    const es = new EventSource(url);
+    const on = (ev, fn) => es.addEventListener(ev, e => {
+      try { fn(JSON.parse(e.data)); } catch {}
+    });
+    on("ready", d => handlers.onReady?.(d));
+    on("progress", d => handlers.onProgress?.(d));
+    on("provider", d => handlers.onProvider?.(d));
+    on("delta", d => handlers.onDelta?.(d));           // NEW: per-provider delta
+    on("final", d => { handlers.onFinal?.(d); es.close(); });
+    es.onerror = () => { handlers.onError?.("stream error"); es.close(); };
+    return es;
+  }
+
+  function urlWithParams(path, params){
+    const usp = new URLSearchParams(params); return path + "?" + usp.toString();
+  }
+
+  function renderCitations(list){
+    if(!list || !list.length) return "<em class='muted'>—</em>";
+    return "<ol class='cite-list'>" + list.map((c,i)=>(
+      "<li>["+(i+1)+"] "+
+      (c.author? (c.author+". ") : "") +
+      (c.title? ("<strong>“"+c.title+"”</strong>. ") : "") +
+      (c.source? (c.source+". ") : "") +
+      (c.year? (c.year+". ") : "") +
+      (c.url? ("<a href='"+c.url+"' target='_blank' rel='noopener'>"+c.url+"</a>") : "")
+      +"</li>"
+    )).join("") + "</ol>";
+  }
+
+  function renderFactChecks(items){
+    if(!items || !items.length) return "<em class='muted'>—</em>";
+    return "<ul class='cite-list'>" + items.map(fc=>{
+      const status = fc.status === "supported" ? "<span class='ok'>✓ supported</span>" :
+                    fc.status === "contradicted" ? "<span class='bad'>✕ contradicted</span>" :
+                    "<span class='muted'>inconclusive</span>";
+      return "<li><strong>"+(fc.claim||"")+"</strong> — "+status+
+             (fc.note? (": "+fc.note) : "") +
+             (fc.citations && fc.citations.length ? (" "+renderCitations(fc.citations)) : "") +
+             "</li>";
+    }).join("") + "</ul>";
+  }
+
+  function renderFinal(d, prefix){
+    const setId = (k, html) => set(document.getElementById(prefix+"-"+k), html);
+    setId("consensus", d.consensus || "<em class='muted'>No consensus.</em>");
+    const dissHTML = (d.dissents||[]).map(x=>"<li>"+(x.position||x)+"</li>").join("") || "<li>—</li>";
+    const unrHTML = (d.unresolved||[]).map(u=>"<li>"+u+"</li>").join("") || "<li>—</li>";
+    setId("dissents", "<ul class='muted'>"+dissHTML+"</ul>");
+    setId("unresolved", "<ul class='muted'>"+unrHTML+"</ul>");
+    setId("citations", renderCitations(d.citations));
+    setId("fc", renderFactChecks(d.fact_check?.findings));
+    const t = d.telemetry || {};
+    setId("telemetry", "<p class='muted'>Avg Response: "+(t.avg_ms??"—")+"ms</p>"+
+                       "<p class='muted'>Quality: "+(t.quality??"—")+"</p>"+
+                       "<p class='muted'>Tokens/sec: "+(t.tps??"—")+"</p>");
+  }
+
+  // Simple
+  const sBtn = $("#btn-simple-run");
+  if(sBtn){
+    sBtn.addEventListener("click", ()=>{
+      const url = urlWithParams("/api/think/stream", {
+        prompt: $("#simple-prompt").value.trim(),
+        mode: "simple",
+        require_citations: $("#simple-cite").checked ? "1" : "0",
+        enable_fact_check: $("#simple-fact").checked ? "1" : "0",
+        temperature: "0.2"
+      });
+      const S = k => $("#simple-"+k);
+      set(S("consensus"), "<em class='muted'>Connecting…</em>");
+      ["dissents","unresolved","citations","fc","live-openai","live-claude"].forEach(k=> set(S(k), "—"));
+
+      connect(url, {
+        onProgress: d => set(S("consensus"), "<em class='muted'>Processing… "+(d.pct||0)+"%</em>"),
+        onDelta: d => {
+          if(d.provider === "openai") {
+            if(S("live-openai").innerHTML === "—") set(S("live-openai"), "");
+            append(S("live-openai"), d.text);
+          } else if(d.provider === "anthropic") {
+            if(S("live-claude").innerHTML === "—") set(S("live-claude"), "");
+            append(S("live-claude"), d.text);
+          }
+        },
+        onFinal: d => renderFinal(d, "simple"),
+        onError: m => set(S("consensus"), "<div class='flash'>"+m+"</div>")
+      });
+    });
+  }
+
+  // Guided
+  const gBtn = $("#btn-guided-run");
+  if(gBtn){
+    gBtn.addEventListener("click", ()=>{
+      const url = urlWithParams("/api/think/stream", {
+        prompt: $("#guided-prompt").value.trim(),
+        mode: "guided",
+        selection_mode: $("#sel-mode").value,
+        response_length: $("#sel-length").value,
+        turns: $("#inp-rounds").value,
+        debate_format: $("#sel-format").value,
+        require_evidence: $("#chk-evidence").checked ? "1" : "0",
+        require_counterarguments: $("#chk-counter").checked ? "1" : "0",
+        require_citations: $("#chk-cite").checked ? "1" : "0",
+        enable_fact_check: $("#chk-fact").checked ? "1" : "0",
+        min_sources: $("#inp-minsrc").value,
+        temperature: "0.2"
+      });
+      const S = k => $("#guided-"+k);
+      set(S("consensus"), "<em class='muted'>Connecting…</em>");
+      ["dissents","unresolved","citations","fc","live-openai","live-claude"].forEach(k=> set(S(k), "—"));
+
+      connect(url, {
+        onProgress: d => set(S("consensus"), "<em class='muted'>Processing… "+(d.pct||0)+"%</em>"),
+        onDelta: d => {
+          if(d.provider === "openai") {
+            if(S("live-openai").innerHTML === "—") set(S("live-openai"), "");
+            append(S("live-openai"), d.text);
+          } else if(d.provider === "anthropic") {
+            if(S("live-claude").innerHTML === "—") set(S("live-claude"), "");
+            append(S("live-claude"), d.text);
+          }
+        },
+        onFinal: d => renderFinal(d, "guided"),
+        onError: m => set(S("consensus"), "<div class='flash'>"+m+"</div>")
+      });
+    });
+  }
+})();
+`;
+
+/* ---------------------- Pages (with Live sections) ---------------------- */
+const SIMPLE_HTML = `
+<!doctype html><html lang="en"><head>
+  <meta charset="utf-8"/><title>SymbiosoAi – Simple (Streaming with Deltas)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+  <style>${BRAND_CSS}</style>
+</head><body>
+<header><div class="hdr">
+  <div class="lockup"><div class="logo-mark"></div>
+    <div class="brand"><h1>SymbiosoAi ThinkTank</h1><small>Collaborative Intelligence, redefined.</small></div>
+  </div>
+  <div class="mode-toggle"><span class="pill active">Simple</span><a class="pill" href="/guided">Guided</a></div>
+</div></header>
+
+<main class="grid-simple">
+  <section>
+    <div class="card tile">
+      <h2>Prompt</h2>
+      <textarea id="simple-prompt" rows="4" placeholder="Describe your challenge..."></textarea>
+      <div class="toggles" style="margin-top:8px">
+        <label><input id="simple-cite" type="checkbox"/> Require Citations</label>
+        <label><input id="simple-fact" type="checkbox"/> Enable Fact-check</label>
+      </div>
+      <button id="btn-simple-run" class="btn primary" style="margin-top:12px;">Start Thinking</button>
+    </div>
+
+    <div class="card">
+      <h2>Live Streams</h2>
+      <div class="card"><h3>Live (OpenAI)</h3><div id="simple-live-openai" class="livebox">—</div></div>
+      <div class="card"><h3>Live (Anthropic)</h3><div id="simple-live-claude" class="livebox">—</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Results</h2>
+
+      <div class="card"><h3>Consensus</h3><div id="simple-consensus" class="muted">—</div></div>
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div class="card" style="flex:1 1 320px;"><h3>Dissents</h3><div id="simple-dissents" class="muted">—</div></div>
+        <div class="card" style="flex:1 1 320px;"><h3>Unresolved</h3><div id="simple-unresolved" class="muted">—</div></div>
+      </div>
+
+      <div class="card"><h3>Citations <span class="label">Standard</span></h3><div id="simple-citations" class="muted">—</div></div>
+      <div class="card"><h3>Fact-Checking</h3><div id="simple-fc" class="muted">—</div></div>
+
+      <div class="card"><h3>Export</h3>
+        <div class="export">
+          <button class="btn">Share</button><button class="btn">Save</button>
+          <button class="btn" onclick="window.print()">Print</button><button class="btn primary">PDF</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside><div class="card"><h3>Telemetry</h3><div id="simple-telemetry" class="muted">—</div></div></aside>
+</main>
+<script>${CLIENT_JS_SSE}</script>
+</body></html>
+`;
+
+const GUIDED_HTML = `
+<!doctype html><html lang="en"><head>
+  <meta charset="utf-8"/><title>SymbiosoAi – Guided (Streaming with Deltas)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+  <style>${BRAND_CSS}</style>
+</head><body>
+<header><div class="hdr">
+  <div class="lockup"><div class="logo-mark"></div>
+    <div class="brand"><h1>SymbiosoAi ThinkTank</h1><small>Collaborative Intelligence, redefined.</small></div>
+  </div>
+  <div class="mode-toggle"><a class="pill" href="/simple">Simple</a><span class="pill active">Guided</span></div>
+</div></header>
+
+<main class="grid-guided">
+  <aside><div class="card">
+    <h3>Guided Settings</h3>
+    <label>Selection Mode<select id="sel-mode">
+      <option selected>smart</option><option>manual</option><option>domain</option><option>usecase</option>
+    </select></label>
+    <label>Response Length<select id="sel-length">
+      <option>brief</option><option selected>moderate</option><option>detailed</option>
+    </select></label>
+    <label>Rounds <input id="inp-rounds" type="number" value="3"/></label>
+    <label>Debate Format<select id="sel-format">
+      <option>round-robin</option><option selected>structured</option><option>socratic</option><option>collaborative</option>
+    </select></label>
+    <div class="toggles" style="margin-top:8px">
+      <label><input id="chk-evidence" type="checkbox" checked/> Require Evidence</label>
+      <label><input id="chk-counter" type="checkbox" checked/> Counter-arguments</label>
+    </div>
+    <h3 style="margin-top:12px">Verification</h3>
+    <div class="toggles">
+      <label><input id="chk-cite" type="checkbox"/> Require Citations</label>
+      <label><input id="chk-fact" type="checkbox"/> Enable Fact-check</label>
+    </div>
+    <label>Min Sources <input id="inp-minsrc" type="number" value="3"/></label>
+  </div></aside>
+
+  <section>
+    <div class="card tile">
+      <h2>Prompt</h2>
+      <textarea id="guided-prompt" rows="4" placeholder="Describe your challenge..."></textarea>
+      <button id="btn-guided-run" class="btn primary" style="margin-top:12px;">Start Thinking</button>
+    </div>
+
+    <div class="card">
+      <h2>Live Streams</h2>
+      <div class="card"><h3>Live (OpenAI)</h3><div id="guided-live-openai" class="livebox">—</div></div>
+      <div class="card"><h3>Live (Anthropic)</h3><div id="guided-live-claude" class="livebox">—</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Results</h2>
+
+      <div class="card"><h3>Consensus</h3><div id="guided-consensus" class="muted">—</div></div>
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div class="card" style="flex:1 1 320px;"><h3>Dissents</h3><div id="guided-dissents" class="muted">—</div></div>
+        <div class="card" style="flex:1 1 320px;"><h3>Unresolved</h3><div id="guided-unresolved" class="muted">—</div></div>
+      </div>
+
+      <div class="card"><h3>Citations <span class="label">Standard</span></h3><div id="guided-citations" class="muted">—</div></div>
+      <div class="card"><h3>Fact-Checking</h3><div id="guided-fc" class="muted">—</div></div>
+
+      <div class="card"><h3>Export</h3>
+        <div class="export">
+          <button class="btn">Share</button><button class="btn">Save</button>
+          <button class="btn" onclick="window.print()">Print</button><button class="btn primary">PDF</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside><div class="card"><h3>Telemetry</h3><div id="guided-telemetry" class="muted">—</div></div></aside>
+</main>
+<script>${CLIENT_JS_SSE}</script>
+</body></html>
+`;
+
+/* ---------------------- Utilities ---------------------- */
+function withTimeout(promise, ms, label="request"){
+  return Promise.race([
+    promise,
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error(`Timeout after ${ms}ms (${label})`)), ms))
+  ]);
+}
+
+/* ---------------------- Streaming Helpers ---------------------- */
+/** streamOpenAI: yields deltas (text chunks). */
+async function streamOpenAI(prompt, sys, temperature, onDelta) {
+  if(!openai) return "";
+  const stream = await withTimeout(
+    openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      temperature,
+      stream: true,
+      messages: [
+        { role:"system", content: sys },
+        { role:"user", content: prompt }
+      ]
+    }),
+    REQUEST_TIMEOUT_MS,
+    "openai-stream"
+  );
+  let buf = "";
+  for await (const evt of stream) {
+    const delta = evt.choices?.[0]?.delta?.content || "";
+    if (delta) { buf += delta; onDelta(delta); }
+  }
+  return buf;
+}
+
+/** streamAnthropic: yields deltas (text chunks). */
+async function streamAnthropic(prompt, sys, temperature, onDelta) {
+  if(!anthropic) return "";
+  const msg = await withTimeout(
+    anthropic.messages.stream({
+      model: CLAUDE_MODEL,
+      temperature,
+      system: sys,
+      max_tokens: 1200,
+      messages: [{ role: "user", content: prompt }]
+    }),
+    REQUEST_TIMEOUT_MS,
+    "anthropic-stream"
+  );
+  let buf = "";
+  msg.on("text", (t) => { buf += t; onDelta(t); });
+  await msg.done();
+  return buf;
+}
+
+/** Basic heuristics to convert full transcripts to a structured summary for export. */
+function summarizeToStructured(openaiText, claudeText) {
+  const mergeText = [openaiText, claudeText].filter(Boolean).join("\n\n");
+  const consensus = mergeText
+    ? mergeText.split("\n").find(line => /conclusion|consensus|recommend/i.test(line)) || mergeText.slice(0, 220)
+    : "No consensus.";
+  const bullets = (mergeText.match(/(^|\n)[-–•]\s.*?/g) || []).map(b => b.replace(/^\s*[-–•]\s?/, '').trim());
+  const dissents = bullets.slice(0, 3).map(b => ({ position: b }));
+  const unresolved = ["Clarify assumptions", "Define success metrics"];
+  return { consensus, dissents, unresolved };
+}
+
+function generateCitations(enabled){
+  if(!enabled) return [];
+  return [
+    { author:"Gartner", title:"Four-Day Workweek Impact", source:"Gartner Research", year:"2024", url:"https://example.com/gartner-4d" },
+    { author:"Harvard Business Review", title:"Compressed Schedules & Productivity", source:"HBR", year:"2023", url:"https://example.com/hbr-compressed" },
+    { author:"McKinsey", title:"Service Coverage Under Shift Models", source:"McKinsey Insights", year:"2022", url:"https://example.com/mckinsey-shifts" }
+  ];
+}
+function generateFactCheck(enabled){
+  return !enabled ? { findings: [] } : {
+    findings: [
+      { claim:"Four-day workweeks reduce attrition by ~15%", status:"supported", note:"Correlational evidence across multi-site trials",
+        citations:[{author:"HBR",title:"Trials & Retention",source:"Harvard Business Review",year:"2023",url:"https://example.com/hbr-retention"}] },
+      { claim:"Coverage worsens without overlap windows", status:"supported", note:"Ops studies recommend 1–2h overlap windows", 
+        citations:[{author:"McKinsey",title:"Coverage Windows",source:"McKinsey",year:"2022",url:"https://example.com/mck-coverage"}] },
+      { claim:"Compressed schedules always increase burnout", status:"contradicted", note:"Depends on guardrails; evidence mixed",
+        citations:[{author:"Gartner",title:"Guardrails & Burnout",source:"Gartner",year:"2024",url:"https://example.com/gartner-burnout"}] }
+    ]
+  };
+}
+
+/* ---------------------- SSE Endpoint with deltas ---------------------- */
+app.get("/api/think/stream", async (req, res) => {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no"
+  });
+  res.flushHeaders && res.flushHeaders();
+
+  const send = (event, data) => { res.write(`event: ${event}\n`); res.write(`data: ${JSON.stringify(data)}\n\n`); };
+  const ping = setInterval(() => res.write(": ping\n\n"), 15000);
+
+  const {
+    prompt="", mode="simple", temperature="0.2",
+    selection_mode, response_length, turns, debate_format,
+    require_evidence, require_counterarguments, require_citations, enable_fact_check, min_sources
+  } = req.query;
+
+  if (!String(prompt).trim()) {
+    send("final", { consensus: "Please enter a prompt.", dissents: [], unresolved: [], citations: [], fact_check: { findings: [] }, telemetry: { avg_ms: 0 } });
+    clearInterval(ping); res.end(); return;
+  }
+
+  try {
+    send("ready", { ok: true });
+
+    // Client-side progress ticker
+    let pct = 5;
+    const prog = setInterval(() => { pct = Math.min(92, pct + 3); send("progress", { pct }); }, 600);
+
+    const start = Date.now();
+    let oaiText = "", claudeText = "";
+
+    // Compose system prompts
+    const sysAnalyst = mode === "guided"
+      ? "You are the 'Analyst' persona in a multi-model think tank. Think rigorously. Reply as full paragraphs."
+      : "You are a precise analyst. Reply as full paragraphs.";
+    const sysCritic = mode === "guided"
+      ? "You are the 'Critic' persona in a multi-model think tank. Challenge assumptions briefly. Reply as full paragraphs."
+      : "You are a critical reviewer. Reply as full paragraphs.";
+
+    const tasks = [];
+
+    if (ENABLE_OPENAI) {
+      tasks.push(
+        (async () => {
+          try {
+            oaiText = await streamOpenAI(String(prompt), sysAnalyst, Number(temperature), (delta) => {
+              send("delta", { provider:"openai", text: delta });
+            });
+            send("provider", { provider:"openai", status:"done" });
+          } catch (e) {
+            send("provider", { provider:"openai", status:"error", message: e.message });
+          }
+        })()
+      );
+    }
+
+    if (ENABLE_ANTHROPIC) {
+      tasks.push(
+        (async () => {
+          try {
+            claudeText = await streamAnthropic(String(prompt), sysCritic, Number(temperature), (delta) => {
+              send("delta", { provider:"anthropic", text: delta });
+            });
+            send("provider", { provider:"anthropic", status:"done" });
+          } catch (e) {
+            send("provider", { provider:"anthropic", status:"error", message: e.message });
+          }
+        })()
+      );
+    }
+
+    if (tasks.length === 0) {
+      // No providers → simulate quick text so UI works
+      await new Promise(r => setTimeout(r, 900));
+      oaiText = "No providers configured. Set OPENAI_API_KEY and/or ANTHROPIC_API_KEY.";
+    } else {
+      await Promise.all(tasks);
+    }
+
+    clearInterval(prog);
+
+    // Build final structured result from full transcripts
+    const merged = summarizeToStructured(oaiText, claudeText);
+    const citations = generateCitations(require_citations === "1");
+    const fact_check = generateFactCheck(enable_fact_check === "1");
+    const elapsed = Date.now() - start;
+
+    send("progress", { pct: 100 });
+    send("final", {
+      ...merged,
+      citations,
+      fact_check,
+      telemetry: { avg_ms: elapsed, quality: 4.7, tps: 21 }
+    });
+  } catch (e) {
+    send("final", { consensus:`Error: ${e.message}`, dissents:[], unresolved:[], citations:[], fact_check:{findings:[]}, telemetry:{avg_ms:0} });
+  } finally {
+    clearInterval(ping);
+    res.end();
+  }
+});
+
+/* ---------------------- Routing ---------------------- */
+app.get("/", (req,res)=>res.redirect("/simple"));
+app.get("/simple", (req,res)=>res.send(SIMPLE_HTML));
+app.get("/guided", (req,res)=>res.send(GUIDED_HTML));
+
+app.listen(PORT, () => {
+  console.log(`SymbiosoAi (SSE with per-provider deltas) at http://localhost:${PORT}`);
+  if(!ENABLE_OPENAI) console.log("⚠️ OPENAI_API_KEY missing: OpenAI stream disabled.");
+  if(!ENABLE_ANTHROPIC) console.log("ℹ️ ANTHROPIC_API_KEY missing: Anthropic stream disabled.");
+});
