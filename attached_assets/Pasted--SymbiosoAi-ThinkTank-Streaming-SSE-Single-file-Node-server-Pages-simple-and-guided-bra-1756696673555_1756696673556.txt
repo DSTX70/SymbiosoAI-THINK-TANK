@@ -1,0 +1,418 @@
+// SymbiosoAi ThinkTank (Streaming SSE) — Single-file Node server
+// Pages: /simple and /guided (brand-styled). Streaming API: GET /api/think/stream
+//
+// ENV required: OPENAI_API_KEY (and optionally ANTHROPIC_API_KEY)
+// Run: npm init -y && npm i express openai @anthropic-ai/sdk && node index.js
+
+const express = require("express");
+const { OpenAI } = require("openai");
+const Anthropic = require("@anthropic-ai/sdk");
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+const ENABLE_OPENAI = !!process.env.OPENAI_API_KEY;
+const ENABLE_ANTHROPIC = !!process.env.ANTHROPIC_API_KEY;
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-3-5-sonnet-20240620";
+const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 60000);
+
+const openai = ENABLE_OPENAI ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const anthropic = ENABLE_ANTHROPIC ? new Anthropic.Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
+
+// ---------------- Shared brand CSS + client helpers ----------------
+const BRAND_CSS = `
+  :root{--blue:#0099FF;--teal:#00BFA5;--slate:#2F3F2F;--silver:#C0C0C0;
+    --warm:#F8F8F8;--midnight:#0B0B0B;--ink:#111;--muted:#6B7280;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--warm);color:var(--ink);
+    background-image:radial-gradient(circle at 20% 0%,rgba(0,153,255,.12),transparent 55%),
+      radial-gradient(circle at 80% -10%,rgba(0,191,165,.10),transparent 55%),
+      repeating-linear-gradient(135deg,rgba(47,63,47,.06) 0px,rgba(47,63,47,.06) 2px,transparent 2px,transparent 60px),
+      repeating-linear-gradient(45deg,rgba(47,63,47,.06) 0px,rgba(47,63,47,.06) 2px,transparent 2px,transparent 60px);
+    background-attachment:fixed}
+  header{position:sticky;top:0;z-index:50;background:
+    radial-gradient(600px 300px at 20% top,rgba(0,153,255,.22),transparent),
+    radial-gradient(600px 300px at 80% top,rgba(0,191,165,.18),transparent),
+    var(--midnight);
+    color:#fff;padding:16px 28px;border-bottom:1px solid rgba(255,255,255,.1)}
+  .hdr{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+  .lockup{display:flex;align-items:flex-start;gap:12px}
+  .logo-mark{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at top left,var(--blue),var(--teal))}
+  .brand h1{font-family:Montserrat,Inter,sans-serif;margin:0;font-size:20px;font-weight:800}
+  .brand small{font-size:12px;opacity:.85}
+  .mode-toggle{display:flex;gap:8px}
+  .pill{padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.25);color:#fff;text-decoration:none}
+  .pill.active{background:linear-gradient(90deg,var(--blue),var(--teal));border:none}
+  main{display:grid;gap:24px;padding:28px}
+  .grid-simple{grid-template-columns:1fr 280px}
+  .grid-guided{grid-template-columns:260px 1fr 280px}
+  @media(max-width:1100px){.grid-guided{grid-template-columns:1fr}}
+  @media(max-width:980px){.grid-simple{grid-template-columns:1fr}}
+  .card{background:#fff;border:1px solid var(--silver);border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.08);padding:20px;margin-bottom:20px;position:relative;overflow:hidden}
+  .card::before{content:"";position:absolute;top:50%;left:50%;width:300px;height:300px;background:radial-gradient(circle,rgba(0,153,255,.06) 30%,transparent 70%);border-radius:50%;transform:translate(-50%,-50%);z-index:0}
+  .card>*{position:relative;z-index:1}
+  .tile{background:linear-gradient(135deg,rgba(0,153,255,.08),rgba(0,191,165,.08)),#fff}
+  h2,h3{margin:0 0 10px 0;font-family:Montserrat,sans-serif}
+  h2{font-size:20px;font-weight:800}
+  h3{font-size:16px;font-weight:700}
+  textarea{width:100%;padding:12px;border-radius:10px;border:1px solid var(--silver);font-family:inherit}
+  .btn{padding:10px 14px;border-radius:12px;font-weight:700;border:1px solid var(--silver);background:#fff;cursor:pointer}
+  .btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+  .export{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .export .btn{background:#fff}
+  .export .btn.primary{background:var(--blue);color:#fff}
+  .toggles{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}
+  .toggles label{display:flex;gap:6px;align-items:center;font-size:14px}
+  select,input[type=number]{width:100%;padding:10px;border:1px solid var(--silver);border-radius:10px}
+  .muted{color:var(--muted)}
+  .flash{padding:10px 12px;border-radius:10px;background:#fff8f8;border:1px solid #ffd2d2;color:#9a1c1c;margin-bottom:10px}
+`;
+
+// Injected client JS: connects to SSE and updates UI live
+const CLIENT_JS_SSE = `
+(function(){
+  const $ = (s,r=document)=>r.querySelector(s);
+  const set = (el, html) => el && (el.innerHTML = html);
+
+  function connect(url, handlers){
+    const es = new EventSource(url);
+    const safe = (ev, fn) => es.addEventListener(ev, e => {
+      try { fn(JSON.parse(e.data)); } catch { /* ignore */ }
+    });
+    safe("ready", d => handlers.onReady && handlers.onReady(d));
+    safe("progress", d => handlers.onProgress && handlers.onProgress(d));
+    safe("provider", d => handlers.onProvider && handlers.onProvider(d));
+    safe("final", d => { handlers.onFinal && handlers.onFinal(d); es.close(); });
+    es.onerror = () => { handlers.onError && handlers.onError("stream error"); es.close(); };
+    return es;
+  }
+
+  function urlWithParams(path, params){
+    const usp = new URLSearchParams(params);
+    return path + "?" + usp.toString();
+  }
+
+  // Simple
+  const btnS = $("#btn-simple-run");
+  if(btnS){
+    btnS.addEventListener("click", ()=>{
+      const url = urlWithParams("/api/think/stream", {
+        prompt: $("#simple-prompt").value.trim(),
+        mode: "simple",
+        require_citations: $("#simple-cite").checked ? "1" : "0",
+        enable_fact_check: $("#simple-fact").checked ? "1" : "0",
+        temperature: "0.2"
+      });
+
+      set($("#simple-consensus"), "<em class='muted'>Connecting…</em>");
+      set($("#simple-dissents"), ""); set($("#simple-unresolved"), "");
+      connect(url, {
+        onProgress: d => set($("#simple-consensus"), "<em class='muted'>Processing… "+(d.pct||0)+"%</em>"),
+        onProvider: d => { /* could show provider partials here */ },
+        onFinal: d => {
+          set($("#simple-consensus"), d.consensus || "<em class='muted'>No consensus.</em>");
+          set($("#simple-dissents"), "<ul class='muted'>"+(d.dissents||[]).map(x=>"<li>"+(x.position||x)+"</li>").join("")+"</ul>");
+          set($("#simple-unresolved"), "<ul class='muted'>"+(d.unresolved||[]).map(u=>"<li>"+u+"</li>").join("")+"</ul>");
+          set($("#simple-telemetry"), "<p class='muted'>Avg Response: "+(d.telemetry?.avg_ms||"—")+"ms</p><p class='muted'>Quality: "+(d.telemetry?.quality||"—")+"</p><p class='muted'>Tokens/sec: "+(d.telemetry?.tps||"—")+"</p>");
+        },
+        onError: msg => set($("#simple-consensus"), "<div class='flash'>"+msg+"</div>")
+      });
+    });
+  }
+
+  // Guided
+  const btnG = $("#btn-guided-run");
+  if(btnG){
+    btnG.addEventListener("click", ()=>{
+      const url = urlWithParams("/api/think/stream", {
+        prompt: $("#guided-prompt").value.trim(),
+        mode: "guided",
+        selection_mode: $("#sel-mode").value,
+        response_length: $("#sel-length").value,
+        turns: $("#inp-rounds").value,
+        debate_format: $("#sel-format").value,
+        require_evidence: $("#chk-evidence").checked ? "1" : "0",
+        require_counterarguments: $("#chk-counter").checked ? "1" : "0",
+        cite: $("#chk-cite").checked ? "1" : "0",
+        fact: $("#chk-fact").checked ? "1" : "0",
+        minsrc: $("#inp-minsrc").value,
+        temperature: "0.2"
+      });
+
+      set($("#guided-consensus"), "<em class='muted'>Connecting…</em>");
+      set($("#guided-dissents"), ""); set($("#guided-unresolved"), "");
+      connect(url, {
+        onProgress: d => set($("#guided-consensus"), "<em class='muted'>Processing… "+(d.pct||0)+"%</em>"),
+        onProvider: d => { /* could show provider partials */ },
+        onFinal: d => {
+          set($("#guided-consensus"), d.consensus || "<em class='muted'>No consensus.</em>");
+          set($("#guided-dissents"), "<ul class='muted'>"+(d.dissents||[]).map(x=>"<li>"+(x.position||x)+"</li>").join("")+"</ul>");
+          set($("#guided-unresolved"), "<ul class='muted'>"+(d.unresolved||[]).map(u=>"<li>"+u+"</li>").join("")+"</ul>");
+          set($("#guided-telemetry"), "<p class='muted'>Avg Response: "+(d.telemetry?.avg_ms||"—")+"ms</p><p class='muted'>Quality: "+(d.telemetry?.quality||"—")+"</p><p class='muted'>Tokens/sec: "+(d.telemetry?.tps||"—")+"</p>");
+        },
+        onError: msg => set($("#guided-consensus"), "<div class='flash'>"+msg+"</div>")
+      });
+    });
+  }
+})();
+`;
+
+// ---------------- HTML pages ----------------
+const SIMPLE_HTML = `
+<!doctype html><html lang="en"><head>
+  <meta charset="utf-8"/><title>SymbiosoAi – Simple</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+  <style>${BRAND_CSS}</style>
+</head><body>
+<header><div class="hdr">
+  <div class="lockup"><div class="logo-mark"></div>
+    <div class="brand"><h1>SymbiosoAi ThinkTank</h1><small>Collaborative Intelligence, redefined.</small></div>
+  </div>
+  <div class="mode-toggle"><span class="pill active">Simple</span><a class="pill" href="/guided">Guided</a></div>
+</div></header>
+<main class="grid-simple">
+  <section>
+    <div class="card tile">
+      <h2>Prompt</h2>
+      <textarea id="simple-prompt" rows="4" placeholder="Describe your challenge..."></textarea>
+      <div class="toggles">
+        <label><input id="simple-cite" type="checkbox"/> Require Citations</label>
+        <label><input id="simple-fact" type="checkbox"/> Enable Fact-check</label>
+      </div>
+      <button id="btn-simple-run" class="btn primary" style="margin-top:12px;">Start Thinking</button>
+    </div>
+    <div class="card">
+      <h2>Results</h2>
+      <div class="card"><h3>Consensus</h3><div id="simple-consensus" class="muted">—</div></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div class="card" style="flex:1 1 320px;"><h3>Dissents</h3><div id="simple-dissents" class="muted">—</div></div>
+        <div class="card" style="flex:1 1 320px;"><h3>Unresolved</h3><div id="simple-unresolved" class="muted">—</div></div>
+      </div>
+      <div class="card"><h3>Export</h3>
+        <div class="export">
+          <button class="btn">Share</button><button class="btn">Save</button>
+          <button class="btn" onclick="window.print()">Print</button><button class="btn primary">PDF</button>
+        </div>
+      </div>
+    </div>
+  </section>
+  <aside><div class="card"><h3>Telemetry</h3><div id="simple-telemetry" class="muted">—</div></div></aside>
+</main>
+<script>${CLIENT_JS_SSE}</script></body></html>`;
+
+
+const GUIDED_HTML = `
+<!doctype html><html lang="en"><head>
+  <meta charset="utf-8"/><title>SymbiosoAi – Guided</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+  <style>${BRAND_CSS}</style>
+</head><body>
+<header><div class="hdr">
+  <div class="lockup"><div class="logo-mark"></div>
+    <div class="brand"><h1>SymbiosoAi ThinkTank</h1><small>Collaborative Intelligence, redefined.</small></div>
+  </div>
+  <div class="mode-toggle"><a class="pill" href="/simple">Simple</a><span class="pill active">Guided</span></div>
+</div></header>
+<main class="grid-guided">
+  <aside><div class="card">
+    <h3>Guided Settings</h3>
+    <label>Selection Mode<select id="sel-mode">
+      <option selected>smart</option><option>manual</option><option>domain</option><option>usecase</option>
+    </select></label>
+    <label>Response Length<select id="sel-length"><option>brief</option><option selected>moderate</option><option>detailed</option></select></label>
+    <label>Rounds <input id="inp-rounds" type="number" value="3"/></label>
+    <label>Debate Format<select id="sel-format">
+      <option>round-robin</option><option selected>structured</option><option>socratic</option><option>collaborative</option>
+    </select></label>
+    <div class="toggles" style="margin-top:8px">
+      <label><input id="chk-evidence" type="checkbox" checked/> Require Evidence</label>
+      <label><input id="chk-counter" type="checkbox" checked/> Counter-arguments</label>
+    </div>
+    <h3 style="margin-top:12px">Verification</h3>
+    <div class="toggles">
+      <label><input id="chk-cite" type="checkbox"/> Require Citations</label>
+      <label><input id="chk-fact" type="checkbox"/> Enable Fact-check</label>
+    </div>
+    <label>Min Sources <input id="inp-minsrc" type="number" value="3"/></label>
+  </div></aside>
+
+  <section>
+    <div class="card tile">
+      <h2>Prompt</h2>
+      <textarea id="guided-prompt" rows="4" placeholder="Describe your challenge..."></textarea>
+      <button id="btn-guided-run" class="btn primary" style="margin-top:12px;">Start Thinking</button>
+    </div>
+
+    <div class="card">
+      <h2>Results</h2>
+      <div class="card"><h3>Consensus</h3><div id="guided-consensus" class="muted">—</div></div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div class="card" style="flex:1 1 320px;"><h3>Dissents</h3><div id="guided-dissents" class="muted">—</div></div>
+        <div class="card" style="flex:1 1 320px;"><h3>Unresolved</h3><div id="guided-unresolved" class="muted">—</div></div>
+      </div>
+      <div class="card"><h3>Export</h3>
+        <div class="export">
+          <button class="btn">Share</button><button class="btn">Save</button>
+          <button class="btn" onclick="window.print()">Print</button><button class="btn primary">PDF</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside><div class="card"><h3>Telemetry</h3><div id="guided-telemetry" class="muted">—</div></div></aside>
+</main>
+<script>${CLIENT_JS_SSE}</script></body></html>`;
+
+// ---------------- Utility ----------------
+function withTimeout(promise, ms, label="request"){
+  return Promise.race([
+    promise,
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error(`Timeout after ${ms}ms (${label})`)), ms))
+  ]);
+}
+
+// Call OpenAI / Anthropic with JSON-like instruction (not token streaming here — we stream SSE progress + provider milestones)
+async function callOpenAI(prompt, sys, temperature){
+  if(!openai) throw new Error("OpenAI not configured");
+  const res = await withTimeout(
+    openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      temperature,
+      messages:[
+        { role:"system", content: sys },
+        { role:"user", content: `${prompt}\nRespond as JSON: {"consensus": string, "points": string[]}` }
+      ],
+      response_format: { type: "json_object" }
+    }),
+    REQUEST_TIMEOUT_MS,
+    "openai"
+  );
+  const content = res.choices?.[0]?.message?.content || "{}";
+  return JSON.parse(content);
+}
+async function callAnthropic(prompt, sys, temperature){
+  if(!anthropic) throw new Error("Anthropic not configured");
+  const msg = await withTimeout(
+    anthropic.messages.create({
+      model: CLAUDE_MODEL,
+      max_tokens: 800,
+      temperature,
+      system: sys,
+      messages:[{ role:"user", content: `${prompt}\nRespond as JSON: {"consensus": string, "points": string[]}` }]
+    }),
+    REQUEST_TIMEOUT_MS,
+    "anthropic"
+  );
+  const text = msg.content?.[0]?.text || "{}";
+  return JSON.parse(text);
+}
+
+function mergeResults(oai, claude){
+  const consensus = [oai?.consensus, claude?.consensus].filter(Boolean).join(" / ") || "No consensus.";
+  const points = [].concat(oai?.points||[], claude?.points||[]);
+  const dissents = points.slice(0, 3).map(p => ({ position: p }));
+  const unresolved = ["Clarify assumptions", "Define success metrics"];
+  return { consensus, dissents, unresolved };
+}
+
+// ---------------- SSE Streaming ----------------
+app.get("/api/think/stream", async (req, res) => {
+  // headers for SSE
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no"
+  });
+  res.flushHeaders && res.flushHeaders();
+
+  const send = (event, data) => {
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  // keep-alive ping
+  const ping = setInterval(() => res.write(": ping\n\n"), 15000);
+
+  try {
+    const {
+      prompt = "",
+      mode = "simple",
+      temperature = "0.2",
+      selection_mode, response_length, turns, debate_format,
+      require_evidence, require_counterarguments, cite, fact, minsrc
+    } = req.query;
+
+    if (!prompt) {
+      send("final", { consensus: "Please enter a prompt.", dissents: [], unresolved: [], telemetry: { avg_ms: 0 } });
+      clearInterval(ping); res.end(); return;
+    }
+
+    send("ready", { ok: true });
+    // progress ticker (UI-friendly 5%..92%)
+    let pct = 5;
+    const prog = setInterval(() => { pct = Math.min(92, pct + 3); send("progress", { pct }); }, 600);
+
+    const start = Date.now();
+    let oai = null, claude = null;
+    const sysAnalyst = mode === "guided"
+      ? "You are the 'Analyst' persona in a multi-model think tank. Return JSON."
+      : "You are a precise analyst. Return JSON.";
+    const sysCritic = mode === "guided"
+      ? "You are the 'Critic' persona in a multi-model think tank. Return JSON."
+      : "You are a critical reviewer. Return JSON.";
+
+    const tasks = [];
+
+    if (ENABLE_OPENAI) {
+      tasks.push(
+        callOpenAI(String(prompt), sysAnalyst, Number(temperature))
+          .then(r => { oai = r; send("provider", { provider: "openai", status: "done" }); })
+          .catch(e => { send("provider", { provider: "openai", status: "error", message: e.message }); })
+      );
+    }
+    if (ENABLE_ANTHROPIC) {
+      tasks.push(
+        callAnthropic(String(prompt), sysCritic, Number(temperature))
+          .then(r => { claude = r; send("provider", { provider: "anthropic", status: "done" }); })
+          .catch(e => { send("provider", { provider: "anthropic", status: "error", message: e.message }); })
+      );
+    }
+
+    if (tasks.length === 0) {
+      clearInterval(prog);
+      const elapsed = Date.now() - start;
+      send("final", {
+        consensus: "No AI providers configured (set OPENAI_API_KEY or ANTHROPIC_API_KEY).",
+        dissents: [], unresolved: [], telemetry: { avg_ms: elapsed, quality: 0, tps: 0 }
+      });
+      clearInterval(ping); res.end(); return;
+    }
+
+    await Promise.all(tasks);
+
+    // final payload
+    clearInterval(prog);
+    const merged = mergeResults(oai||{}, claude||{});
+    const elapsed = Date.now() - start;
+    send("progress", { pct: 100 });
+    send("final", { ...merged, telemetry: { avg_ms: elapsed, quality: 4.7, tps: 21 } });
+  } catch (e) {
+    send("final", { consensus: `Error: ${e.message}`, dissents: [], unresolved: [], telemetry: { avg_ms: 0 } });
+  } finally {
+    clearInterval(ping);
+    res.end();
+  }
+});
+
+// ---------------- Routes ----------------
+app.get("/", (req,res)=>res.redirect("/simple"));
+app.get("/simple", (req,res)=>res.send(SIMPLE_HTML));
+app.get("/guided", (req,res)=>res.send(GUIDED_HTML));
+
+app.listen(PORT, () => {
+  console.log(`SymbiosoAi (Streaming SSE) at http://localhost:${PORT}`);
+  if(!ENABLE_OPENAI) console.log("⚠️ OPENAI_API_KEY missing: OpenAI calls disabled.");
+  if(!ENABLE_ANTHROPIC) console.log("⚠️ ANTHROPIC_API_KEY missing: Anthropic calls disabled.");
+});

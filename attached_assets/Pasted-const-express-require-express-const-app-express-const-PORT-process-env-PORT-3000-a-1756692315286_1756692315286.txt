@@ -1,0 +1,307 @@
+const express = require("express");
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(express.json());
+
+// ---------- Shared brand CSS + page helpers ----------
+const BRAND_CSS = `
+  :root{--blue:#0099FF;--teal:#00BFA5;--slate:#2F3F2F;--silver:#C0C0C0;
+    --warm:#F8F8F8;--midnight:#0B0B0B;--ink:#111;--muted:#6B7280;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--warm);color:var(--ink);
+    background-image:radial-gradient(circle at 20% 0%,rgba(0,153,255,.12),transparent 55%),
+      radial-gradient(circle at 80% -10%,rgba(0,191,165,.10),transparent 55%),
+      repeating-linear-gradient(135deg,rgba(47,63,47,.06) 0px,rgba(47,63,47,.06) 2px,transparent 2px,transparent 60px),
+      repeating-linear-gradient(45deg,rgba(47,63,47,.06) 0px,rgba(47,63,47,.06) 2px,transparent 2px,transparent 60px);
+    background-attachment:fixed}
+  header{position:sticky;top:0;z-index:50;background:
+    radial-gradient(600px 300px at 20% top,rgba(0,153,255,.22),transparent),
+    radial-gradient(600px 300px at 80% top,rgba(0,191,165,.18),transparent),
+    var(--midnight);
+    color:#fff;padding:16px 28px;border-bottom:1px solid rgba(255,255,255,.1)}
+  .hdr{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+  .lockup{display:flex;align-items:flex-start;gap:12px}
+  .logo-mark{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at top left,var(--blue),var(--teal))}
+  .brand h1{font-family:Montserrat,Inter,sans-serif;margin:0;font-size:20px;font-weight:800}
+  .brand small{font-size:12px;opacity:.85}
+  .mode-toggle{display:flex;gap:8px}
+  .pill{padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.25);color:#fff;text-decoration:none}
+  .pill.active{background:linear-gradient(90deg,var(--blue),var(--teal));border:none}
+  main{display:grid;gap:24px;padding:28px}
+  .grid-simple{grid-template-columns:1fr 280px}
+  .grid-guided{grid-template-columns:260px 1fr 280px}
+  @media(max-width:1100px){.grid-guided{grid-template-columns:1fr}}
+  @media(max-width:980px){.grid-simple{grid-template-columns:1fr}}
+  .card{background:#fff;border:1px solid var(--silver);border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.08);padding:20px;margin-bottom:20px;position:relative;overflow:hidden}
+  .card::before{content:"";position:absolute;top:50%;left:50%;width:300px;height:300px;background:radial-gradient(circle,rgba(0,153,255,.06) 30%,transparent 70%);border-radius:50%;transform:translate(-50%,-50%);z-index:0}
+  .card>*{position:relative;z-index:1}
+  .tile{background:linear-gradient(135deg,rgba(0,153,255,.08),rgba(0,191,165,.08)),#fff}
+  h2,h3{margin:0 0 10px 0;font-family:Montserrat,sans-serif}
+  h2{font-size:20px;font-weight:800}
+  h3{font-size:16px;font-weight:700}
+  textarea{width:100%;padding:12px;border-radius:10px;border:1px solid var(--silver);font-family:inherit}
+  .btn{padding:10px 14px;border-radius:12px;font-weight:700;border:1px solid var(--silver);background:#fff;cursor:pointer}
+  .btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+  .export{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .export .btn{background:#fff}
+  .export .btn.primary{background:var(--blue);color:#fff}
+  .toggles{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}
+  .toggles label{display:flex;gap:6px;align-items:center;font-size:14px}
+  select,input[type=number]{width:100%;padding:10px;border:1px solid var(--silver);border-radius:10px}
+  .muted{color:var(--muted)}
+`;
+
+// ————— Helper: client-side script injected into pages —————
+const CLIENT_JS = `
+  (function(){
+    const $ = (s,r=document)=>r.querySelector(s);
+    const setText = (el, html) => el && (el.innerHTML = html);
+
+    function wireSimple() {
+      const btn = document.getElementById("btn-simple-run");
+      if(!btn) return;
+      btn.addEventListener("click", async () => {
+        const prompt = $("#simple-prompt").value.trim();
+        const requireCitations = $("#simple-cite").checked;
+        const factCheck = $("#simple-fact").checked;
+
+        setText($("#consensus"), "<em class='muted'>Processing…</em>");
+        setText($("#dissents"), "");
+        setText($("#unresolved"), "");
+
+        try {
+          const res = await fetch("/api/think", {
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body:JSON.stringify({
+              prompt, mode:"simple",
+              require_citations: requireCitations,
+              enable_fact_check: factCheck,
+              temperature: 0.2
+            })
+          });
+          const data = await res.json();
+          renderResults(data, "simple");
+        } catch (e) {
+          setText($("#consensus"), "<span style='color:#b91c1c'>Error processing request.</span>");
+        }
+      });
+    }
+
+    function wireGuided() {
+      const btn = document.getElementById("btn-guided-run");
+      if(!btn) return;
+      btn.addEventListener("click", async () => {
+        const prompt = $("#guided-prompt").value.trim();
+        const selection = $("#sel-mode").value;
+        const length = $("#sel-length").value;
+        const rounds = Number($("#inp-rounds").value || 3);
+        const format = $("#sel-format").value;
+        const reqEv = $("#chk-evidence").checked;
+        const reqCnt = $("#chk-counter").checked;
+        const cite = $("#chk-cite").checked;
+        const fact = $("#chk-fact").checked;
+        const minsrc = Number($("#inp-minsrc").value || 0);
+
+        setText($("#g-consensus"), "<em class='muted'>Processing…</em>");
+        setText($("#g-dissents"), "");
+        setText($("#g-unresolved"), "");
+
+        try {
+          const res = await fetch("/api/think", {
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body:JSON.stringify({
+              prompt, mode:"guided",
+              selection_mode: selection,
+              response_length: length,
+              turns: rounds,
+              debate_format: format,
+              require_evidence: reqEv,
+              require_counterarguments: reqCnt,
+              verification: { require_citations: cite, fact_check: fact, min_sources: minsrc },
+              temperature: 0.2
+            })
+          });
+          const data = await res.json();
+          renderResults(data, "guided");
+        } catch (e) {
+          setText($("#g-consensus"), "<span style='color:#b91c1c'>Error processing request.</span>");
+        }
+      });
+    }
+
+    function renderResults(data, mode){
+      const consensusEl = mode === "simple" ? $("#consensus") : $("#g-consensus");
+      const dissentsEl = mode === "simple" ? $("#dissents") : $("#g-dissents");
+      const unresolvedEl = mode === "simple" ? $("#unresolved") : $("#g-unresolved");
+
+      setText(consensusEl, data.consensus ? data.consensus : "<em class='muted'>No consensus.</em>");
+      setText(dissentsEl, "<ul class='muted'>" + (data.dissents||[]).map(d => "<li>"+(d.position||d)+"</li>").join("") + "</ul>");
+      setText(unresolvedEl, "<ul class='muted'>" + (data.unresolved||[]).map(u => "<li>"+u+"</li>").join("") + "</ul>");
+    }
+
+    wireSimple();
+    wireGuided();
+  })();
+`;
+
+// ————— PAGES —————
+const SIMPLE_HTML = `
+<!doctype html><html lang="en"><head>
+  <meta charset="utf-8"/>
+  <title>SymbiosoAi – Simple</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+  <style>${BRAND_CSS}</style>
+</head><body>
+  <header><div class="hdr">
+    <div class="lockup"><div class="logo-mark"></div>
+      <div class="brand"><h1>SymbiosoAi ThinkTank</h1><small>Collaborative Intelligence, redefined.</small></div>
+    </div>
+    <div class="mode-toggle">
+      <span class="pill active">Simple</span>
+      <a class="pill" href="/guided">Guided</a>
+    </div>
+  </div></header>
+
+  <main class="grid-simple">
+    <section>
+      <div class="card tile">
+        <h2>Prompt</h2>
+        <textarea id="simple-prompt" rows="4" placeholder="Describe your challenge..."></textarea>
+        <div class="toggles">
+          <label><input id="simple-cite" type="checkbox"/> Require Citations</label>
+          <label><input id="simple-fact" type="checkbox"/> Enable Fact-check</label>
+        </div>
+        <button id="btn-simple-run" class="btn primary" style="margin-top:12px;">Start Thinking</button>
+      </div>
+
+      <div class="card">
+        <h2>Results</h2>
+        <div class="card"><h3>Consensus</h3><div id="consensus" class="muted">—</div></div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <div class="card" style="flex:1 1 320px;"><h3>Dissents</h3><div id="dissents" class="muted">—</div></div>
+          <div class="card" style="flex:1 1 320px;"><h3>Unresolved</h3><div id="unresolved" class="muted">—</div></div>
+        </div>
+        <div class="card"><h3>Export</h3>
+          <div class="export">
+            <button class="btn">Share</button>
+            <button class="btn">Save</button>
+            <button class="btn" onclick="window.print()">Print</button>
+            <button class="btn primary">PDF</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside>
+      <div class="card"><h3>Telemetry</h3><p class="muted">Avg Response: 780ms</p><p class="muted">Quality: 4.7</p><p class="muted">Tokens/sec: 21</p></div>
+    </aside>
+  </main>
+  <script>${CLIENT_JS}</script>
+</body></html>
+`;
+
+const GUIDED_HTML = `
+<!doctype html><html lang="en"><head>
+  <meta charset="utf-8"/>
+  <title>SymbiosoAi – Guided</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+  <style>${BRAND_CSS}</style>
+</head><body>
+  <header><div class="hdr">
+    <div class="lockup"><div class="logo-mark"></div>
+      <div class="brand"><h1>SymbiosoAi ThinkTank</h1><small>Collaborative Intelligence, redefined.</small></div>
+    </div>
+    <div class="mode-toggle">
+      <a class="pill" href="/simple">Simple</a>
+      <span class="pill active">Guided</span>
+    </div>
+  </div></header>
+
+  <main class="grid-guided">
+    <aside><div class="card">
+      <h3>Guided Settings</h3>
+      <label>Selection Mode<select id="sel-mode"><option selected>smart</option><option>manual</option><option>domain</option><option>usecase</option></select></label>
+      <label>Response Length<select id="sel-length"><option>brief</option><option selected>moderate</option><option>detailed</option></select></label>
+      <label>Rounds <input id="inp-rounds" type="number" value="3"/></label>
+      <label>Debate Format<select id="sel-format"><option>round-robin</option><option selected>structured</option><option>socratic</option><option>collaborative</option></select></label>
+      <div class="toggles" style="margin-top:8px">
+        <label><input id="chk-evidence" type="checkbox" checked/> Require Evidence</label>
+        <label><input id="chk-counter" type="checkbox" checked/> Counter-arguments</label>
+      </div>
+      <h3 style="margin-top:12px">Verification</h3>
+      <div class="toggles">
+        <label><input id="chk-cite" type="checkbox"/> Require Citations</label>
+        <label><input id="chk-fact" type="checkbox"/> Enable Fact-check</label>
+      </div>
+      <label>Min Sources <input id="inp-minsrc" type="number" value="3"/></label>
+    </div></aside>
+
+    <section>
+      <div class="card tile">
+        <h2>Prompt</h2>
+        <textarea id="guided-prompt" rows="4" placeholder="Describe your challenge..."></textarea>
+        <button id="btn-guided-run" class="btn primary" style="margin-top:12px;">Start Thinking</button>
+      </div>
+
+      <div class="card">
+        <h2>Results</h2>
+        <div class="card"><h3>Consensus</h3><div id="g-consensus" class="muted">—</div></div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <div class="card" style="flex:1 1 320px;"><h3>Dissents</h3><div id="g-dissents" class="muted">—</div></div>
+          <div class="card" style="flex:1 1 320px;"><h3>Unresolved</h3><div id="g-unresolved" class="muted">—</div></div>
+        </div>
+        <div class="card"><h3>Export</h3>
+          <div class="export">
+            <button class="btn">Share</button>
+            <button class="btn">Save</button>
+            <button class="btn" onclick="window.print()">Print</button>
+            <button class="btn primary">PDF</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside>
+      <div class="card"><h3>Telemetry</h3><p class="muted">Avg Response: 780ms</p><p class="muted">Quality: 4.7</p><p class="muted">Tokens/sec: 21</p></div>
+    </aside>
+  </main>
+  <script>${CLIENT_JS}</script>
+</body></html>
+`;
+
+// ————— API: stub /api/think (structured like your schema) —————
+app.post("/api/think", async (req, res) => {
+  const { prompt = "", mode = "simple" } = req.body || {};
+  // Simulate processing latency
+  await new Promise(r => setTimeout(r, 900));
+
+  const consensus =
+    mode === "guided"
+      ? `Guided consensus for “${prompt || "your prompt"}”. Settings applied.`
+      : `Simple consensus for “${prompt || "your prompt"}”.`;
+
+  res.json({
+    consensus,
+    dissents: [
+      "Alternative schedule: 9/80 can improve coverage",
+      "Risk of hidden overtime; mitigation needed"
+    ],
+    unresolved: [
+      "Define SLA guardbands under compressed weeks",
+      "Identify roles requiring on-site presence"
+    ],
+    telemetry: { avg_ms: 780, quality: 4.7, tps: 21 }
+  });
+});
+
+// ————— Routes —————
+app.get("/", (req, res) => res.redirect("/simple"));
+app.get("/simple", (req, res) => res.send(SIMPLE_HTML));
+app.get("/guided", (req, res) => res.send(GUIDED_HTML));
+
+app.listen(PORT, () => {
+  console.log(`SymbiosoAi mockups running at http://localhost:${PORT}`);
+});

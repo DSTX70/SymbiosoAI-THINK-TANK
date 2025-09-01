@@ -1,0 +1,164 @@
+const express = require("express");
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// shared SymbiosoAi brand CSS + patterns
+const BRAND_CSS = `
+  :root{--blue:#0099FF;--teal:#00BFA5;--slate:#2F3F2F;--silver:#C0C0C0;
+    --warm:#F8F8F8;--midnight:#0B0B0B;--ink:#111;--muted:#6B7280;}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--warm);color:var(--ink);
+    background-image:radial-gradient(circle at 20% 0%,rgba(0,153,255,.12),transparent 55%),
+      radial-gradient(circle at 80% -10%,rgba(0,191,165,.10),transparent 55%),
+      repeating-linear-gradient(135deg,rgba(47,63,47,.06) 0px,rgba(47,63,47,.06) 2px,transparent 2px,transparent 60px),
+      repeating-linear-gradient(45deg,rgba(47,63,47,.06) 0px,rgba(47,63,47,.06) 2px,transparent 2px,transparent 60px);
+    background-attachment:fixed}
+  header{background:var(--midnight);color:#fff;padding:16px 28px;border-bottom:1px solid rgba(255,255,255,.1);}
+  .hdr{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+  .lockup{display:flex;align-items:flex-start;gap:12px}
+  .logo-mark{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at top left,var(--blue),var(--teal))}
+  .brand h1{font-family:Montserrat,sans-serif;margin:0;font-size:20px;font-weight:800}
+  .brand small{font-size:12px;opacity:.8}
+  .mode-toggle{display:flex;gap:8px}
+  .pill{padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.25);color:#fff;text-decoration:none}
+  .pill.active{background:linear-gradient(90deg,var(--blue),var(--teal));border:none}
+  main{display:grid;gap:24px;padding:28px}
+  .grid-simple{grid-template-columns:1fr 280px}
+  .grid-guided{grid-template-columns:260px 1fr 280px}
+  @media(max-width:1100px){.grid-guided{grid-template-columns:1fr}}
+  @media(max-width:980px){.grid-simple{grid-template-columns:1fr}}
+  .card{background:#fff;border:1px solid var(--silver);border-radius:14px;
+    box-shadow:0 6px 20px rgba(0,0,0,.08);padding:20px;margin-bottom:20px;position:relative;overflow:hidden}
+  .card::before{content:"";position:absolute;top:50%;left:50%;width:300px;height:300px;
+    background:radial-gradient(circle,rgba(0,153,255,.06) 30%,transparent 70%);
+    border-radius:50%;transform:translate(-50%,-50%);z-index:0}
+  .card>*{position:relative;z-index:1}
+  .tile{background:linear-gradient(135deg,rgba(0,153,255,.08),rgba(0,191,165,.08)),#fff}
+  h2,h3{margin:0 0 10px 0;font-family:Montserrat,sans-serif}
+  h2{font-size:20px;font-weight:800}
+  h3{font-size:16px;font-weight:700}
+  textarea{width:100%;padding:12px;border-radius:10px;border:1px solid var(--silver);font-family:inherit}
+  .btn{padding:10px 14px;border-radius:12px;font-weight:700;border:1px solid var(--silver);background:#fff;cursor:pointer}
+  .btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+  .export{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .export .btn{background:#fff}
+  .export .btn.primary{background:var(--blue);color:#fff}
+  .toggles{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}
+  .toggles label{display:flex;gap:6px;align-items:center;font-size:14px}
+  select,input[type=number]{width:100%;padding:10px;border:1px solid var(--silver);border-radius:10px}
+`;
+
+// Simple page
+const SIMPLE_HTML = `
+<!doctype html><html><head>
+  <title>SymbiosoAi – Simple</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+  <style>${BRAND_CSS}</style>
+</head><body>
+  <header><div class="hdr">
+    <div class="lockup"><div class="logo-mark"></div>
+      <div class="brand"><h1>SymbiosoAi ThinkTank</h1><small>Collaborative Intelligence, redefined.</small></div>
+    </div>
+    <div class="mode-toggle">
+      <span class="pill active">Simple</span>
+      <a class="pill" href="/guided">Guided</a>
+    </div></div>
+  </header>
+  <main class="grid-simple">
+    <section>
+      <div class="card tile">
+        <h2>Prompt</h2>
+        <textarea rows="4" placeholder="Describe your challenge..."></textarea>
+        <div class="toggles">
+          <label><input type="checkbox"/> Require Citations</label>
+          <label><input type="checkbox"/> Enable Fact-check</label>
+        </div>
+        <button class="btn primary" style="margin-top:12px;">Start Thinking</button>
+      </div>
+      <div class="card">
+        <h2>Results</h2>
+        <div class="card"><h3>Consensus</h3><p>Consensus result text will appear here.</p></div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <div class="card" style="flex:1 1 320px;"><h3>Dissents</h3><ul><li>Dissent 1</li><li>Dissent 2</li></ul></div>
+          <div class="card" style="flex:1 1 320px;"><h3>Unresolved</h3><ul><li>Unresolved 1</li><li>Unresolved 2</li></ul></div>
+        </div>
+        <div class="card"><h3>Export</h3>
+          <div class="export">
+            <button class="btn">Share</button>
+            <button class="btn">Save</button>
+            <button class="btn" onclick="window.print()">Print</button>
+            <button class="btn primary">PDF</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <aside><div class="card"><h3>Telemetry</h3><p>Avg Response: 780ms</p><p>Quality: 4.7</p><p>Tokens/sec: 21</p></div></aside>
+  </main>
+</body></html>`;
+
+// Guided page
+const GUIDED_HTML = `
+<!doctype html><html><head>
+  <title>SymbiosoAi – Guided</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+  <style>${BRAND_CSS}</style>
+</head><body>
+  <header><div class="hdr">
+    <div class="lockup"><div class="logo-mark"></div>
+      <div class="brand"><h1>SymbiosoAi ThinkTank</h1><small>Collaborative Intelligence, redefined.</small></div>
+    </div>
+    <div class="mode-toggle">
+      <a class="pill" href="/simple">Simple</a>
+      <span class="pill active">Guided</span>
+    </div></div>
+  </header>
+  <main class="grid-guided">
+    <aside><div class="card">
+      <h3>Guided Settings</h3>
+      <label>Selection Mode<select><option>Smart</option><option>Manual</option><option>Domain</option><option>Use Case</option></select></label>
+      <label>Response Length<select><option>Brief</option><option selected>Moderate</option><option>Detailed</option></select></label>
+      <label>Rounds <input type="number" value="3"/></label>
+      <label>Debate Format<select><option>Round Robin</option><option>Structured</option><option>Socratic</option><option>Collaborative</option></select></label>
+      <div class="toggles" style="margin-top:8px">
+        <label><input type="checkbox" checked/> Require Evidence</label>
+        <label><input type="checkbox" checked/> Counter-arguments</label>
+      </div>
+      <h3 style="margin-top:12px">Verification</h3>
+      <div class="toggles">
+        <label><input type="checkbox"/> Require Citations</label>
+        <label><input type="checkbox"/> Enable Fact-check</label>
+      </div>
+      <label>Min Sources <input type="number" value="3"/></label>
+    </div></aside>
+    <section>
+      <div class="card tile"><h2>Prompt</h2>
+        <textarea rows="4" placeholder="Describe your challenge..."></textarea>
+        <button class="btn primary" style="margin-top:12px;">Start Thinking</button>
+      </div>
+      <div class="card"><h2>Results</h2>
+        <div class="card"><h3>Consensus</h3><p>Consensus result text will appear here.</p></div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <div class="card" style="flex:1 1 320px;"><h3>Dissents</h3><ul><li>Dissent 1</li><li>Dissent 2</li></ul></div>
+          <div class="card" style="flex:1 1 320px;"><h3>Unresolved</h3><ul><li>Unresolved 1</li><li>Unresolved 2</li></ul></div>
+        </div>
+        <div class="card"><h3>Export</h3>
+          <div class="export">
+            <button class="btn">Share</button>
+            <button class="btn">Save</button>
+            <button class="btn" onclick="window.print()">Print</button>
+            <button class="btn primary">PDF</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <aside><div class="card"><h3>Telemetry</h3><p>Avg Response: 780ms</p><p>Quality: 4.7</p><p>Tokens/sec: 21</p></div></aside>
+  </main>
+</body></html>`;
+
+// Routes
+app.get("/", (req, res) => res.redirect("/simple"));
+app.get("/simple", (req, res) => res.send(SIMPLE_HTML));
+app.get("/guided", (req, res) => res.send(GUIDED_HTML));
+
+app.listen(PORT, () => {
+  console.log(`SymbiosoAi mockups running at http://localhost:${PORT}`);
+});
