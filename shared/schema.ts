@@ -36,6 +36,7 @@ export const thinkRequestSchema = z.object({
   // Simple mode options
   require_citations: z.boolean().optional(),
   enable_fact_check: z.boolean().optional(),
+  live_web: z.boolean().optional(),
   temperature: z.number().min(0).max(2).optional(),
   
   // Guided mode options
@@ -46,7 +47,6 @@ export const thinkRequestSchema = z.object({
   require_evidence: z.boolean().optional(),
   require_counterarguments: z.boolean().optional(),
   verification: z.object({
-    require_citations: z.boolean().optional(),
     fact_check: z.boolean().optional(),
     min_sources: z.number().min(0).max(10).optional(),
   }).optional(),
@@ -65,7 +65,25 @@ export const thinkResponseSchema = z.object({
     tps: z.number(),
     active_agents: z.number().optional(),
   }),
-  citations: z.array(z.string()).optional(),
+  citations: z.array(z.object({
+    title: z.string().optional(),
+    url: z.string().optional(),
+    source: z.string().optional(),
+    author: z.string().optional(),
+    year: z.string().optional(),
+  })).optional(),
+  fact_check: z.object({
+    findings: z.array(z.object({
+      claim: z.string(),
+      status: z.enum(["supported", "contradicted", "inconclusive"]),
+      note: z.string().optional(),
+      citations: z.array(z.object({
+        title: z.string().optional(),
+        url: z.string().optional(),
+        source: z.string().optional(),
+      })).optional(),
+    })),
+  }).optional(),
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -74,3 +92,16 @@ export type Session = typeof sessions.$inferSelect;
 export type InsertSession = z.infer<typeof insertSessionSchema>;
 export type ThinkRequest = z.infer<typeof thinkRequestSchema>;
 export type ThinkResponse = z.infer<typeof thinkResponseSchema>;
+export type Citation = {
+  title?: string;
+  url?: string;
+  source?: string;
+  author?: string;
+  year?: string;
+};
+export type FactCheckFinding = {
+  claim: string;
+  status: "supported" | "contradicted" | "inconclusive";
+  note?: string;
+  citations?: Array<{title?: string; url?: string; source?: string;}>;
+};

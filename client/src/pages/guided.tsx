@@ -25,6 +25,7 @@ export default function GuidedPage() {
   const [requireCounterarguments, setRequireCounterarguments] = useState(true);
   const [requireCitations, setRequireCitations] = useState(false);
   const [enableFactCheck, setEnableFactCheck] = useState(false);
+  const [enableLiveWeb, setEnableLiveWeb] = useState(false);
   const [minSources, setMinSources] = useState(3);
   const [results, setResults] = useState<ThinkResponse | null>(null);
   const { toast } = useToast();
@@ -64,8 +65,10 @@ export default function GuidedPage() {
       debate_format: debateFormat as any,
       require_evidence: requireEvidence,
       require_counterarguments: requireCounterarguments,
+      require_citations: requireCitations,
+      enable_fact_check: enableFactCheck,
+      live_web: enableLiveWeb,
       verification: {
-        require_citations: requireCitations,
         fact_check: enableFactCheck,
         min_sources: minSources,
       },
@@ -192,6 +195,15 @@ export default function GuidedPage() {
                         data-testid="switch-fact"
                       />
                       <Label htmlFor="factcheck-guided" className="text-sm">Fact-checking</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="liveweb-guided"
+                        checked={enableLiveWeb}
+                        onCheckedChange={setEnableLiveWeb}
+                        data-testid="switch-liveweb-guided"
+                      />
+                      <Label htmlFor="liveweb-guided" className="text-sm">Live Web Search</Label>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="min-sources" className="text-sm font-medium">Min Sources</Label>

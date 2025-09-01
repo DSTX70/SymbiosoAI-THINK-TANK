@@ -17,6 +17,7 @@ export default function SimplePage() {
   const [prompt, setPrompt] = useState("");
   const [requireCitations, setRequireCitations] = useState(false);
   const [enableFactCheck, setEnableFactCheck] = useState(false);
+  const [enableLiveWeb, setEnableLiveWeb] = useState(false);
   const [results, setResults] = useState<ThinkResponse | null>(null);
   const { toast } = useToast();
 
@@ -51,6 +52,7 @@ export default function SimplePage() {
       mode: "simple",
       require_citations: requireCitations,
       enable_fact_check: enableFactCheck,
+      live_web: enableLiveWeb,
       // temperature: 0.7, // Using default temperature
     };
 
@@ -102,6 +104,15 @@ export default function SimplePage() {
                       data-testid="switch-factcheck"
                     />
                     <Label htmlFor="factcheck" className="text-sm">Enable Fact-checking</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="liveweb"
+                      checked={enableLiveWeb}
+                      onCheckedChange={setEnableLiveWeb}
+                      data-testid="switch-liveweb"
+                    />
+                    <Label htmlFor="liveweb" className="text-sm">Live Web Search</Label>
                   </div>
                 </div>
                 

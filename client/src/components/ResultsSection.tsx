@@ -2,12 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Handshake, AlertTriangle, HelpCircle, Share2, Save, Printer, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { Citation } from "@shared/schema";
 
 interface ResultsSectionProps {
   consensus?: string;
   dissents?: Array<{ position: string; reasoning?: string }>;
   unresolved?: string[];
-  citations?: string[];
+  citations?: Citation[];
   isVisible?: boolean;
 }
 
@@ -58,7 +59,12 @@ export default function ResultsSection({
               <h4 className="text-sm font-medium mb-2">Citations:</h4>
               <ul className="text-xs text-muted-foreground space-y-1">
                 {citations.map((citation, index) => (
-                  <li key={index} data-testid={`citation-${index}`}>• {citation}</li>
+                  <li key={index} data-testid={`citation-${index}`}>
+                    • {citation.title || citation.source || citation.url || `Citation ${index + 1}`}
+                    {citation.url && (
+                      <a href={citation.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline ml-2">↗</a>
+                    )}
+                  </li>
                 ))}
               </ul>
             </div>

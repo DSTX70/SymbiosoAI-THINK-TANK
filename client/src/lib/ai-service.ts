@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import type { Citation, FactCheckFinding } from "@shared/schema";
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ 
@@ -42,7 +43,8 @@ export async function runMultiAgentDebate(
   consensus: string;
   dissents: Array<{ position: string; reasoning?: string }>;
   unresolved: string[];
-  citations?: string[];
+  citations?: Citation[];
+  fact_check?: { findings: FactCheckFinding[] };
 }> {
   const agents = settings.mode === "guided" ? AI_AGENTS : AI_AGENTS.slice(0, 3);
   const rounds = settings.turns || 3;
@@ -116,7 +118,8 @@ Respond only with valid JSON.`;
       consensus: result.consensus || "No clear consensus emerged from the discussion.",
       dissents: result.dissents || [],
       unresolved: result.unresolved || [],
-      citations: settings.require_citations ? ["AI-generated analysis", "Multi-agent debate synthesis"] : undefined
+      citations: await generateCitations(prompt, settings),
+      fact_check: settings.enable_fact_check ? await generateFactCheck(result.consensus || "", settings) : undefined
     };
   } catch (error) {
     console.error("Failed to parse synthesis:", error);
@@ -126,4 +129,68 @@ Respond only with valid JSON.`;
       unresolved: ["Failed to process debate synthesis"],
     };
   }
+}
+
+// Helper function to generate web-based citations using Perplexity
+async function generateCitations(prompt: string, settings: any): Promise<Citation[] | undefined> {
+  if (!settings.require_citations && !settings.live_web) {
+    return undefined;
+  }
+
+  try {
+    if (settings.live_web) {
+      // For now, return placeholder citations since Perplexity runs server-side
+      return [
+        { title: "Live web search (server-side)", source: "Perplexity integration", url: "#" }
+      ];
+    } else {
+      // Return basic AI-generated citations
+      return [
+        { title: "AI-generated analysis", source: "Multi-agent debate synthesis" }
+      ];
+    }
+  } catch (error) {
+    console.error("Failed to generate citations:", error);
+    return [{ title: "AI-generated analysis", source: "Multi-agent debate synthesis" }];
+  }
+}
+
+// Helper function to generate fact-check results
+async function generateFactCheck(consensus: string, settings: any): Promise<{ findings: FactCheckFinding[] } | undefined> {
+  if (!settings.enable_fact_check) {
+    return undefined;
+  }
+
+  try {
+    if (settings.live_web) {
+      // For now, return placeholder fact-check since Perplexity runs server-side
+      const claims = extractClaims(consensus);
+      return {
+        findings: claims.map(claim => ({
+          claim,
+          status: "inconclusive" as const,
+          note: "Live web fact-checking enabled (server-side processing)"
+        }))
+      };
+    } else {
+      // Return basic fact-check placeholder
+      return {
+        findings: [{
+          claim: "AI-generated analysis requires verification",
+          status: "inconclusive",
+          note: "Enable live web search for real-time fact-checking"
+        }]
+      };
+    }
+  } catch (error) {
+    console.error("Failed to generate fact-check:", error);
+    return { findings: [] };
+  }
+}
+
+// Helper function to extract key claims from text
+function extractClaims(text: string): string[] {
+  // Simple claim extraction - split by sentences and filter meaningful ones
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 20);
+  return sentences.slice(0, 3).map(s => s.trim());
 }

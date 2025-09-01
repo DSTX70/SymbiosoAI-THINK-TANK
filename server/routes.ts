@@ -3,6 +3,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { thinkRequestSchema, type ThinkResponse } from "@shared/schema";
 import { runMultiAgentDebate } from "../client/src/lib/ai-service";
+import { perplexityService } from "./services/perplexity";
+import type { Citation, FactCheckFinding } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Think API - Multi-agent AI debate endpoint
@@ -21,6 +23,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Run multi-agent AI debate
       const debateResult = await runMultiAgentDebate(validatedData.prompt, validatedData);
       
+      // Enhance with live web search if enabled
+      let enhancedCitations = debateResult.citations;
+      let enhancedFactCheck = debateResult.fact_check;
+      
+      if (validatedData.live_web) {
+        try {
+          // Get live web citations
+          if (validatedData.require_citations) {
+            const webCitations = await perplexityService.searchForCitations(validatedData.prompt);
+            enhancedCitations = [...(debateResult.citations || []), ...webCitations];
+          }
+          
+          // Perform live fact-checking
+          if (validatedData.enable_fact_check && debateResult.consensus) {
+            const claims = extractClaims(debateResult.consensus);
+            const factCheckFindings = await perplexityService.factCheck(claims);
+            enhancedFactCheck = {
+              findings: [...(debateResult.fact_check?.findings || []), ...factCheckFindings]
+            };
+          }
+        } catch (error) {
+          console.error("Live web enhancement failed:", error);
+        }
+      }
+      
       const endTime = Date.now();
       const duration = endTime - startTime;
 
@@ -37,7 +64,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         dissents: debateResult.dissents,
         unresolved: debateResult.unresolved,
         telemetry,
-        citations: debateResult.citations,
+        citations: enhancedCitations,
+        fact_check: enhancedFactCheck,
       };
 
       // Update session with results
@@ -83,4 +111,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
   return httpServer;
+}
+
+// Helper function to extract key claims from text for fact-checking
+function extractClaims(text: string): string[] {
+  // Simple claim extraction - split by sentences and filter meaningful ones
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 20);
+  return sentences.slice(0, 3).map(s => s.trim());
 }
