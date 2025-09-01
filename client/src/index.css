@@ -1,0 +1,223 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(40, 40%, 98%);
+  --foreground: hsl(240, 10%, 7%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(240, 10%, 7%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(240, 10%, 7%);
+  --primary: hsl(200, 100%, 50%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(174, 100%, 37%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --muted: hsl(240, 5%, 84%);
+  --muted-foreground: hsl(240, 4%, 46%);
+  --accent: hsl(174, 60%, 88%);
+  --accent-foreground: hsl(240, 10%, 7%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(240, 6%, 90%);
+  --input: hsl(240, 6%, 90%);
+  --ring: hsl(200, 100%, 50%);
+  --radius: 12px;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-serif: 'Georgia', serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* SymbiosoAi brand colors */
+  --blue: hsl(200, 100%, 50%);
+  --teal: hsl(174, 100%, 37%);
+  --slate: hsl(47, 63%, 47%);
+  --silver: hsl(240, 6%, 90%);
+  --warm: hsl(40, 40%, 98%);
+  --midnight: hsl(240, 10%, 7%);
+  --ink: hsl(240, 10%, 7%);
+}
+
+.dark {
+  --background: hsl(0, 0%, 0%);
+  --foreground: hsl(200, 7%, 91%);
+  --card: hsl(228, 10%, 10%);
+  --card-foreground: hsl(0, 0%, 85%);
+  --popover: hsl(0, 0%, 0%);
+  --popover-foreground: hsl(200, 7%, 91%);
+  --primary: hsl(204, 88%, 53%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(195, 15%, 95%);
+  --secondary-foreground: hsl(240, 10%, 7%);
+  --muted: hsl(0, 0%, 9%);
+  --muted-foreground: hsl(210, 3%, 46%);
+  --accent: hsl(206, 70%, 8%);
+  --accent-foreground: hsl(204, 88%, 53%);
+  --destructive: hsl(356, 91%, 54%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(210, 5%, 15%);
+  --input: hsl(208, 28%, 18%);
+  --ring: hsl(203, 89%, 53%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    background-image: 
+      radial-gradient(circle at 20% 10%, hsla(200, 100%, 50%, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, hsla(174, 100%, 37%, 0.06) 0%, transparent 50%),
+      repeating-linear-gradient(135deg, hsla(240, 10%, 7%, 0.02) 0px, hsla(240, 10%, 7%, 0.02) 1px, transparent 1px, transparent 40px);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .header-gradient {
+    background: linear-gradient(135deg, 
+      hsl(240, 10%, 7%) 0%, 
+      hsl(240, 15%, 9%) 50%, 
+      hsl(240, 10%, 7%) 100%);
+    border-bottom: 1px solid hsla(0, 0%, 100%, 0.1);
+  }
+
+  .brand-mark {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 20px hsla(200, 100%, 50%, 0.3);
+  }
+
+  .card-elevated {
+    @apply bg-card border border-border rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 relative overflow-hidden;
+  }
+
+  .card-elevated:hover {
+    transform: translateY(-1px);
+  }
+
+  .card-elevated::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    opacity: 0.5;
+  }
+
+  .gradient-bg {
+    background: linear-gradient(135deg, 
+      hsla(200, 100%, 50%, 0.05), 
+      hsla(174, 100%, 37%, 0.05));
+  }
+
+  .btn-primary {
+    @apply bg-gradient-to-r from-primary to-secondary text-primary-foreground border-none transition-all duration-200;
+  }
+
+  .btn-primary:hover {
+    @apply transform -translate-y-0.5;
+    background: linear-gradient(135deg, 
+      hsl(200, 100%, 45%), 
+      hsl(174, 100%, 32%));
+    box-shadow: 0 4px 12px hsla(200, 100%, 50%, 0.3);
+  }
+
+  .btn-secondary {
+    @apply bg-card text-foreground border border-border transition-all duration-200;
+  }
+
+  .btn-secondary:hover {
+    @apply bg-accent border-primary;
+  }
+
+  .processing-state {
+    background: linear-gradient(135deg, 
+      hsla(200, 100%, 50%, 0.1), 
+      hsla(174, 100%, 37%, 0.1));
+    border-left: 4px solid var(--primary);
+  }
+
+  .status-indicator {
+    @apply w-2 h-2 rounded-full inline-block mr-2;
+  }
+
+  .status-idle { @apply bg-muted; }
+  .status-processing { 
+    @apply bg-primary;
+    animation: pulse 2s infinite;
+  }
+  .status-complete { @apply bg-secondary; }
+  .status-error { @apply bg-destructive; }
+
+  .mode-pill {
+    @apply px-4 py-2 rounded-full border border-white/20 text-white no-underline transition-all duration-200 font-medium;
+  }
+
+  .mode-pill.active {
+    @apply bg-gradient-to-r from-primary to-secondary border-none;
+    box-shadow: 0 0 20px hsla(200, 100%, 50%, 0.3);
+  }
+
+  .mode-pill:not(.active):hover {
+    @apply bg-white/10 border-white/30;
+  }
+
+  .telemetry-widget {
+    background: linear-gradient(135deg, 
+      var(--card), 
+      hsla(200, 100%, 50%, 0.02));
+  }
+
+  .metric-value {
+    @apply text-2xl font-bold text-primary;
+  }
+
+  .fade-in {
+    animation: fadeIn 0.3s ease-in;
+  }
+}
+
+@layer utilities {
+  .fade-in {
+    animation: fadeIn 0.3s ease-in;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--muted);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--secondary);
+}
