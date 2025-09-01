@@ -1,0 +1,433 @@
+// SymbiosoAi ThinkTank — Streaming (SSE) + Structured Merge + External Verification
+// Pages: /simple, /guided  |  SSE: GET /api/think/stream
+//
+// ENV:
+//   OPENAI_API_KEY              (required for OpenAI)
+//   ANTHROPIC_API_KEY           (optional; adds Claude stream)
+//   VERIFY_URL                  (optional; your fact-check API endpoint, POST JSON)
+//   VERIFY_API_KEY              (optional; auth for verifier)
+//   OPENAI_MODEL                (default: gpt-4o)
+//   CLAUDE_MODEL                (default: claude-3-5-sonnet-20240620)
+//   REQUEST_TIMEOUT_MS          (default: 60000)
+//
+// RUN: npm init -y && npm i express openai @anthropic-ai/sdk && node index.js
+
+const express = require("express");
+const { OpenAI } = require("openai");
+const Anthropic = require("@anthropic-ai/sdk");
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+const ENABLE_OPENAI = !!process.env.OPENAI_API_KEY;
+const ENABLE_ANTHROPIC = !!process.env.ANTHROPIC_API_KEY;
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-3-5-sonnet-20240620";
+const VERIFY_URL = process.env.VERIFY_URL || "";
+const VERIFY_API_KEY = process.env.VERIFY_API_KEY || "";
+const REQ_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS || 60000);
+
+const openai = ENABLE_OPENAI ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const anthropic = ENABLE_ANTHROPIC ? new Anthropic.Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
+
+app.use(express.json());
+
+// ----------------- Brand CSS + Client (SSE) -----------------
+const BRAND_CSS = `
+  :root{--blue:#0099FF;--teal:#00BFA5;--silver:#C0C0C0;--warm:#F8F8F8;--midnight:#0B0B0B;--ink:#111;--muted:#6B7280;}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--warm);color:var(--ink)}
+  header{background:var(--midnight);color:#fff;padding:16px 28px;border-bottom:1px solid rgba(255,255,255,.1)}
+  .hdr{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+  .lockup{display:flex;align-items:flex-start;gap:12px}
+  .logo-mark{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at top left,var(--blue),var(--teal))}
+  .brand h1{font-family:Montserrat,sans-serif;margin:0;font-size:20px;font-weight:800}
+  .brand small{font-size:12px;opacity:.85}
+  .mode-toggle{display:flex;gap:8px}
+  .pill{padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.25);color:#fff;text-decoration:none}
+  .pill.active{background:linear-gradient(90deg,var(--blue),var(--teal));border:none}
+  main{display:grid;gap:24px;padding:28px}
+  .grid-simple{grid-template-columns:1fr 280px}
+  .grid-guided{grid-template-columns:260px 1fr 280px}
+  @media(max-width:1100px){.grid-guided{grid-template-columns:1fr}}
+  @media(max-width:980px){.grid-simple{grid-template-columns:1fr}}
+  .card{background:#fff;border:1px solid var(--silver);border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.08);padding:20px;margin-bottom:20px}
+  h2,h3{margin:0 0 10px 0;font-family:Montserrat,sans-serif}
+  h2{font-size:20px;font-weight:800} h3{font-size:16px;font-weight:700}
+  textarea{width:100%;padding:12px;border-radius:10px;border:1px solid var(--silver);font-family:inherit}
+  .btn{padding:10px 14px;border-radius:12px;font-weight:700;border:1px solid var(--silver);background:#fff;cursor:pointer}
+  .btn.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+  .export{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+  .export .btn.primary{background:var(--blue);color:#fff}
+  .toggles{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}
+  .muted{color:var(--muted)} .flash{padding:10px;border:1px solid #ffd2d2;background:#fff8f8;border-radius:10px;color:#9a1c1c}
+  .cite-list{padding-left:20px} .cite-list li{margin:.25rem 0}
+  .ok{color:#16a34a;font-weight:700} .bad{color:#b91c1c;font-weight:700}
+`;
+
+const CLIENT_JS = `
+(function(){
+  const $ = (s,r=document)=>r.querySelector(s);
+  const set = (el,html)=>el&&(el.innerHTML=html);
+
+  function connect(url, handlers){
+    const es = new EventSource(url);
+    es.addEventListener("progress", e => handlers.onProgress && handlers.onProgress(JSON.parse(e.data)));
+    es.addEventListener("delta", e => handlers.onDelta && handlers.onDelta(JSON.parse(e.data)));
+    es.addEventListener("provider", e => handlers.onProvider && handlers.onProvider(JSON.parse(e.data)));
+    es.addEventListener("final", e => { handlers.onFinal && handlers.onFinal(JSON.parse(e.data)); es.close(); });
+    es.onerror = () => { handlers.onError && handlers.onError("stream error"); es.close(); };
+    return es;
+  }
+  function urlWithParams(base, params){ return base + "?" + new URLSearchParams(params).toString(); }
+
+  // Balanced streaming UI: show deltas in a "Live" area by provider
+  const buffers = { simple:{openai:"",anthropic:""}, guided:{openai:"",anthropic:""} };
+  function appendDelta(prefix, provider, text){
+    buffers[prefix][provider] += text;
+    const id = "#"+prefix+"-live-"+provider;
+    const el = document.querySelector(id);
+    if(el) el.textContent = buffers[prefix][provider];
+  }
+  function renderCitations(list){
+    if(!list||!list.length) return "<em class='muted'>—</em>";
+    return "<ol class='cite-list'>"+list.map((c,i)=>"<li>["+(i+1)+"] "+(c.author?c.author+". ":"")+(c.title?"<strong>“"+c.title+"”</strong>. ":"")+(c.source?c.source+". ":"")+(c.year?c.year+". ":"")+(c.url?"<a href='"+c.url+"' target='_blank'>"+c.url+"</a>":"")+"</li>").join("")+"</ol>";
+  }
+  function renderFactChecks(items){
+    if(!items||!items.length) return "<em class='muted'>—</em>";
+    return "<ul class='cite-list'>"+items.map(fc=>{
+      const s=fc.status==="supported"?"<span class='ok'>✓ supported</span>":fc.status==="contradicted"?"<span class='bad'>✕ contradicted</span>":"<span class='muted'>inconclusive</span>";
+      return "<li><strong>"+(fc.claim||"")+"</strong> — "+s+(fc.note?(": "+fc.note):"")+"</li>";
+    }).join("")+"</ul>";
+  }
+
+  function wire(prefix){
+    const btn = document.getElementById("btn-"+prefix+"-run"); if(!btn) return;
+    btn.addEventListener("click", ()=>{
+      buffers[prefix].openai = ""; buffers[prefix].anthropic = "";
+      // Reset UI
+      const consensus = document.getElementById(prefix+"-consensus");
+      consensus.innerHTML = "<em class='muted'>Connecting…</em>";
+      ["dissents","unresolved","citations","fc","telemetry"].forEach(k=>set(document.getElementById(prefix+"-"+k),"—"));
+      const live = document.getElementById(prefix+"-live");
+      if(live) live.innerHTML = '<div class="muted" style="font-size:12px;margin-bottom:6px">Live (OpenAI / Anthropic)</div><pre id="'+prefix+'-live-openai" style="white-space:pre-wrap;margin:0 0 8px 0"></pre><pre id="'+prefix+'-live-anthropic" style="white-space:pre-wrap;margin:0"></pre>';
+
+      const params = { prompt: document.getElementById(prefix+"-prompt").value, mode: prefix, temperature: "0.2" };
+      if(prefix==="simple"){
+        params.require_citations = document.getElementById("simple-cite").checked ? "1" : "0";
+        params.enable_fact_check = document.getElementById("simple-fact").checked ? "1" : "0";
+      }else{
+        params.selection_mode = document.getElementById("sel-mode").value;
+        params.response_length = document.getElementById("sel-length").value;
+        params.turns = document.getElementById("inp-rounds").value;
+        params.debate_format = document.getElementById("sel-format").value;
+        params.require_evidence = document.getElementById("chk-evidence").checked ? "1" : "0";
+        params.require_counterarguments = document.getElementById("chk-counter").checked ? "1" : "0";
+        params.cite = document.getElementById("chk-cite").checked ? "1" : "0";
+        params.fact = document.getElementById("chk-fact").checked ? "1" : "0";
+        params.minsrc = document.getElementById("inp-minsrc").value;
+      }
+
+      const url = "/api/think/stream?"+new URLSearchParams(params).toString();
+      const es = connect(url,{
+        onProgress: d => consensus.innerHTML = "<em class='muted'>Processing… "+(d.pct||0)+"%</em>",
+        onDelta: d => appendDelta(prefix, d.provider, d.text || ""),
+        onFinal: d => {
+          consensus.textContent = d.consensus || "—";
+          set(document.getElementById(prefix+"-dissents"), "<ul>"+(d.dissents||[]).map(x=>"<li>"+(x.position||x)+"</li>").join("")+"</ul>");
+          set(document.getElementById(prefix+"-unresolved"), "<ul>"+(d.unresolved||[]).map(u=>"<li>"+u+"</li>").join("")+"</ul>");
+          set(document.getElementById(prefix+"-citations"), renderCitations(d.citations));
+          set(document.getElementById(prefix+"-fc"), renderFactChecks(d.fact_check?.findings));
+          set(document.getElementById(prefix+"-telemetry"), "<p class='muted'>Avg Response: "+(d.telemetry?.avg_ms||"—")+"ms</p>");
+        },
+        onError: msg => consensus.innerHTML = "<div class='flash'>"+msg+"</div>"
+      });
+    });
+  }
+  wire("simple");
+  wire("guided");
+})();
+`;
+
+// ---------------- HTML Pages ----------------
+const SIMPLE_HTML = `
+<!doctype html><html lang="en"><head>
+  <meta charset="utf-8"/><title>SymbiosoAi – Simple (Streaming + Verify)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+  <style>${BRAND_CSS}</style>
+</head><body>
+<header><div class="hdr">
+  <div class="lockup"><div class="logo-mark"></div>
+    <div class="brand"><h1>SymbiosoAi ThinkTank</h1><small>Collaborative Intelligence, redefined.</small></div>
+  </div>
+  <div class="mode-toggle"><span class="pill active">Simple</span><a class="pill" href="/guided">Guided</a></div>
+</div></header>
+<main class="grid-simple">
+  <section>
+    <div class="card"><h2>Prompt</h2>
+      <textarea id="simple-prompt" rows="4" placeholder="Describe your challenge..."></textarea>
+      <div class="toggles"><label><input id="simple-cite" type="checkbox"/> Require Citations</label><label><input id="simple-fact" type="checkbox"/> Enable Fact-check</label></div>
+      <button id="btn-simple-run" class="btn primary" style="margin-top:12px;">Start Thinking</button>
+    </div>
+    <div class="card"><h2>Results</h2>
+      <div class="card"><h3>Consensus</h3><div id="simple-consensus" class="muted">—</div></div>
+      <div class="card"><h3>Live</h3><div id="simple-live" class="muted">—</div></div>
+      <div class="card"><h3>Dissents</h3><div id="simple-dissents" class="muted">—</div></div>
+      <div class="card"><h3>Unresolved</h3><div id="simple-unresolved" class="muted">—</div></div>
+      <div class="card"><h3>Citations</h3><div id="simple-citations" class="muted">—</div></div>
+      <div class="card"><h3>Fact-Checking</h3><div id="simple-fc" class="muted">—</div></div>
+      <div class="card"><h3>Export</h3><div class="export">
+        <button class="btn">Share</button><button class="btn">Save</button>
+        <button class="btn" onclick="window.print()">Print</button><button class="btn primary">PDF</button></div>
+      </div>
+    </div>
+  </section>
+  <aside><div class="card"><h3>Telemetry</h3><div id="simple-telemetry" class="muted">—</div></div></aside>
+</main>
+<script>${CLIENT_JS}</script>
+</body></html>
+`;
+
+const GUIDED_HTML = `
+<!doctype html><html lang="en"><head>
+  <meta charset="utf-8"/><title>SymbiosoAi – Guided (Streaming + Verify)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+  <style>${BRAND_CSS}</style>
+</head><body>
+<header><div class="hdr">
+  <div class="lockup"><div class="logo-mark"></div>
+    <div class="brand"><h1>SymbiosoAi ThinkTank</h1><small>Collaborative Intelligence, redefined.</small></div>
+  </div>
+  <div class="mode-toggle"><a class="pill" href="/simple">Simple</a><span class="pill active">Guided</span></div>
+</div></header>
+<main class="grid-guided">
+  <aside><div class="card"><h3>Guided Settings</h3>
+    <label>Selection Mode<select id="sel-mode"><option selected>smart</option><option>manual</option><option>domain</option><option>usecase</option></select></label>
+    <label>Response Length<select id="sel-length"><option>brief</option><option selected>moderate</option><option>detailed</option></select></label>
+    <label>Rounds <input id="inp-rounds" type="number" value="3"/></label>
+    <label>Debate Format<select id="sel-format"><option>round-robin</option><option selected>structured</option><option>socratic</option><option>collaborative</option></select></label>
+    <div class="toggles" style="margin-top:8px"><label><input id="chk-evidence" type="checkbox" checked/> Require Evidence</label><label><input id="chk-counter" type="checkbox" checked/> Counter-arguments</label></div>
+    <h3 style="margin-top:12px">Verification</h3>
+    <div class="toggles"><label><input id="chk-cite" type="checkbox"/> Require Citations</label><label><input id="chk-fact" type="checkbox"/> Enable Fact-check</label></div>
+    <label>Min Sources <input id="inp-minsrc" type="number" value="3"/></label>
+  </div></aside>
+
+  <section>
+    <div class="card"><h2>Prompt</h2>
+      <textarea id="guided-prompt" rows="4" placeholder="Describe your challenge..."></textarea>
+      <button id="btn-guided-run" class="btn primary" style="margin-top:12px;">Start Thinking</button>
+    </div>
+
+    <div class="card"><h2>Results</h2>
+      <div class="card"><h3>Consensus</h3><div id="guided-consensus" class="muted">—</div></div>
+      <div class="card"><h3>Live</h3><div id="guided-live" class="muted">—</div></div>
+      <div class="card"><h3>Dissents</h3><div id="guided-dissents" class="muted">—</div></div>
+      <div class="card"><h3>Unresolved</h3><div id="guided-unresolved" class="muted">—</div></div>
+      <div class="card"><h3>Citations</h3><div id="guided-citations" class="muted">—</div></div>
+      <div class="card"><h3>Fact-Checking</h3><div id="guided-fc" class="muted">—</div></div>
+      <div class="card"><h3>Export</h3><div class="export">
+        <button class="btn">Share</button><button class="btn">Save</button>
+        <button class="btn" onclick="window.print()">Print</button><button class="btn primary">PDF</button></div>
+      </div>
+    </div>
+  </section>
+
+  <aside><div class="card"><h3>Telemetry</h3><div id="guided-telemetry" class="muted">—</div></div></aside>
+</main>
+<script>${CLIENT_JS}</script>
+</body></html>
+`;
+
+// ---------------- Helpers ----------------
+function withTimeout(promise, ms, label="request"){
+  return Promise.race([ promise, new Promise((_,rej)=>setTimeout(()=>rej(new Error(`Timeout after ${ms}ms (${label})`)), ms)) ]);
+}
+
+// Collect provider streams (token deltas) into strings; then structured post-process via OpenAI
+async function streamOpenAI(prompt, sys, onDelta){
+  if(!ENABLE_OPENAI) return "";
+  const stream = await openai.chat.completions.create({
+    model: OPENAI_MODEL, temperature: 0.2, stream: true,
+    messages: [{role:"system",content:sys},{role:"user",content:String(prompt)}],
+  });
+  let text = "";
+  for await (const chunk of stream) {
+    const delta = chunk.choices?.[0]?.delta?.content || "";
+    if(delta){ text += delta; onDelta(delta); }
+  }
+  return text;
+}
+
+async function streamAnthropic(prompt, sys, onDelta){
+  if(!ENABLE_ANTHROPIC) return "";
+  const stream = await anthropic.messages.stream({
+    model: CLAUDE_MODEL, max_tokens: 800, temperature: 0.2,
+    system: sys, messages:[{role:"user",content:String(prompt)}]
+  });
+  let text = "";
+  stream.on("text",(t)=>{ text += t; onDelta(t); });
+  await stream.finalMessage();
+  return text;
+}
+
+// Structured merge modeling via OpenAI: produce strict JSON fields, extract citations
+async function structuredMergeJSON(combined, prompt){
+  if(!ENABLE_OPENAI) return null;
+  const sys = [
+    "You merge multiple analysts’ raw notes into a concise JSON.",
+    "Return STRICT JSON ONLY with keys: consensus (string), dissents (string[]), unresolved (string[]), citations (array of objects with keys: author, title, source, year, url).",
+    "Citations must be standard and linkable when possible (include url).",
+    "Do not include any other keys."
+  ].join(" ");
+
+  const user = [
+    "RAW NOTES BEGIN <<<",
+    combined,
+    "RAW NOTES END >>>",
+    "",
+    "Prompt was:",
+    prompt
+  ].join("\n");
+
+  const res = await withTimeout(
+    openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+      messages: [
+        { role:"system", content: sys },
+        { role:"user", content: user }
+      ]
+    }), REQ_TIMEOUT_MS, "merge"
+  );
+  const content = res.choices?.[0]?.message?.content || "{}";
+  try { return JSON.parse(content); } catch { return null; }
+}
+
+// External verification service call (optional)
+async function verifyClaims(verifyUrl, apiKey, consensus, dissents, citations){
+  if(!verifyUrl) return { findings: [] };
+  try {
+    const payload = {
+      consensus,
+      dissents: (dissents||[]).map(d => (d.position || d)),
+      citations
+    };
+    const headers = { "Content-Type":"application/json" };
+    if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+    // Node 18+ has global fetch
+    const resp = await fetch(verifyUrl, { method:"POST", headers, body: JSON.stringify(payload) });
+    if (!resp.ok) throw new Error(`verify ${resp.status}`);
+    const data = await resp.json();
+    // Expect { findings: [{ claim, status, note, citations?[] }] }
+    if (data && Array.isArray(data.findings)) return { findings: data.findings };
+    return { findings: [] };
+  } catch {
+    // graceful fallback
+    return { findings: [] };
+  }
+}
+
+// ---------------- SSE endpoint ----------------
+app.get("/api/think/stream", async (req, res) => {
+  res.set({"Content-Type":"text/event-stream","Cache-Control":"no-cache","Connection":"keep-alive"});
+  const send = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  const keepAlive = setInterval(()=>res.write(": ping\n\n"), 15000);
+
+  const { prompt="", mode="simple", temperature="0.2" } = req.query;
+  const wantCitations = req.query.require_citations === "1" || req.query.cite === "1";
+  const wantFact = req.query.enable_fact_check === "1" || req.query.fact === "1";
+
+  if (!prompt.trim()) {
+    send("final", { consensus:"Please enter a prompt.", dissents:[], unresolved:[], citations:[], fact_check:{findings:[]}, telemetry:{avg_ms:0} });
+    clearInterval(keepAlive); return res.end();
+  }
+
+  // progress
+  let pct = 5; const prog = setInterval(()=>{ pct=Math.min(92,pct+4); send("progress",{pct}); }, 600);
+  const start = Date.now();
+
+  // Stream both providers in parallel
+  const sysAnalyst = (mode === "guided")
+    ? "You are the 'Analyst' persona in a multi-model think tank. Stream a well-structured analysis."
+    : "You are a precise analyst. Stream your analysis.";
+  const sysCritic  = (mode === "guided")
+    ? "You are the 'Critic' persona in a multi-model think tank. Stream a critical perspective."
+    : "You are a critical reviewer. Stream your analysis.";
+
+  let oaiText = "", claudeText = "";
+  const tasks = [];
+
+  if (ENABLE_OPENAI) {
+    tasks.push(
+      streamOpenAI(String(prompt), sysAnalyst, (delta)=>send("delta",{provider:"openai",text:delta}))
+        .then(t => { oaiText = t; send("provider",{provider:"openai",status:"done"}); })
+        .catch(e => send("provider",{provider:"openai",status:"error",message:e.message}))
+    );
+  }
+  if (ENABLE_ANTHROPIC) {
+    tasks.push(
+      streamAnthropic(String(prompt), sysCritic, (delta)=>send("delta",{provider:"anthropic",text:delta}))
+        .then(t => { claudeText = t; send("provider",{provider:"anthropic",status:"done"}); })
+        .catch(e => send("provider",{provider:"anthropic",status:"error",message:e.message}))
+    );
+  }
+
+  try {
+    if (tasks.length === 0) {
+      clearInterval(prog);
+      send("final", { consensus:"No AI providers configured. Set OPENAI_API_KEY/ANTHROPIC_API_KEY.", dissents:[], unresolved:[], citations:[], fact_check:{findings:[]}, telemetry:{avg_ms:0} });
+      clearInterval(keepAlive); return res.end();
+    }
+
+    await Promise.all(tasks);
+    clearInterval(prog);
+    send("progress",{pct:100});
+
+    // SECOND PASS: structured merge via OpenAI (JSON)
+    const combined = [oaiText, claudeText].filter(Boolean).join("\n\n");
+    let structured = await structuredMergeJSON(combined, String(prompt));
+
+    // Fallback if JSON pass fails
+    if (!structured) {
+      const points = (combined.match(/[-–•]\s.+/g)||[]).slice(0,4).map(t=>t.replace(/^[^a-zA-Z0-9]+/,"").trim());
+      structured = {
+        consensus: combined ? combined.split(/\n{2,}/)[0] : `Summary for “${prompt}”`,
+        dissents: points.slice(0,3),
+        unresolved: ["Clarify assumptions","Define success metrics"],
+        citations: []
+      };
+    }
+
+    // Normalize fields
+    const consensus = structured.consensus || `Summary for “${prompt}”`;
+    const dissents = (structured.dissents||[]).map(p => (typeof p === "string" ? { position:p } : p));
+    const unresolved = structured.unresolved || [];
+    const citations = wantCitations ? (structured.citations||[]) : [];
+
+    // External verification service
+    let fact_check = { findings: [] };
+    if (wantFact && VERIFY_URL) {
+      fact_check = await verifyClaims(VERIFY_URL, VERIFY_API_KEY, consensus, dissents, citations);
+    }
+
+    const elapsed = Date.now() - start;
+    send("final", { consensus, dissents, unresolved, citations, fact_check, telemetry: { avg_ms: elapsed, quality: 4.7, tps: 21 } });
+  } catch (e) {
+    send("final", { consensus:`Error: ${e.message}`, dissents:[], unresolved:[], citations:[], fact_check:{findings:[]}, telemetry:{avg_ms:0} });
+  } finally {
+    clearInterval(keepAlive);
+    res.end();
+  }
+});
+
+// ---------------- Routes ----------------
+app.get("/", (req,res)=>res.redirect("/simple"));
+app.get("/simple", (req,res)=>res.send(SIMPLE_HTML));
+app.get("/guided", (req,res)=>res.send(GUIDED_HTML));
+
+app.listen(PORT, () => {
+  console.log(`SymbiosoAi SSE (OpenAI + Anthropic + Structured Merge + Verify) at http://localhost:${PORT}`);
+  if(!ENABLE_OPENAI) console.log("⚠️ OPENAI_API_KEY missing — OpenAI disabled");
+  if(!ENABLE_ANTHROPIC) console.log("⚠️ ANTHROPIC_API_KEY missing — Anthropic disabled");
+  if(!VERIFY_URL) console.log("ℹ️ VERIFY_URL not set — external fact-check disabled");
+});
