@@ -68,11 +68,9 @@ class PerplexityService {
           max_tokens: 500,
           temperature: 0.2,
           top_p: 0.9,
-          search_domain_filter: [],
           return_images: false,
           return_related_questions: false,
           search_recency_filter: "month",
-          top_k: 0,
           stream: false,
           presence_penalty: 0,
           frequency_penalty: 1

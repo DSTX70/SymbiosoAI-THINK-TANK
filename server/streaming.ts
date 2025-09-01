@@ -3,6 +3,13 @@ import type { Express, Request, Response } from "express";
 import { perplexityService } from "./services/perplexity";
 import type { Citation, FactCheckFinding } from "@shared/schema";
 
+// --- Verification service configuration ---
+const VERIFY_URL = process.env.VERIFY_URL || "";
+const VERIFY_API_KEY = process.env.VERIFY_API_KEY || "";
+const VERIFY_TIMEOUT_MS = Number(process.env.VERIFY_TIMEOUT_MS || 10000);
+const VERIFY_RETRY_MAX = Number(process.env.VERIFY_RETRY_MAX || 2);
+const VERIFY_RETRY_BASE_MS = Number(process.env.VERIFY_RETRY_BASE_MS || 400);
+
 const openai = new OpenAI({ 
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -36,6 +43,68 @@ function extractClaims(text: string): string[] {
   return sentences.slice(0, 3).map(s => s.trim());
 }
 
+// --- Hardened verification call with timeout + retries ---
+async function verifyClaims({ consensus, dissents, citations }: {
+  consensus: string;
+  dissents: Array<{ position: string; reasoning?: string }>;
+  citations: Citation[];
+}): Promise<{ findings: FactCheckFinding[] }> {
+  if (!VERIFY_URL) return { findings: [] };
+
+  const payload = {
+    consensus,
+    dissents: (dissents || []).map(d => (d.position || d)), // flatten to strings
+    citations: citations || []
+  };
+
+  for (let attempt = 0; attempt <= VERIFY_RETRY_MAX; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), VERIFY_TIMEOUT_MS);
+
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (VERIFY_API_KEY) headers["Authorization"] = `Bearer ${VERIFY_API_KEY}`;
+
+      const resp = await fetch(VERIFY_URL, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+
+      clearTimeout(timer);
+
+      // 4xx → do not retry (client/config error)
+      if (resp.status >= 400 && resp.status < 500) {
+        const errBody = await resp.text().catch(() => "");
+        console.warn("Verifier 4xx:", resp.status, errBody.slice(0, 240));
+        return { findings: [] };
+      }
+
+      if (!resp.ok) throw new Error(`Verifier ${resp.status}`);
+
+      const data = await resp.json().catch(() => ({}));
+      if (Array.isArray(data.findings)) return { findings: data.findings };
+
+      return { findings: [] }; // unexpected shape
+    } catch (err: any) {
+      clearTimeout(timer);
+      const isLast = attempt === VERIFY_RETRY_MAX;
+      const isAbort = err?.name === "AbortError";
+      const backoff = VERIFY_RETRY_BASE_MS * Math.pow(2, attempt); // 400, 800, 1600…
+
+      console.warn(`verify attempt ${attempt + 1} failed:`, err?.message || err);
+
+      if (isLast || isAbort) {
+        return { findings: [] }; // graceful fallback
+      }
+      await new Promise(r => setTimeout(r, backoff));
+    }
+  }
+
+  return { findings: [] };
+}
+
 // Multi-agent streaming debate
 async function runStreamingDebate(ctx: StreamingContext) {
   const { res, prompt, settings } = ctx;
@@ -65,7 +134,7 @@ async function runStreamingDebate(ctx: StreamingContext) {
 
   const rounds = parseInt(settings.turns) || 3;
   let debate_history: Array<{ agent: string; response: string }> = [];
-  let totalSteps = agents.length * rounds + 3; // +3 for synthesis, claims, fact-check
+  let totalSteps = agents.length * rounds + 4; // +4 for synthesis, claims, fact-check, verification
   let currentStep = 0;
 
   sendSSE(res, "ready", { agents: agents.length, rounds, totalSteps });
@@ -223,6 +292,22 @@ Respond only with valid JSON.`;
     }
   }
 
+  // External verification step
+  let verificationFindings: FactCheckFinding[] = [];
+  if (VERIFY_URL) {
+    currentStep++;
+    sendSSE(res, "progress", { pct: Math.round((currentStep / totalSteps) * 100), step: "External Verification" });
+    
+    try {
+      const verificationResult = await verifyClaims({ consensus, dissents, citations });
+      verificationFindings = verificationResult.findings || [];
+      sendSSE(res, "step", { step: "verification", findings: verificationFindings });
+    } catch (error) {
+      console.error("External verification failed:", error);
+      sendSSE(res, "step", { step: "verification", error: "Verification service unavailable" });
+    }
+  }
+
   // Final telemetry and response
   const telemetry = {
     avg_ms: Date.now() - parseInt(ctx.sessionId), // Rough timing
@@ -236,7 +321,9 @@ Respond only with valid JSON.`;
     dissents,
     unresolved,
     citations,
-    fact_check: factCheckFindings.length > 0 ? { findings: factCheckFindings } : undefined,
+    fact_check: (factCheckFindings.length > 0 || verificationFindings.length > 0) ? { 
+      findings: [...factCheckFindings, ...verificationFindings] 
+    } : undefined,
     telemetry,
     claims,
     timestamp: new Date().toISOString(),

@@ -1,0 +1,64 @@
+// --- Configurable envs ---
+const VERIFY_URL = process.env.VERIFY_URL || "";         // e.g., https://your-verifier/verify
+const VERIFY_API_KEY = process.env.VERIFY_API_KEY || ""; // optional
+const VERIFY_TIMEOUT_MS = Number(process.env.VERIFY_TIMEOUT_MS || 10000);
+const VERIFY_RETRY_MAX = Number(process.env.VERIFY_RETRY_MAX || 2);
+const VERIFY_RETRY_BASE_MS = Number(process.env.VERIFY_RETRY_BASE_MS || 400);
+
+// --- Hardened verification call with timeout + retries ---
+async function verifyClaims({ consensus, dissents, citations }) {
+  if (!VERIFY_URL) return { findings: [] };
+
+  const payload = {
+    consensus,
+    dissents: (dissents || []).map(d => (d.position || d)), // flatten to strings
+    citations: citations || []
+  };
+
+  for (let attempt = 0; attempt <= VERIFY_RETRY_MAX; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), VERIFY_TIMEOUT_MS);
+
+    try {
+      const headers = { "Content-Type": "application/json" };
+      if (VERIFY_API_KEY) headers["Authorization"] = `Bearer ${VERIFY_API_KEY}`;
+
+      const resp = await fetch(VERIFY_URL, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+
+      clearTimeout(timer);
+
+      // 4xx → do not retry (client/config error)
+      if (resp.status >= 400 && resp.status < 500) {
+        const errBody = await resp.text().catch(() => "");
+        console.warn("Verifier 4xx:", resp.status, errBody.slice(0, 240));
+        return { findings: [] };
+      }
+
+      if (!resp.ok) throw new Error(`Verifier ${resp.status}`);
+
+      const data = await resp.json().catch(() => ({}));
+      if (Array.isArray(data.findings)) return { findings: data.findings };
+
+      return { findings: [] }; // unexpected shape
+    } catch (err) {
+      clearTimeout(timer);
+      const isLast = attempt === VERIFY_RETRY_MAX;
+      const isAbort = err?.name === "AbortError";
+      const backoff = VERIFY_RETRY_BASE_MS * Math.pow(2, attempt); // 400, 800, 1600…
+
+      console.warn(`verify attempt ${attempt + 1} failed:`, err?.message || err);
+
+      if (isLast || isAbort) {
+        return { findings: [] }; // graceful fallback
+      }
+      await new Promise(r => setTimeout(r, backoff));
+    }
+  }
+
+  return { findings: [] };
+}

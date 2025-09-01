@@ -6,10 +6,31 @@ import { runMultiAgentDebate } from "../client/src/lib/ai-service";
 import { perplexityService } from "./services/perplexity";
 import { registerStreamingRoutes } from "./streaming";
 import type { Citation, FactCheckFinding } from "@shared/schema";
+import express from "express";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register SSE streaming routes
   registerStreamingRoutes(app);
+  
+  // DEV ONLY: mock verifier to keep demos reliable
+  app.post("/dev-verify", express.json(), (req, res) => {
+    const { consensus = "", dissents = [], citations = [] } = req.body || {};
+    res.json({
+      findings: [
+        {
+          claim: "Compressed weeks reduce attrition",
+          status: "supported",
+          note: "Multiple trials point to improved retention",
+          citations: citations.slice(0, 1)
+        },
+        {
+          claim: "Always increases burnout",
+          status: "contradicted",
+          note: "Outcome depends on guardrails and overlap windows"
+        }
+      ]
+    });
+  });
   
   // Think API - Multi-agent AI debate endpoint
   app.post("/api/think", async (req, res) => {

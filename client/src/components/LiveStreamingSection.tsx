@@ -47,6 +47,12 @@ export default function LiveStreamingSection({
   const [claims, setClaims] = useState<string[]>([]);
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState("");
+  const [verificationFindings, setVerificationFindings] = useState<Array<{
+    claim: string;
+    status: "supported" | "contradicted" | "inconclusive";
+    note?: string;
+    citations?: Array<{title?: string; url?: string; source?: string;}>;
+  }>>([]);
 
   const openaiRef = useRef<HTMLDivElement>(null);
   const claudeRef = useRef<HTMLDivElement>(null);
@@ -93,6 +99,7 @@ export default function LiveStreamingSection({
     setClaims([]);
     setProgress(0);
     setCurrentStep("");
+    setVerificationFindings([]);
 
     const eventSource = new EventSource(streamUrl);
 
@@ -127,6 +134,11 @@ export default function LiveStreamingSection({
       const data = JSON.parse(event.data);
       if (data.step === "claims") {
         setClaims(data.claims || []);
+      } else if (data.step === "verification") {
+        setVerificationFindings(data.findings || []);
+        if (data.error) {
+          setCurrentStep(`Verification: ${data.error}`);
+        }
       }
     });
 
@@ -234,6 +246,42 @@ export default function LiveStreamingSection({
                   {claims.map((claim, index) => (
                     <li key={index} className="p-2 bg-blue-50 dark:bg-blue-950/20 rounded">
                       • {claim}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {verificationFindings.length > 0 && (
+              <div className="pt-4 border-t border-border">
+                <h4 className="font-medium mb-2">External Verification:</h4>
+                <ul className="text-sm space-y-2">
+                  {verificationFindings.map((finding, index) => (
+                    <li key={index} className={`p-3 rounded border-l-4 ${
+                      finding.status === 'supported' ? 'bg-green-50 dark:bg-green-950/20 border-l-green-500' :
+                      finding.status === 'contradicted' ? 'bg-red-50 dark:bg-red-950/20 border-l-red-500' :
+                      'bg-yellow-50 dark:bg-yellow-950/20 border-l-yellow-500'
+                    }`}>
+                      <div className="flex items-start gap-2">
+                        <span className={`inline-block w-2 h-2 rounded-full mt-2 ${
+                          finding.status === 'supported' ? 'bg-green-500' :
+                          finding.status === 'contradicted' ? 'bg-red-500' :
+                          'bg-yellow-500'
+                        }`} />
+                        <div>
+                          <div className="font-medium">{finding.claim}</div>
+                          <div className={`text-xs uppercase tracking-wide font-semibold ${
+                            finding.status === 'supported' ? 'text-green-700 dark:text-green-400' :
+                            finding.status === 'contradicted' ? 'text-red-700 dark:text-red-400' :
+                            'text-yellow-700 dark:text-yellow-400'
+                          }`}>
+                            {finding.status}
+                          </div>
+                          {finding.note && (
+                            <div className="text-muted-foreground mt-1">{finding.note}</div>
+                          )}
+                        </div>
+                      </div>
                     </li>
                   ))}
                 </ul>
