@@ -51,7 +51,7 @@ export default function SimplePage() {
       mode: "simple",
       require_citations: requireCitations,
       enable_fact_check: enableFactCheck,
-      temperature: 0.7,
+      // temperature: 0.7, // Using default temperature
     };
 
     thinkMutation.mutate(requestData);
