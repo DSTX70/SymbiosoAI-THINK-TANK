@@ -221,47 +221,63 @@ function getAgentConfiguration(settings: any): AgentConfig[] {
     }
   };
 
-  // Use case configurations
+  // Hybrid use case configurations: auto-select agents + specialized prompts
   const useCaseConfigs = {
-    strategic_planning: {
-      analyst: "Focus on market analysis, competitive positioning, and strategic options evaluation.",
-      critic: "Challenge strategic assumptions, identify risks, and explore alternative strategic directions.",
-      synthesizer: "Integrate strategic perspectives into coherent strategic recommendations."
+    business_analysis: {
+      autoSelectAgents: ["analyst", "pragmatist", "critic"],
+      specializedPrompts: {
+        analyst: "Focus on market analysis, competitive positioning, data-driven business insights, and quantitative evaluation.",
+        pragmatist: "Provide practical implementation guidance, real-world constraints, and actionable business recommendations.",
+        critic: "Challenge business assumptions, identify market risks, competitive threats, and strategic vulnerabilities."
+      }
     },
-    risk_analysis: {
-      analyst: "Systematically identify, categorize, and quantify potential risks and their impacts.",
-      critic: "Challenge risk assessments, identify overlooked risks, and question mitigation strategies.",
-      synthesizer: "Develop comprehensive risk management frameworks and balanced recommendations."
+    technical_debate: {
+      autoSelectAgents: ["analyst", "critic", "pragmatist"],
+      specializedPrompts: {
+        analyst: "Provide systematic technical analysis, architectural evaluation, and evidence-based engineering insights.",
+        critic: "Challenge technical assumptions, identify potential failures, security risks, and design flaws.",
+        pragmatist: "Focus on implementation feasibility, resource constraints, maintenance considerations, and practical solutions."
+      }
     },
-    innovation_review: {
-      analyst: "Evaluate innovation potential, market readiness, and implementation feasibility.",
-      critic: "Challenge innovation assumptions, identify barriers, and explore alternative approaches.",
-      synthesizer: "Balance innovation opportunities with practical constraints and resource requirements."
-    },
-    decision_making: {
-      analyst: "Structure decision criteria, evaluate options systematically, and provide decision matrices.",
-      critic: "Challenge decision criteria, identify biases, and explore unintended consequences.",
-      synthesizer: "Facilitate balanced decision-making with clear recommendations and trade-offs."
-    },
-    problem_solving: {
-      analyst: "Break down complex problems, identify root causes, and structure solution approaches.",
-      critic: "Challenge problem definitions, question solution assumptions, and identify potential pitfalls.",
-      synthesizer: "Integrate problem analysis into comprehensive, actionable solution frameworks."
+    creative_brainstorm: {
+      autoSelectAgents: ["innovator", "pragmatist", "thoughtful"],
+      specializedPrompts: {
+        innovator: "Generate creative solutions, explore unconventional approaches, and push boundaries of traditional thinking.",
+        pragmatist: "Evaluate creative ideas for feasibility, provide grounding in practical constraints, and suggest implementation paths.",
+        thoughtful: "Consider diverse stakeholder perspectives, ethical implications, and balanced approaches to creative solutions."
+      }
     },
     research_synthesis: {
-      analyst: "Systematically review evidence, identify patterns, and structure research findings.",
-      critic: "Evaluate research quality, identify gaps, and challenge conclusions.",
-      synthesizer: "Integrate research findings into coherent insights and recommendations."
+      autoSelectAgents: ["analyst", "thoughtful", "research-scientist"],
+      specializedPrompts: {
+        analyst: "Systematically review evidence, identify patterns, and structure research findings with quantitative rigor.",
+        thoughtful: "Consider research implications, stakeholder impacts, and ethical dimensions of findings.",
+        "research-scientist": "Evaluate research methodology, assess evidence quality, and identify gaps in the literature."
+      }
     },
-    ethical_review: {
-      analyst: "Identify ethical implications, stakeholder impacts, and moral considerations systematically.",
-      critic: "Challenge ethical reasoning, explore moral dilemmas, and identify potential conflicts.",
-      synthesizer: "Balance ethical perspectives with practical constraints and stakeholder needs."
+    ethical_discussion: {
+      autoSelectAgents: ["thoughtful", "critic", "analyst"],
+      specializedPrompts: {
+        thoughtful: "Explore ethical frameworks, stakeholder perspectives, and moral implications with nuanced reasoning.",
+        critic: "Challenge ethical assumptions, identify moral dilemmas, and explore potential conflicts or unintended consequences.",
+        analyst: "Provide systematic ethical analysis, evaluate trade-offs, and structure moral reasoning with evidence."
+      }
     },
-    market_research: {
-      analyst: "Analyze market data, consumer trends, and competitive landscapes systematically.",
-      critic: "Challenge market assumptions, identify blind spots, and explore alternative market interpretations.",
-      synthesizer: "Integrate market insights into actionable business intelligence and strategic recommendations."
+    document_analysis: {
+      autoSelectAgents: ["analyst", "thoughtful", "research-scientist"],
+      specializedPrompts: {
+        analyst: "Systematically analyze document content, structure, and key insights with methodical evaluation.",
+        thoughtful: "Consider document context, implications, and stakeholder perspectives in the analysis.",
+        "research-scientist": "Evaluate document quality, assess evidence presented, and identify methodological strengths and weaknesses."
+      }
+    },
+    general_inquiry: {
+      autoSelectAgents: ["analyst", "pragmatist", "thoughtful"],
+      specializedPrompts: {
+        analyst: "Provide systematic analysis and evidence-based insights for comprehensive understanding.",
+        pragmatist: "Focus on practical applications, real-world implications, and actionable guidance.",
+        thoughtful: "Consider multiple perspectives, ethical dimensions, and balanced approaches to the inquiry."
+      }
     }
   };
 
@@ -296,12 +312,24 @@ function getAgentConfiguration(settings: any): AgentConfig[] {
       break;
 
     case "usecase":
-      const useCaseConfig = useCaseConfigs[usecase_type as keyof typeof useCaseConfigs] || useCaseConfigs.strategic_planning;
-      selectedAgents = [
-        { ...generalPersonalities.analyst, systemPrompt: `${generalPersonalities.analyst.systemPrompt} For this ${usecase_type?.replace('_', ' ')} use case: ${useCaseConfig.analyst}` },
-        { ...generalPersonalities.critic, systemPrompt: `${generalPersonalities.critic.systemPrompt} For this ${usecase_type?.replace('_', ' ')} use case: ${useCaseConfig.critic}` },
-        { ...generalPersonalities.synthesizer, systemPrompt: `${generalPersonalities.synthesizer.systemPrompt} For this ${usecase_type?.replace('_', ' ')} use case: ${useCaseConfig.synthesizer}` }
-      ];
+      const useCaseConfig = useCaseConfigs[usecase_type as keyof typeof useCaseConfigs] || useCaseConfigs.business_analysis;
+      
+      // Auto-select agents based on use case
+      selectedAgents = useCaseConfig.autoSelectAgents.map((agentId: string) => {
+        const baseAgent = generalPersonalities[agentId as keyof typeof generalPersonalities] || 
+                          domainExpertProfiles[agentId as keyof typeof domainExpertProfiles];
+        
+        if (baseAgent && useCaseConfig.specializedPrompts[agentId]) {
+          return {
+            ...baseAgent,
+            systemPrompt: `${baseAgent.systemPrompt} For this ${usecase_type?.replace('_', ' ')} use case: ${useCaseConfig.specializedPrompts[agentId]}`
+          };
+        }
+        return baseAgent;
+      }).filter(Boolean);
+      
+      // Always include synthesizer for quality conclusions
+      selectedAgents.push(generalPersonalities.synthesizer);
       break;
 
     case "smart":

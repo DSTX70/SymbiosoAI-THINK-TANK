@@ -33,7 +33,7 @@ export default function GuidedPage() {
   // Agent selection subchoices
   const [manualAgents, setManualAgents] = useState<("analyst" | "pragmatist" | "innovator" | "thoughtful" | "critic")[]>(["analyst", "critic"]);
   const [domainExperts, setDomainExperts] = useState<string[]>([]);
-  const [useCaseType, setUseCaseType] = useState<"strategic_planning" | "risk_analysis" | "innovation_review" | "decision_making" | "problem_solving" | "research_synthesis" | "ethical_review" | "market_research">("strategic_planning");
+  const [useCaseType, setUseCaseType] = useState<"business_analysis" | "technical_debate" | "creative_brainstorm" | "research_synthesis" | "ethical_discussion" | "document_analysis" | "general_inquiry">("business_analysis");
   const [results, setResults] = useState<ThinkResponse | null>(null);
   const [streamingResult, setStreamingResult] = useState<any>(null);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -557,52 +557,46 @@ export default function GuidedPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="strategic_planning">
+                        <SelectItem value="business_analysis">
                           <div className="space-y-1">
-                            <div className="font-medium">Strategic Planning</div>
-                            <div className="text-xs text-muted-foreground">Long-term vision, competitive positioning, resource allocation</div>
+                            <div className="font-medium">Business Analysis</div>
+                            <div className="text-xs text-muted-foreground">Auto-selects: Analyst + Pragmatist + Critic • Market research, strategy development, competitive analysis</div>
                           </div>
                         </SelectItem>
-                        <SelectItem value="risk_analysis">
+                        <SelectItem value="technical_debate">
                           <div className="space-y-1">
-                            <div className="font-medium">Risk Analysis</div>
-                            <div className="text-xs text-muted-foreground">Threat assessment, vulnerability analysis, mitigation strategies</div>
+                            <div className="font-medium">Technical Debate</div>
+                            <div className="text-xs text-muted-foreground">Auto-selects: Analyst + Critic + Pragmatist • Engineering discussions, architecture decisions, technical analysis</div>
                           </div>
                         </SelectItem>
-                        <SelectItem value="innovation_review">
+                        <SelectItem value="creative_brainstorm">
                           <div className="space-y-1">
-                            <div className="font-medium">Innovation Review</div>
-                            <div className="text-xs text-muted-foreground">Technology evaluation, market readiness, innovation potential</div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="decision_making">
-                          <div className="space-y-1">
-                            <div className="font-medium">Decision Making</div>
-                            <div className="text-xs text-muted-foreground">Options analysis, criteria evaluation, outcome prediction</div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="problem_solving">
-                          <div className="space-y-1">
-                            <div className="font-medium">Problem Solving</div>
-                            <div className="text-xs text-muted-foreground">Root cause analysis, solution design, implementation planning</div>
+                            <div className="font-medium">Creative Brainstorm</div>
+                            <div className="text-xs text-muted-foreground">Auto-selects: Innovator + Pragmatist + Thoughtful One • Innovation, ideation, creative problem-solving</div>
                           </div>
                         </SelectItem>
                         <SelectItem value="research_synthesis">
                           <div className="space-y-1">
                             <div className="font-medium">Research Synthesis</div>
-                            <div className="text-xs text-muted-foreground">Literature review, evidence integration, research gaps</div>
+                            <div className="text-xs text-muted-foreground">Auto-selects: Analyst + Thoughtful One + Research Scientist • Literature review, data analysis, evidence compilation</div>
                           </div>
                         </SelectItem>
-                        <SelectItem value="ethical_review">
+                        <SelectItem value="ethical_discussion">
                           <div className="space-y-1">
-                            <div className="font-medium">Ethical Review</div>
-                            <div className="text-xs text-muted-foreground">Moral implications, stakeholder impact, ethical frameworks</div>
+                            <div className="font-medium">Ethical Discussion</div>
+                            <div className="text-xs text-muted-foreground">Auto-selects: Thoughtful One + Critic + Analyst • Moral reasoning, value systems, ethical frameworks</div>
                           </div>
                         </SelectItem>
-                        <SelectItem value="market_research">
+                        <SelectItem value="document_analysis">
                           <div className="space-y-1">
-                            <div className="font-medium">Market Research</div>
-                            <div className="text-xs text-muted-foreground">Consumer insights, market trends, competitive landscape</div>
+                            <div className="font-medium">Document Analysis</div>
+                            <div className="text-xs text-muted-foreground">Auto-selects: Analyst + Thoughtful One + Research Scientist • Text review, content analysis, document processing</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="general_inquiry">
+                          <div className="space-y-1">
+                            <div className="font-medium">General Inquiry</div>
+                            <div className="text-xs text-muted-foreground">Auto-selects: Analyst + Pragmatist + Thoughtful One • Open-ended questions, general knowledge, exploratory discussions</div>
                           </div>
                         </SelectItem>
                       </SelectContent>

@@ -56,7 +56,7 @@ export const thinkRequestSchema = z.object({
     "behavioral-analyst",
     "sustainability-consultant"
   ])).optional(),
-  usecase_type: z.enum(["strategic_planning", "risk_analysis", "innovation_review", "decision_making", "problem_solving", "research_synthesis", "ethical_review", "market_research"]).optional(),
+  usecase_type: z.enum(["business_analysis", "technical_debate", "creative_brainstorm", "research_synthesis", "ethical_discussion", "document_analysis", "general_inquiry"]).optional(),
   response_length: z.enum(["brief", "moderate", "detailed"]).optional(),
   turns: z.number().min(1).max(10).optional(),
   debate_format: z.enum(["round-robin", "structured", "socratic", "collaborative"]).optional(),
