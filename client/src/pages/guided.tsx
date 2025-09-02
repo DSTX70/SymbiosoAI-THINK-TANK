@@ -32,8 +32,8 @@ export default function GuidedPage() {
   
   // Agent selection subchoices
   const [manualAgents, setManualAgents] = useState<("analyst" | "critic" | "synthesizer" | "domain_expert")[]>(["analyst", "critic", "synthesizer"]);
-  const [domainExpertType, setDomainExpertType] = useState<"technology" | "business" | "healthcare" | "legal" | "finance" | "education" | "science" | "marketing">("technology");
-  const [useCaseType, setUseCaseType] = useState<"strategic_planning" | "risk_analysis" | "innovation_review" | "decision_making" | "problem_solving" | "research_synthesis">("strategic_planning");
+  const [domainExpertType, setDomainExpertType] = useState<"technology" | "business" | "healthcare" | "legal" | "finance" | "education" | "science" | "marketing" | "sustainability" | "psychology">("technology");
+  const [useCaseType, setUseCaseType] = useState<"strategic_planning" | "risk_analysis" | "innovation_review" | "decision_making" | "problem_solving" | "research_synthesis" | "ethical_review" | "market_research">("strategic_planning");
   const [results, setResults] = useState<ThinkResponse | null>(null);
   const [streamingResult, setStreamingResult] = useState<any>(null);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -167,10 +167,30 @@ export default function GuidedPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="smart">Smart Selection</SelectItem>
-                      <SelectItem value="manual">Manual</SelectItem>
-                      <SelectItem value="domain">Domain Expert</SelectItem>
-                      <SelectItem value="usecase">Use Case Driven</SelectItem>
+                      <SelectItem value="smart">
+                        <div className="space-y-1">
+                          <div className="font-medium">Smart Selection</div>
+                          <div className="text-xs text-muted-foreground">AI automatically selects optimal agents based on your prompt</div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="manual">
+                        <div className="space-y-1">
+                          <div className="font-medium">Manual</div>
+                          <div className="text-xs text-muted-foreground">Choose exactly which AI agents participate in the debate</div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="domain">
+                        <div className="space-y-1">
+                          <div className="font-medium">Domain Expert</div>
+                          <div className="text-xs text-muted-foreground">Focus on specialized knowledge in specific fields</div>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="usecase">
+                        <div className="space-y-1">
+                          <div className="font-medium">Use Case Driven</div>
+                          <div className="text-xs text-muted-foreground">Optimize agent behavior for specific analytical goals</div>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -181,10 +201,26 @@ export default function GuidedPage() {
                     <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">Select Agents</Label>
                     <div className="space-y-2">
                       {[
-                        { id: "analyst", label: "Analyst - Data & Logic" },
-                        { id: "critic", label: "Critic - Alternative Views" },
-                        { id: "synthesizer", label: "Synthesizer - Integration" },
-                        { id: "domain_expert", label: "Domain Expert - Specialized Knowledge" }
+                        { 
+                          id: "analyst", 
+                          label: "Analyst", 
+                          description: "Data-driven analysis, evidence evaluation, logical reasoning"
+                        },
+                        { 
+                          id: "critic", 
+                          label: "Critic", 
+                          description: "Challenge assumptions, identify flaws, alternative perspectives"
+                        },
+                        { 
+                          id: "synthesizer", 
+                          label: "Synthesizer", 
+                          description: "Build consensus, integrate viewpoints, resolve conflicts"
+                        },
+                        { 
+                          id: "domain_expert", 
+                          label: "Domain Expert", 
+                          description: "Specialized knowledge, industry expertise, best practices"
+                        }
                       ].map(agent => (
                         <div key={agent.id} className="flex items-center space-x-2">
                           <Switch
@@ -200,7 +236,10 @@ export default function GuidedPage() {
                             }}
                             data-testid={`switch-agent-${agent.id}`}
                           />
-                          <Label htmlFor={`agent-${agent.id}`} className="text-sm">{agent.label}</Label>
+                          <Label htmlFor={`agent-${agent.id}`} className="text-sm">
+                            <div className="font-medium">{agent.label}</div>
+                            <div className="text-xs text-muted-foreground">{agent.description}</div>
+                          </Label>
                         </div>
                       ))}
                     </div>
@@ -216,14 +255,66 @@ export default function GuidedPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="technology">Technology & Engineering</SelectItem>
-                        <SelectItem value="business">Business & Strategy</SelectItem>
-                        <SelectItem value="healthcare">Healthcare & Medicine</SelectItem>
-                        <SelectItem value="legal">Legal & Compliance</SelectItem>
-                        <SelectItem value="finance">Finance & Economics</SelectItem>
-                        <SelectItem value="education">Education & Learning</SelectItem>
-                        <SelectItem value="science">Science & Research</SelectItem>
-                        <SelectItem value="marketing">Marketing & Communications</SelectItem>
+                        <SelectItem value="technology">
+                          <div className="space-y-1">
+                            <div className="font-medium">Technology & Engineering</div>
+                            <div className="text-xs text-muted-foreground">Software, AI/ML, cybersecurity, system architecture</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="business">
+                          <div className="space-y-1">
+                            <div className="font-medium">Business & Strategy</div>
+                            <div className="text-xs text-muted-foreground">Market analysis, competitive intelligence, operations</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="healthcare">
+                          <div className="space-y-1">
+                            <div className="font-medium">Healthcare & Medicine</div>
+                            <div className="text-xs text-muted-foreground">Medical research, patient care, health policy</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="legal">
+                          <div className="space-y-1">
+                            <div className="font-medium">Legal & Compliance</div>
+                            <div className="text-xs text-muted-foreground">Regulations, risk assessment, legal precedents</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="finance">
+                          <div className="space-y-1">
+                            <div className="font-medium">Finance & Economics</div>
+                            <div className="text-xs text-muted-foreground">Financial analysis, investment strategy, market dynamics</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="education">
+                          <div className="space-y-1">
+                            <div className="font-medium">Education & Learning</div>
+                            <div className="text-xs text-muted-foreground">Pedagogical methods, curriculum design, learning technologies</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="science">
+                          <div className="space-y-1">
+                            <div className="font-medium">Science & Research</div>
+                            <div className="text-xs text-muted-foreground">Research methodology, peer review, evidence evaluation</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="marketing">
+                          <div className="space-y-1">
+                            <div className="font-medium">Marketing & Communications</div>
+                            <div className="text-xs text-muted-foreground">Brand strategy, consumer behavior, digital marketing</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="sustainability">
+                          <div className="space-y-1">
+                            <div className="font-medium">Sustainability & Environment</div>
+                            <div className="text-xs text-muted-foreground">Environmental impact, green technologies, ESG practices</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="psychology">
+                          <div className="space-y-1">
+                            <div className="font-medium">Psychology & Behavior</div>
+                            <div className="text-xs text-muted-foreground">Human behavior, cognitive science, user experience</div>
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -238,12 +329,54 @@ export default function GuidedPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="strategic_planning">Strategic Planning</SelectItem>
-                        <SelectItem value="risk_analysis">Risk Analysis</SelectItem>
-                        <SelectItem value="innovation_review">Innovation Review</SelectItem>
-                        <SelectItem value="decision_making">Decision Making</SelectItem>
-                        <SelectItem value="problem_solving">Problem Solving</SelectItem>
-                        <SelectItem value="research_synthesis">Research Synthesis</SelectItem>
+                        <SelectItem value="strategic_planning">
+                          <div className="space-y-1">
+                            <div className="font-medium">Strategic Planning</div>
+                            <div className="text-xs text-muted-foreground">Long-term vision, competitive positioning, resource allocation</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="risk_analysis">
+                          <div className="space-y-1">
+                            <div className="font-medium">Risk Analysis</div>
+                            <div className="text-xs text-muted-foreground">Threat assessment, vulnerability analysis, mitigation strategies</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="innovation_review">
+                          <div className="space-y-1">
+                            <div className="font-medium">Innovation Review</div>
+                            <div className="text-xs text-muted-foreground">Technology evaluation, market readiness, innovation potential</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="decision_making">
+                          <div className="space-y-1">
+                            <div className="font-medium">Decision Making</div>
+                            <div className="text-xs text-muted-foreground">Options analysis, criteria evaluation, outcome prediction</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="problem_solving">
+                          <div className="space-y-1">
+                            <div className="font-medium">Problem Solving</div>
+                            <div className="text-xs text-muted-foreground">Root cause analysis, solution design, implementation planning</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="research_synthesis">
+                          <div className="space-y-1">
+                            <div className="font-medium">Research Synthesis</div>
+                            <div className="text-xs text-muted-foreground">Literature review, evidence integration, research gaps</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="ethical_review">
+                          <div className="space-y-1">
+                            <div className="font-medium">Ethical Review</div>
+                            <div className="text-xs text-muted-foreground">Moral implications, stakeholder impact, ethical frameworks</div>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="market_research">
+                          <div className="space-y-1">
+                            <div className="font-medium">Market Research</div>
+                            <div className="text-xs text-muted-foreground">Consumer insights, market trends, competitive landscape</div>
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

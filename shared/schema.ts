@@ -44,8 +44,8 @@ export const thinkRequestSchema = z.object({
   
   // Agent selection subchoices
   manual_agents: z.array(z.enum(["analyst", "critic", "synthesizer", "domain_expert"])).optional(),
-  domain_expert_type: z.enum(["technology", "business", "healthcare", "legal", "finance", "education", "science", "marketing"]).optional(),
-  usecase_type: z.enum(["strategic_planning", "risk_analysis", "innovation_review", "decision_making", "problem_solving", "research_synthesis"]).optional(),
+  domain_expert_type: z.enum(["technology", "business", "healthcare", "legal", "finance", "education", "science", "marketing", "sustainability", "psychology"]).optional(),
+  usecase_type: z.enum(["strategic_planning", "risk_analysis", "innovation_review", "decision_making", "problem_solving", "research_synthesis", "ethical_review", "market_research"]).optional(),
   response_length: z.enum(["brief", "moderate", "detailed"]).optional(),
   turns: z.number().min(1).max(10).optional(),
   debate_format: z.enum(["round-robin", "structured", "socratic", "collaborative"]).optional(),

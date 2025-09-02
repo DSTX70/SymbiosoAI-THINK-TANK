@@ -75,7 +75,9 @@ function getAgentConfiguration(settings: any): AgentConfig[] {
     finance: "You are a finance expert AI with expertise in financial analysis, investment strategies, market dynamics, and economic trends.",
     education: "You are an education expert AI with knowledge in learning methodologies, curriculum design, educational technology, and pedagogical approaches.",
     science: "You are a research scientist AI with expertise in scientific methodology, peer review processes, and evidence evaluation across multiple disciplines.",
-    marketing: "You are a marketing expert AI with knowledge in brand strategy, consumer behavior, digital marketing, and market positioning."
+    marketing: "You are a marketing expert AI with knowledge in brand strategy, consumer behavior, digital marketing, and market positioning.",
+    sustainability: "You are a sustainability expert AI with expertise in environmental impact assessment, green technologies, ESG practices, and sustainable business models.",
+    psychology: "You are a psychology expert AI with knowledge in human behavior, cognitive science, user experience, and behavioral economics."
   };
 
   // Use case configurations
@@ -109,6 +111,16 @@ function getAgentConfiguration(settings: any): AgentConfig[] {
       analyst: "Systematically review evidence, identify patterns, and structure research findings.",
       critic: "Evaluate research quality, identify gaps, and challenge conclusions.",
       synthesizer: "Integrate research findings into coherent insights and recommendations."
+    },
+    ethical_review: {
+      analyst: "Identify ethical implications, stakeholder impacts, and moral considerations systematically.",
+      critic: "Challenge ethical reasoning, explore moral dilemmas, and identify potential conflicts.",
+      synthesizer: "Balance ethical perspectives with practical constraints and stakeholder needs."
+    },
+    market_research: {
+      analyst: "Analyze market data, consumer trends, and competitive landscapes systematically.",
+      critic: "Challenge market assumptions, identify blind spots, and explore alternative market interpretations.",
+      synthesizer: "Integrate market insights into actionable business intelligence and strategic recommendations."
     }
   };
 
