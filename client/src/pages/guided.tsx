@@ -329,7 +329,21 @@ export default function GuidedPage() {
                               }}
                               data-testid="switch-medical-diagnostician"
                             />
-                            <span>The Medical Diagnostician - Symptom analysis, evidence-based medicine</span>
+                            <span>The Medical Diagnostician - Symptom analysis, clinical diagnostics, differential diagnosis, symptom patterns</span>
+                          </Label>
+                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
+                            <Switch 
+                              checked={domainExperts.includes("medical-researcher")}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setDomainExperts(prev => [...prev, "medical-researcher"]);
+                                } else {
+                                  setDomainExperts(prev => prev.filter(e => e !== "medical-researcher"));
+                                }
+                              }}
+                              data-testid="switch-medical-researcher"
+                            />
+                            <span>The Medical Researcher - Clinical trials, medical literature research, systematic reviews, meta-analysis</span>
                           </Label>
                         </div>
                       </div>

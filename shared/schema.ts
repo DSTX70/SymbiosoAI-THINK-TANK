@@ -46,7 +46,7 @@ export const thinkRequestSchema = z.object({
   manual_agents: z.array(z.enum(["analyst", "pragmatist", "innovator", "thoughtful", "critic"])).optional(),
   domain_experts: z.array(z.enum([
     "legal-analyst", "legal-advocate",
-    "medical-diagnostician", 
+    "medical-diagnostician", "medical-researcher",
     "financial-analyst", "investment-strategist",
     "tech-architect", "devops-engineer",
     "educational-psychologist",
