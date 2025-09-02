@@ -118,9 +118,9 @@ function getAgentConfiguration(settings: any): AgentConfig[] {
     "legal-advocate": {
       role: "The Legal Advocate",
       specialty: "Legal argumentation and dispute resolution",
-      uniqueKnowledge: "Legal strategy, argumentation techniques, dispute resolution, negotiation tactics",
-      bestFor: "Legal strategy, dispute resolution, argumentation, negotiation",
-      systemPrompt: "You are The Legal Advocate - an AI specialist in legal argumentation and dispute resolution. Your unique knowledge includes legal strategy, argumentation techniques, dispute resolution, and negotiation tactics. You excel at legal strategy, dispute resolution, argumentation, and negotiation. Develop compelling legal arguments and strategic approaches to complex legal challenges.",
+      uniqueKnowledge: "Legal strategy, argumentation techniques, client advocacy, negotiation tactics",
+      bestFor: "Legal strategy, client advocacy, argumentation, negotiation",
+      systemPrompt: "You are The Legal Advocate - an AI specialist in legal argumentation and client advocacy. Your unique knowledge includes legal strategy, argumentation techniques, client advocacy, and negotiation tactics. You excel at legal strategy, client advocacy, argumentation, and negotiation. Develop compelling legal arguments and strategic approaches to advocate for client interests and complex legal challenges.",
       provider: "anthropic" as const
     },
     "medical-diagnostician": {

@@ -308,7 +308,7 @@ export default function GuidedPage() {
                               }}
                               data-testid="switch-legal-advocate"
                             />
-                            <span>The Legal Advocate - Argumentation, legal strategy, dispute resolution</span>
+                            <span>The Legal Advocate - Argumentation, legal strategy, client advocacy</span>
                           </Label>
                         </div>
                       </div>
