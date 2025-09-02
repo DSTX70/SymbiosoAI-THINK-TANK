@@ -32,7 +32,7 @@ export default function GuidedPage() {
   
   // Agent selection subchoices
   const [manualAgents, setManualAgents] = useState<("analyst" | "pragmatist" | "innovator" | "thoughtful" | "critic")[]>(["analyst", "critic"]);
-  const [domainExpertType, setDomainExpertType] = useState<"technology" | "business" | "healthcare" | "legal" | "finance" | "education" | "science" | "marketing" | "sustainability" | "psychology">("technology");
+  const [domainExperts, setDomainExperts] = useState<string[]>([]);
   const [useCaseType, setUseCaseType] = useState<"strategic_planning" | "risk_analysis" | "innovation_review" | "decision_making" | "problem_solving" | "research_synthesis" | "ethical_review" | "market_research">("strategic_planning");
   const [results, setResults] = useState<ThinkResponse | null>(null);
   const [streamingResult, setStreamingResult] = useState<any>(null);
@@ -73,7 +73,7 @@ export default function GuidedPage() {
         mode: "guided",
         selection_mode: selectionMode as any,
         manual_agents: selectionMode === "manual" ? manualAgents : undefined,
-        domain_expert_type: selectionMode === "domain" ? domainExpertType : undefined,
+        domain_experts: selectionMode === "domain" ? domainExperts as any : undefined,
         usecase_type: selectionMode === "usecase" ? useCaseType : undefined,
         response_length: responseLength as any,
         turns: rounds,
@@ -98,7 +98,7 @@ export default function GuidedPage() {
       mode: "guided",
       selection_mode: selectionMode,
       manual_agents: selectionMode === "manual" ? manualAgents : undefined,
-      domain_expert_type: selectionMode === "domain" ? domainExpertType : undefined,
+      domain_experts: selectionMode === "domain" ? domainExperts : undefined,
       usecase_type: selectionMode === "usecase" ? useCaseType : undefined,
       response_length: responseLength,
       turns: rounds.toString(),
@@ -275,74 +275,262 @@ export default function GuidedPage() {
                 {/* Domain Expert Selection */}
                 {selectionMode === "domain" && (
                   <div className="space-y-3 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-                    <Label className="text-sm font-medium text-green-900 dark:text-green-100">Domain Expertise</Label>
-                    <Select value={domainExpertType} onValueChange={(value) => setDomainExpertType(value as typeof domainExpertType)}>
-                      <SelectTrigger data-testid="select-domain">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="technology">
-                          <div className="space-y-1">
-                            <div className="font-medium">Technology & Engineering</div>
-                            <div className="text-xs text-muted-foreground">Software, AI/ML, cybersecurity, system architecture</div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="business">
-                          <div className="space-y-1">
-                            <div className="font-medium">Business & Strategy</div>
-                            <div className="text-xs text-muted-foreground">Market analysis, competitive intelligence, operations</div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="healthcare">
-                          <div className="space-y-1">
-                            <div className="font-medium">Healthcare & Medicine</div>
-                            <div className="text-xs text-muted-foreground">Medical research, patient care, health policy</div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="legal">
-                          <div className="space-y-1">
-                            <div className="font-medium">Legal & Compliance</div>
-                            <div className="text-xs text-muted-foreground">Regulations, risk assessment, legal precedents</div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="finance">
-                          <div className="space-y-1">
-                            <div className="font-medium">Finance & Economics</div>
-                            <div className="text-xs text-muted-foreground">Financial analysis, investment strategy, market dynamics</div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="education">
-                          <div className="space-y-1">
-                            <div className="font-medium">Education & Learning</div>
-                            <div className="text-xs text-muted-foreground">Pedagogical methods, curriculum design, learning technologies</div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="science">
-                          <div className="space-y-1">
-                            <div className="font-medium">Science & Research</div>
-                            <div className="text-xs text-muted-foreground">Research methodology, peer review, evidence evaluation</div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="marketing">
-                          <div className="space-y-1">
-                            <div className="font-medium">Marketing & Communications</div>
-                            <div className="text-xs text-muted-foreground">Brand strategy, consumer behavior, digital marketing</div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="sustainability">
-                          <div className="space-y-1">
-                            <div className="font-medium">Sustainability & Environment</div>
-                            <div className="text-xs text-muted-foreground">Environmental impact, green technologies, ESG practices</div>
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="psychology">
-                          <div className="space-y-1">
-                            <div className="font-medium">Psychology & Behavior</div>
-                            <div className="text-xs text-muted-foreground">Human behavior, cognitive science, user experience</div>
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label className="text-sm font-medium text-green-900 dark:text-green-100">👨‍⚖️ Select Domain Experts</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      
+                      {/* Legal Domain */}
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
+                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">⚖️ Legal</h5>
+                        <div className="space-y-2">
+                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
+                            <Switch 
+                              checked={domainExperts.includes("legal-analyst")}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setDomainExperts(prev => [...prev, "legal-analyst"]);
+                                } else {
+                                  setDomainExperts(prev => prev.filter(e => e !== "legal-analyst"));
+                                }
+                              }}
+                              data-testid="switch-legal-analyst"
+                            />
+                            <span>The Legal Analyst - Contract analysis, legal precedent, regulatory compliance</span>
+                          </Label>
+                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
+                            <Switch 
+                              checked={domainExperts.includes("legal-advocate")}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setDomainExperts(prev => [...prev, "legal-advocate"]);
+                                } else {
+                                  setDomainExperts(prev => prev.filter(e => e !== "legal-advocate"));
+                                }
+                              }}
+                              data-testid="switch-legal-advocate"
+                            />
+                            <span>The Legal Advocate - Argumentation, legal strategy, dispute resolution</span>
+                          </Label>
+                        </div>
+                      </div>
+
+                      {/* Medical Domain */}
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
+                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">🏥 Medical</h5>
+                        <div className="space-y-2">
+                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
+                            <Switch 
+                              checked={domainExperts.includes("medical-diagnostician")}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setDomainExperts(prev => [...prev, "medical-diagnostician"]);
+                                } else {
+                                  setDomainExperts(prev => prev.filter(e => e !== "medical-diagnostician"));
+                                }
+                              }}
+                              data-testid="switch-medical-diagnostician"
+                            />
+                            <span>The Medical Diagnostician - Symptom analysis, evidence-based medicine</span>
+                          </Label>
+                        </div>
+                      </div>
+
+                      {/* Finance Domain */}
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
+                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">💰 Finance</h5>
+                        <div className="space-y-2">
+                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
+                            <Switch 
+                              checked={domainExperts.includes("financial-analyst")}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setDomainExperts(prev => [...prev, "financial-analyst"]);
+                                } else {
+                                  setDomainExperts(prev => prev.filter(e => e !== "financial-analyst"));
+                                }
+                              }}
+                              data-testid="switch-financial-analyst"
+                            />
+                            <span>The Financial Analyst - Financial modeling, investment analysis, risk assessment</span>
+                          </Label>
+                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
+                            <Switch 
+                              checked={domainExperts.includes("investment-strategist")}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setDomainExperts(prev => [...prev, "investment-strategist"]);
+                                } else {
+                                  setDomainExperts(prev => prev.filter(e => e !== "investment-strategist"));
+                                }
+                              }}
+                              data-testid="switch-investment-strategist"
+                            />
+                            <span>The Investment Strategist - Portfolio strategy, asset allocation, market psychology</span>
+                          </Label>
+                        </div>
+                      </div>
+
+                      {/* Technology Domain */}
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
+                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">💻 Technology</h5>
+                        <div className="space-y-2">
+                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
+                            <Switch 
+                              checked={domainExperts.includes("tech-architect")}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setDomainExperts(prev => [...prev, "tech-architect"]);
+                                } else {
+                                  setDomainExperts(prev => prev.filter(e => e !== "tech-architect"));
+                                }
+                              }}
+                              data-testid="switch-tech-architect"
+                            />
+                            <span>The Tech Architect - System design, scalability, security</span>
+                          </Label>
+                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
+                            <Switch 
+                              checked={domainExperts.includes("devops-engineer")}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setDomainExperts(prev => [...prev, "devops-engineer"]);
+                                } else {
+                                  setDomainExperts(prev => prev.filter(e => e !== "devops-engineer"));
+                                }
+                              }}
+                              data-testid="switch-devops-engineer"
+                            />
+                            <span>The DevOps Engineer - CI/CD, infrastructure, automation</span>
+                          </Label>
+                        </div>
+                      </div>
+
+                      {/* Education Domain */}
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
+                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">🎓 Education</h5>
+                        <div className="space-y-2">
+                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
+                            <Switch 
+                              checked={domainExperts.includes("educational-psychologist")}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setDomainExperts(prev => [...prev, "educational-psychologist"]);
+                                } else {
+                                  setDomainExperts(prev => prev.filter(e => e !== "educational-psychologist"));
+                                }
+                              }}
+                              data-testid="switch-educational-psychologist"
+                            />
+                            <span>The Educational Psychologist - Learning theory, cognitive development</span>
+                          </Label>
+                        </div>
+                      </div>
+
+                      {/* Marketing Domain */}
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
+                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">📢 Marketing</h5>
+                        <div className="space-y-2">
+                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
+                            <Switch 
+                              checked={domainExperts.includes("brand-strategist")}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setDomainExperts(prev => [...prev, "brand-strategist"]);
+                                } else {
+                                  setDomainExperts(prev => prev.filter(e => e !== "brand-strategist"));
+                                }
+                              }}
+                              data-testid="switch-brand-strategist"
+                            />
+                            <span>The Brand Strategist - Brand positioning, consumer psychology</span>
+                          </Label>
+                        </div>
+                      </div>
+
+                      {/* Scientific Domain */}
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
+                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">🔬 Scientific</h5>
+                        <div className="space-y-2">
+                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
+                            <Switch 
+                              checked={domainExperts.includes("research-scientist")}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setDomainExperts(prev => [...prev, "research-scientist"]);
+                                } else {
+                                  setDomainExperts(prev => prev.filter(e => e !== "research-scientist"));
+                                }
+                              }}
+                              data-testid="switch-research-scientist"
+                            />
+                            <span>The Research Scientist - Experimental design, data analysis</span>
+                          </Label>
+                        </div>
+                      </div>
+
+                      {/* Engineering Domain */}
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
+                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">⚙️ Engineering</h5>
+                        <div className="space-y-2">
+                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
+                            <Switch 
+                              checked={domainExperts.includes("systems-engineer")}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setDomainExperts(prev => [...prev, "systems-engineer"]);
+                                } else {
+                                  setDomainExperts(prev => prev.filter(e => e !== "systems-engineer"));
+                                }
+                              }}
+                              data-testid="switch-systems-engineer"
+                            />
+                            <span>The Systems Engineer - Systems thinking, optimization, safety analysis</span>
+                          </Label>
+                        </div>
+                      </div>
+
+                      {/* Psychology Domain */}
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
+                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">🧠 Psychology</h5>
+                        <div className="space-y-2">
+                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
+                            <Switch 
+                              checked={domainExperts.includes("behavioral-analyst")}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setDomainExperts(prev => [...prev, "behavioral-analyst"]);
+                                } else {
+                                  setDomainExperts(prev => prev.filter(e => e !== "behavioral-analyst"));
+                                }
+                              }}
+                              data-testid="switch-behavioral-analyst"
+                            />
+                            <span>The Behavioral Analyst - Human behavior, cognitive biases, decision-making</span>
+                          </Label>
+                        </div>
+                      </div>
+
+                      {/* Sustainability Domain */}
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
+                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">🌱 Sustainability</h5>
+                        <div className="space-y-2">
+                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
+                            <Switch 
+                              checked={domainExperts.includes("sustainability-consultant")}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setDomainExperts(prev => [...prev, "sustainability-consultant"]);
+                                } else {
+                                  setDomainExperts(prev => prev.filter(e => e !== "sustainability-consultant"));
+                                }
+                              }}
+                              data-testid="switch-sustainability-consultant"
+                            />
+                            <span>The Sustainability Consultant - Environmental impact, ESG, circular economy</span>
+                          </Label>
+                        </div>
+                      </div>
+
+                    </div>
                   </div>
                 )}
 
