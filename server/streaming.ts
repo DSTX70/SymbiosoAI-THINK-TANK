@@ -319,10 +319,10 @@ function getAgentConfiguration(settings: any): AgentConfig[] {
         const baseAgent = generalPersonalities[agentId as keyof typeof generalPersonalities] || 
                           domainExpertProfiles[agentId as keyof typeof domainExpertProfiles];
         
-        if (baseAgent && useCaseConfig.specializedPrompts[agentId]) {
+        if (baseAgent && (useCaseConfig.specializedPrompts as any)[agentId]) {
           return {
             ...baseAgent,
-            systemPrompt: `${baseAgent.systemPrompt} For this ${usecase_type?.replace('_', ' ')} use case: ${useCaseConfig.specializedPrompts[agentId]}`
+            systemPrompt: `${baseAgent.systemPrompt} For this ${usecase_type?.replace('_', ' ')} use case: ${(useCaseConfig.specializedPrompts as any)[agentId]}`
           };
         }
         return baseAgent;
