@@ -31,7 +31,7 @@ export default function GuidedPage() {
   const [minSources, setMinSources] = useState(3);
   
   // Agent selection subchoices
-  const [manualAgents, setManualAgents] = useState<("analyst" | "critic" | "synthesizer" | "domain_expert")[]>(["analyst", "critic", "synthesizer"]);
+  const [manualAgents, setManualAgents] = useState<("analyst" | "pragmatist" | "innovator" | "thoughtful" | "critic")[]>(["analyst", "critic"]);
   const [domainExpertType, setDomainExpertType] = useState<"technology" | "business" | "healthcare" | "legal" | "finance" | "education" | "science" | "marketing" | "sustainability" | "psychology">("technology");
   const [useCaseType, setUseCaseType] = useState<"strategic_planning" | "risk_analysis" | "innovation_review" | "decision_making" | "problem_solving" | "research_synthesis" | "ethical_review" | "market_research">("strategic_planning");
   const [results, setResults] = useState<ThinkResponse | null>(null);
@@ -203,43 +203,69 @@ export default function GuidedPage() {
                       {[
                         { 
                           id: "analyst", 
-                          label: "Analyst", 
-                          description: "Data-driven analysis, evidence evaluation, logical reasoning"
+                          label: "🔍 The Analyst", 
+                          specialty: "Analytical thinking and data-driven insights",
+                          bestFor: "Business analysis, technical debates, document review",
+                          description: "Statistical analysis, evidence-based reasoning, systematic problem breakdown"
+                        },
+                        { 
+                          id: "pragmatist", 
+                          label: "🛠️ The Pragmatist", 
+                          specialty: "Implementation-focused solutions and realistic planning",
+                          bestFor: "Business decisions, implementation planning, practical problem-solving",
+                          description: "Real-world constraints, feasibility assessment, cost-benefit analysis"
+                        },
+                        { 
+                          id: "innovator", 
+                          label: "💡 The Innovator", 
+                          specialty: "Creative thinking and breakthrough solutions",
+                          bestFor: "Creative projects, innovation challenges, disruptive thinking",
+                          description: "Out-of-the-box approaches, creative methodologies, experimental strategies"
+                        },
+                        { 
+                          id: "thoughtful", 
+                          label: "🤔 The Thoughtful One", 
+                          specialty: "Balanced perspectives and ethical considerations",
+                          bestFor: "Ethical discussions, complex social issues, multi-party considerations",
+                          description: "Stakeholder analysis, ethical frameworks, nuanced decision-making"
                         },
                         { 
                           id: "critic", 
-                          label: "Critic", 
-                          description: "Challenge assumptions, identify flaws, alternative perspectives"
-                        },
-                        { 
-                          id: "synthesizer", 
-                          label: "Synthesizer", 
-                          description: "Build consensus, integrate viewpoints, resolve conflicts"
-                        },
-                        { 
-                          id: "domain_expert", 
-                          label: "Domain Expert", 
-                          description: "Specialized knowledge, industry expertise, best practices"
+                          label: "🔍 The Critic", 
+                          specialty: "Risk assessment and quality assurance",
+                          bestFor: "Risk analysis, quality review, identifying potential problems",
+                          description: "Vulnerability analysis, stress-testing, devil's advocate perspectives"
                         }
                       ].map(agent => (
-                        <div key={agent.id} className="flex items-center space-x-2">
-                          <Switch
-                            id={`agent-${agent.id}`}
-                            checked={manualAgents.includes(agent.id as "analyst" | "critic" | "synthesizer" | "domain_expert")}
-                            onCheckedChange={(checked) => {
-                              const agentId = agent.id as "analyst" | "critic" | "synthesizer" | "domain_expert";
-                              if (checked) {
-                                setManualAgents(prev => [...prev, agentId]);
-                              } else {
-                                setManualAgents(prev => prev.filter(a => a !== agentId));
-                              }
-                            }}
-                            data-testid={`switch-agent-${agent.id}`}
-                          />
-                          <Label htmlFor={`agent-${agent.id}`} className="text-sm">
-                            <div className="font-medium">{agent.label}</div>
-                            <div className="text-xs text-muted-foreground">{agent.description}</div>
-                          </Label>
+                        <div key={agent.id} className="space-y-2 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                          <div className="flex items-start space-x-3">
+                            <Switch
+                              id={`agent-${agent.id}`}
+                              checked={manualAgents.includes(agent.id as "analyst" | "pragmatist" | "innovator" | "thoughtful" | "critic")}
+                              onCheckedChange={(checked) => {
+                                const agentId = agent.id as "analyst" | "pragmatist" | "innovator" | "thoughtful" | "critic";
+                                if (checked) {
+                                  setManualAgents(prev => [...prev, agentId]);
+                                } else {
+                                  setManualAgents(prev => prev.filter(a => a !== agentId));
+                                }
+                              }}
+                              data-testid={`switch-agent-${agent.id}`}
+                              className="mt-1"
+                            />
+                            <div className="flex-1 space-y-1">
+                              <Label htmlFor={`agent-${agent.id}`} className="text-sm cursor-pointer">
+                                <div className="font-medium">{agent.label}</div>
+                                <div className="text-xs font-medium text-blue-600 dark:text-blue-400 mt-1">{agent.specialty}</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  <strong>Unique Knowledge:</strong> {agent.description}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  <strong>Best for:</strong> {agent.bestFor}
+                                </div>
+                              </Label>
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>

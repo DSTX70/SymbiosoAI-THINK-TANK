@@ -1,0 +1,86 @@
+# General AI Personalities
+
+### 🔍 The Analyst
+**Specialty:** Analytical thinking and data-driven insights  
+**Unique Knowledge:** Statistical analysis, evidence-based reasoning, systematic problem breakdown  
+**Best for:** Business analysis, technical debates, document review  
+**When to use:** When you need structured, methodical analysis with clear logical frameworks
+
+### 🛠️ The Pragmatist  
+**Specialty:** Implementation-focused solutions and realistic planning  
+**Unique Knowledge:** Real-world constraints, feasibility assessment, cost-benefit analysis  
+**Best for:** Business decisions, implementation planning, practical problem-solving  
+**When to use:** When you need actionable advice that considers practical limitations and resources
+
+### 💡 The Innovator  
+**Specialty:** Creative thinking and breakthrough solutions  
+**Unique Knowledge:** Out-of-the-box approaches, creative methodologies, experimental strategies  
+**Best for:** Creative projects, innovation challenges, disruptive thinking  
+**When to use:** When you need fresh perspectives and unconventional approaches to problems
+
+### 🤔 The Thoughtful One  
+**Specialty:** Balanced perspectives and ethical considerations  
+**Unique Knowledge:** Stakeholder analysis, ethical frameworks, nuanced decision-making  
+**Best for:** Ethical discussions, complex social issues, multi-party considerations  
+**When to use:** When decisions have ethical implications or affect multiple stakeholders
+
+### 🔍 The Critic  
+**Specialty:** Risk assessment and quality assurance  
+**Unique Knowledge:** Vulnerability analysis, stress-testing, devil's advocate perspectives  
+**Best for:** Risk analysis, quality review, identifying potential problems  
+**When to use:** When you need rigorous evaluation and want to uncover potential flaws or risks
+
+---
+
+## Domain Experts
+
+### ⚖️ Legal Domain
+**Specialty:** Legal analysis and strategic argumentation  
+**Unique Knowledge:** Contract analysis, regulatory compliance, legal risk assessment, dispute resolution strategies  
+**Best for:** Contract reviews, compliance questions, legal strategy, argumentation  
+
+### 🏥 Medical Domain  
+**Specialty:** Evidence-based medical analysis and research  
+**Unique Knowledge:** Clinical guidelines, medical literature review, diagnostic approaches, research methodology  
+**Best for:** Health information analysis, medical research questions, clinical decision support  
+**Important:** All medical responses include disclaimers about professional medical advice
+
+### 💰 Finance Domain  
+**Specialty:** Financial modeling and investment strategy  
+**Unique Knowledge:** Financial modeling, market analysis, investment strategies, risk assessment, portfolio optimization  
+**Best for:** Investment decisions, financial planning, market analysis, risk management  
+
+### 💻 Technology Domain  
+**Specialty:** System architecture and infrastructure optimization  
+**Unique Knowledge:** System design, scalability solutions, security architecture, automation, operational excellence  
+**Best for:** Technical architecture, system design, deployment strategies, infrastructure planning
+
+### 🎓 Education Domain  
+**Specialty:** Learning theory and instructional design  
+**Unique Knowledge:** Cognitive development, learning methodologies, curriculum design, educational psychology  
+**Best for:** Curriculum development, learning strategies, educational planning, training programs  
+
+### 📈 Marketing Domain  
+**Specialty:** Brand strategy and consumer psychology  
+**Unique Knowledge:** Brand positioning, consumer behavior, creative strategy, market psychology, campaign optimization  
+**Best for:** Marketing campaigns, brand development, market positioning, customer engagement  
+
+### 🔬 Scientific Domain  
+**Specialty:** Research methodology and scientific analysis  
+**Unique Knowledge:** Experimental design, statistical analysis, peer review processes, evidence evaluation  
+**Best for:** Research methodology, scientific analysis, evidence evaluation, study design  
+
+### ⚙️ Engineering Domain  
+**Specialty:** Systems optimization and safety analysis  
+**Unique Knowledge:** Systems thinking, process optimization, safety protocols, complex system design  
+**Best for:** Complex system design, optimization problems, safety assessment, process improvement  
+
+### 🧠 Psychology Domain  
+**Specialty:** Behavioral analysis and decision-making  
+**Unique Knowledge:** Human behavior patterns, cognitive biases, decision psychology, behavioral economics  
+**Best for:** Understanding human behavior, decision analysis, psychological factors, user experience  
+
+### 🌱 Sustainability Domain  
+**Specialty:** Environmental impact and sustainable practices  
+**Unique Knowledge:** Environmental assessment, sustainable business practices, ESG frameworks, green technology  
+**Best for:** Environmental assessments, sustainability strategy, ESG considerations, green initiatives
