@@ -1,0 +1,97 @@
+
+                <!-- Domain Expert Selection Panel -->
+                <div id="domain-selection" class="panel-transition card-interactive" style="display: none; margin-top: 15px; padding: 15px; background: #fff; border-radius: 6px; border: 1px solid #ccc;">
+                    <h4 style="margin-top: 0; color: #495057;">👨‍⚖️ Select Domain Experts</h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                        
+                        <div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px;">
+                            <h5 style="margin: 0 0 8px 0; color: #495057;">⚖️ Legal</h5>
+                            <label style="display: block; margin-bottom: 5px;">
+                                <input type="checkbox" value="legal-analyst" style="margin-right: 8px;">
+                                The Legal Analyst - Contract analysis, legal precedent, regulatory compliance
+                            </label>
+                            <label style="display: block;">
+                                <input type="checkbox" value="legal-advocate" style="margin-right: 8px;">
+                                The Legal Advocate - Argumentation, legal strategy, dispute resolution
+                            </label>
+                        </div>
+                        
+                        <div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px;">
+                            <h5 style="margin: 0 0 8px 0; color: #495057;">🏥 Medical</h5>
+                            <label style="display: block; margin-bottom: 5px;">
+                                <input type="checkbox" value="medical-diagnostician" style="margin-right: 8px;">
+                                The Medical Diagnostician - Symptom analysis, evidence-based medicine
+                            </label>
+                        </div>
+                        
+                        <div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px;">
+                            <h5 style="margin: 0 0 8px 0; color: #495057;">💰 Finance</h5>
+                            <label style="display: block; margin-bottom: 5px;">
+                                <input type="checkbox" value="financial-analyst" style="margin-right: 8px;">
+                                The Financial Analyst - Financial modeling, investment analysis, risk assessment
+                            </label>
+                            <label style="display: block;">
+                                <input type="checkbox" value="investment-strategist" style="margin-right: 8px;">
+                                The Investment Strategist - Portfolio strategy, asset allocation, market psychology
+                            </label>
+                        </div>
+                        
+                        <div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px;">
+                            <h5 style="margin: 0 0 8px 0; color: #495057;">💻 Technology</h5>
+                            <label style="display: block; margin-bottom: 5px;">
+                                <input type="checkbox" value="tech-architect" style="margin-right: 8px;">
+                                The Tech Architect - System design, scalability, security
+                            </label>
+                            <label style="display: block;">
+                                <input type="checkbox" value="devops-engineer" style="margin-right: 8px;">
+                                The DevOps Engineer - CI/CD, infrastructure, automation
+                            </label>
+                        </div>
+                        
+                        <div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px;">
+                            <h5 style="margin: 0 0 8px 0; color: #495057;">🎓 Education</h5>
+                            <label style="display: block;">
+                                <input type="checkbox" value="educational-psychologist" style="margin-right: 8px;">
+                                The Educational Psychologist - Learning theory, cognitive development
+                            </label>
+                        </div>
+                        
+                        <div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px;">
+                            <h5 style="margin: 0 0 8px 0; color: #495057;">📢 Marketing</h5>
+                            <label style="display: block;">
+                                <input type="checkbox" value="brand-strategist" style="margin-right: 8px;">
+                                The Brand Strategist - Brand positioning, consumer psychology
+                            </label>
+                        </div>
+                        
+                        <div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px;">
+                            <h5 style="margin: 0 0 8px 0; color: #495057;">🔬 Scientific</h5>
+                            <label style="display: block;">
+                                <input type="checkbox" value="research-scientist" style="margin-right: 8px;">
+                                The Research Scientist - Experimental design, data analysis
+                            </label>
+                        </div>
+                        
+                        <div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px;">
+                            <h5 style="margin: 0 0 8px 0; color: #495057;">⚙️ Engineering</h5>
+                            <label style="display: block;">
+                                <input type="checkbox" value="systems-engineer" style="margin-right: 8px;">
+                                The Systems Engineer - Systems thinking, optimization, safety analysis
+                            </label>
+                        </div>
+                        
+                        <div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px;">
+                            <h5 style="margin: 0 0 8px 0; color: #495057;">🧠 Psychology</h5>
+                            <label style="display: block;">
+                                <input type="checkbox" value="behavioral-analyst" style="margin-right: 8px;">
+                                The Behavioral Analyst - Human behavior, cognitive biases, decision-making
+                            </label>
+                        </div>
+                        
+                        <div style="border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px;">
+                            <h5 style="margin: 0 0 8px 0; color: #495057;">🌱 Sustainability</h5>
+                            <label style="display: block;">
+                                <input type="checkbox" value="sustainability-consultant" style="margin-right: 8px;">
+                                The Sustainability Consultant - Environmental impact, ESG, circular economy
+                            </label>
+                        </div>
