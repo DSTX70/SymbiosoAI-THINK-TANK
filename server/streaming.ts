@@ -275,8 +275,8 @@ function getAgentConfiguration(settings: any): AgentConfig[] {
       ];
       
       // Add selected domain experts
-      if (domain_experts && domain_experts.length > 0) {
-        domain_experts.forEach((expertId: string) => {
+      if (settings.domain_experts && settings.domain_experts.length > 0) {
+        settings.domain_experts.forEach((expertId: string) => {
           const expertConfig = domainExpertProfiles[expertId as keyof typeof domainExpertProfiles];
           if (expertConfig) {
             selectedAgents.push(expertConfig);
