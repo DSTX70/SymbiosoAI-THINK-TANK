@@ -29,6 +29,11 @@ export default function GuidedPage() {
   const [enableLiveWeb, setEnableLiveWeb] = useState(false);
   const [useStreaming, setUseStreaming] = useState(true);
   const [minSources, setMinSources] = useState(3);
+  
+  // Agent selection subchoices
+  const [manualAgents, setManualAgents] = useState<("analyst" | "critic" | "synthesizer" | "domain_expert")[]>(["analyst", "critic", "synthesizer"]);
+  const [domainExpertType, setDomainExpertType] = useState<"technology" | "business" | "healthcare" | "legal" | "finance" | "education" | "science" | "marketing">("technology");
+  const [useCaseType, setUseCaseType] = useState<"strategic_planning" | "risk_analysis" | "innovation_review" | "decision_making" | "problem_solving" | "research_synthesis">("strategic_planning");
   const [results, setResults] = useState<ThinkResponse | null>(null);
   const [streamingResult, setStreamingResult] = useState<any>(null);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -67,6 +72,9 @@ export default function GuidedPage() {
         prompt: prompt.trim(),
         mode: "guided",
         selection_mode: selectionMode as any,
+        manual_agents: selectionMode === "manual" ? manualAgents : undefined,
+        domain_expert_type: selectionMode === "domain" ? domainExpertType : undefined,
+        usecase_type: selectionMode === "usecase" ? useCaseType : undefined,
         response_length: responseLength as any,
         turns: rounds,
         debate_format: debateFormat as any,
@@ -89,6 +97,9 @@ export default function GuidedPage() {
     const settings = {
       mode: "guided",
       selection_mode: selectionMode,
+      manual_agents: selectionMode === "manual" ? manualAgents : undefined,
+      domain_expert_type: selectionMode === "domain" ? domainExpertType : undefined,
+      usecase_type: selectionMode === "usecase" ? useCaseType : undefined,
       response_length: responseLength,
       turns: rounds.toString(),
       debate_format: debateFormat,
@@ -150,7 +161,7 @@ export default function GuidedPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="selection-mode" className="text-sm font-medium">Selection Mode</Label>
+                  <Label htmlFor="selection-mode" className="text-sm font-medium">AI Selection Mode</Label>
                   <Select value={selectionMode} onValueChange={setSelectionMode}>
                     <SelectTrigger data-testid="select-mode">
                       <SelectValue />
@@ -163,6 +174,80 @@ export default function GuidedPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Manual Agent Selection */}
+                {selectionMode === "manual" && (
+                  <div className="space-y-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">Select Agents</Label>
+                    <div className="space-y-2">
+                      {[
+                        { id: "analyst", label: "Analyst - Data & Logic" },
+                        { id: "critic", label: "Critic - Alternative Views" },
+                        { id: "synthesizer", label: "Synthesizer - Integration" },
+                        { id: "domain_expert", label: "Domain Expert - Specialized Knowledge" }
+                      ].map(agent => (
+                        <div key={agent.id} className="flex items-center space-x-2">
+                          <Switch
+                            id={`agent-${agent.id}`}
+                            checked={manualAgents.includes(agent.id as "analyst" | "critic" | "synthesizer" | "domain_expert")}
+                            onCheckedChange={(checked) => {
+                              const agentId = agent.id as "analyst" | "critic" | "synthesizer" | "domain_expert";
+                              if (checked) {
+                                setManualAgents(prev => [...prev, agentId]);
+                              } else {
+                                setManualAgents(prev => prev.filter(a => a !== agentId));
+                              }
+                            }}
+                            data-testid={`switch-agent-${agent.id}`}
+                          />
+                          <Label htmlFor={`agent-${agent.id}`} className="text-sm">{agent.label}</Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Domain Expert Selection */}
+                {selectionMode === "domain" && (
+                  <div className="space-y-3 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <Label className="text-sm font-medium text-green-900 dark:text-green-100">Domain Expertise</Label>
+                    <Select value={domainExpertType} onValueChange={(value) => setDomainExpertType(value as typeof domainExpertType)}>
+                      <SelectTrigger data-testid="select-domain">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="technology">Technology & Engineering</SelectItem>
+                        <SelectItem value="business">Business & Strategy</SelectItem>
+                        <SelectItem value="healthcare">Healthcare & Medicine</SelectItem>
+                        <SelectItem value="legal">Legal & Compliance</SelectItem>
+                        <SelectItem value="finance">Finance & Economics</SelectItem>
+                        <SelectItem value="education">Education & Learning</SelectItem>
+                        <SelectItem value="science">Science & Research</SelectItem>
+                        <SelectItem value="marketing">Marketing & Communications</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Use Case Selection */}
+                {selectionMode === "usecase" && (
+                  <div className="space-y-3 p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                    <Label className="text-sm font-medium text-purple-900 dark:text-purple-100">Analysis Use Case</Label>
+                    <Select value={useCaseType} onValueChange={(value) => setUseCaseType(value as typeof useCaseType)}>
+                      <SelectTrigger data-testid="select-usecase">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="strategic_planning">Strategic Planning</SelectItem>
+                        <SelectItem value="risk_analysis">Risk Analysis</SelectItem>
+                        <SelectItem value="innovation_review">Innovation Review</SelectItem>
+                        <SelectItem value="decision_making">Decision Making</SelectItem>
+                        <SelectItem value="problem_solving">Problem Solving</SelectItem>
+                        <SelectItem value="research_synthesis">Research Synthesis</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="response-length" className="text-sm font-medium">Response Depth</Label>

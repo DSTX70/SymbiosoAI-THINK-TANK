@@ -41,6 +41,11 @@ export const thinkRequestSchema = z.object({
   
   // Guided mode options
   selection_mode: z.enum(["smart", "manual", "domain", "usecase"]).optional(),
+  
+  // Agent selection subchoices
+  manual_agents: z.array(z.enum(["analyst", "critic", "synthesizer", "domain_expert"])).optional(),
+  domain_expert_type: z.enum(["technology", "business", "healthcare", "legal", "finance", "education", "science", "marketing"]).optional(),
+  usecase_type: z.enum(["strategic_planning", "risk_analysis", "innovation_review", "decision_making", "problem_solving", "research_synthesis"]).optional(),
   response_length: z.enum(["brief", "moderate", "detailed"]).optional(),
   turns: z.number().min(1).max(10).optional(),
   debate_format: z.enum(["round-robin", "structured", "socratic", "collaborative"]).optional(),
@@ -104,4 +109,17 @@ export type FactCheckFinding = {
   status: "supported" | "contradicted" | "inconclusive";
   note?: string;
   citations?: Array<{title?: string; url?: string; source?: string;}>;
+};
+
+export type AgentConfig = {
+  role: string;
+  systemPrompt: string;
+  provider?: "openai" | "anthropic";
+};
+
+export type AgentSelection = {
+  mode: "smart" | "manual" | "domain" | "usecase";
+  manual_agents?: string[];
+  domain_expert_type?: string;
+  usecase_type?: string;
 };

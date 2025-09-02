@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import type { Express, Request, Response } from "express";
 import { perplexityService } from "./services/perplexity";
-import type { Citation, FactCheckFinding } from "@shared/schema";
+import type { Citation, FactCheckFinding, AgentConfig } from "@shared/schema";
 
 // --- Verification service configuration ---
 const VERIFY_URL = process.env.VERIFY_URL || "";
@@ -41,6 +41,136 @@ function setupSSE(res: Response) {
 function extractClaims(text: string): string[] {
   const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 20);
   return sentences.slice(0, 3).map(s => s.trim());
+}
+
+// Dynamic agent configuration based on selection mode
+function getAgentConfiguration(settings: any): AgentConfig[] {
+  const { selection_mode, manual_agents, domain_expert_type, usecase_type } = settings;
+
+  // Base agent definitions
+  const baseAgents = {
+    analyst: {
+      role: "Analyst",
+      systemPrompt: "You are an analytical AI that focuses on data, evidence, and logical reasoning. Provide structured analysis with clear supporting evidence.",
+      provider: "openai" as const
+    },
+    critic: {
+      role: "Critic", 
+      systemPrompt: "You are a critical thinking AI that identifies potential flaws, biases, and alternative perspectives. Challenge assumptions and highlight counterarguments.",
+      provider: "anthropic" as const
+    },
+    synthesizer: {
+      role: "Synthesizer",
+      systemPrompt: "You are a synthesis AI that finds common ground, integrates different viewpoints, and builds toward consensus while acknowledging remaining disagreements.",
+      provider: "openai" as const
+    }
+  };
+
+  // Domain expert configurations
+  const domainExperts = {
+    technology: "You are a technology expert AI with deep knowledge in software engineering, AI/ML, cybersecurity, and emerging tech trends. Provide technical insights and industry best practices.",
+    business: "You are a business strategy expert AI with expertise in market analysis, competitive intelligence, business models, and organizational development.",
+    healthcare: "You are a healthcare expert AI with knowledge in medical research, healthcare systems, patient care, and health policy. Focus on evidence-based recommendations.",
+    legal: "You are a legal expert AI with understanding of law, regulations, compliance, and legal precedents. Provide legally sound perspectives and risk assessments.",
+    finance: "You are a finance expert AI with expertise in financial analysis, investment strategies, market dynamics, and economic trends.",
+    education: "You are an education expert AI with knowledge in learning methodologies, curriculum design, educational technology, and pedagogical approaches.",
+    science: "You are a research scientist AI with expertise in scientific methodology, peer review processes, and evidence evaluation across multiple disciplines.",
+    marketing: "You are a marketing expert AI with knowledge in brand strategy, consumer behavior, digital marketing, and market positioning."
+  };
+
+  // Use case configurations
+  const useCaseConfigs = {
+    strategic_planning: {
+      analyst: "Focus on market analysis, competitive positioning, and strategic options evaluation.",
+      critic: "Challenge strategic assumptions, identify risks, and explore alternative strategic directions.",
+      synthesizer: "Integrate strategic perspectives into coherent strategic recommendations."
+    },
+    risk_analysis: {
+      analyst: "Systematically identify, categorize, and quantify potential risks and their impacts.",
+      critic: "Challenge risk assessments, identify overlooked risks, and question mitigation strategies.",
+      synthesizer: "Develop comprehensive risk management frameworks and balanced recommendations."
+    },
+    innovation_review: {
+      analyst: "Evaluate innovation potential, market readiness, and implementation feasibility.",
+      critic: "Challenge innovation assumptions, identify barriers, and explore alternative approaches.",
+      synthesizer: "Balance innovation opportunities with practical constraints and resource requirements."
+    },
+    decision_making: {
+      analyst: "Structure decision criteria, evaluate options systematically, and provide decision matrices.",
+      critic: "Challenge decision criteria, identify biases, and explore unintended consequences.",
+      synthesizer: "Facilitate balanced decision-making with clear recommendations and trade-offs."
+    },
+    problem_solving: {
+      analyst: "Break down complex problems, identify root causes, and structure solution approaches.",
+      critic: "Challenge problem definitions, question solution assumptions, and identify potential pitfalls.",
+      synthesizer: "Integrate problem analysis into comprehensive, actionable solution frameworks."
+    },
+    research_synthesis: {
+      analyst: "Systematically review evidence, identify patterns, and structure research findings.",
+      critic: "Evaluate research quality, identify gaps, and challenge conclusions.",
+      synthesizer: "Integrate research findings into coherent insights and recommendations."
+    }
+  };
+
+  let selectedAgents: AgentConfig[] = [];
+
+  switch (selection_mode) {
+    case "manual":
+      if (manual_agents && manual_agents.length > 0) {
+        selectedAgents = manual_agents.map((agentId: string) => {
+          if (agentId === "domain_expert") {
+            const expertType = domain_expert_type || "technology";
+            return {
+              role: "Domain Expert",
+              systemPrompt: domainExperts[expertType as keyof typeof domainExperts] || domainExperts.technology,
+              provider: "anthropic" as const
+            };
+          }
+          return baseAgents[agentId as keyof typeof baseAgents];
+        }).filter(Boolean);
+      }
+      break;
+
+    case "domain":
+      selectedAgents = [
+        baseAgents.analyst,
+        baseAgents.critic,
+        {
+          role: "Domain Expert",
+          systemPrompt: domainExperts[domain_expert_type as keyof typeof domainExperts] || domainExperts.technology,
+          provider: "anthropic" as const
+        },
+        baseAgents.synthesizer
+      ];
+      break;
+
+    case "usecase":
+      const useCaseConfig = useCaseConfigs[usecase_type as keyof typeof useCaseConfigs] || useCaseConfigs.strategic_planning;
+      selectedAgents = [
+        { ...baseAgents.analyst, systemPrompt: `${baseAgents.analyst.systemPrompt} ${useCaseConfig.analyst}` },
+        { ...baseAgents.critic, systemPrompt: `${baseAgents.critic.systemPrompt} ${useCaseConfig.critic}` },
+        { ...baseAgents.synthesizer, systemPrompt: `${baseAgents.synthesizer.systemPrompt} ${useCaseConfig.synthesizer}` }
+      ];
+      break;
+
+    case "smart":
+    default:
+      selectedAgents = [
+        baseAgents.analyst,
+        baseAgents.critic,
+        baseAgents.synthesizer
+      ];
+      if (settings.mode === "guided") {
+        selectedAgents.push({
+          role: "Domain Expert",
+          systemPrompt: "You are a domain expert AI that provides specialized knowledge, industry best practices, and contextual understanding relevant to the topic.",
+          provider: "anthropic" as const
+        });
+      }
+      break;
+  }
+
+  return selectedAgents.length > 0 ? selectedAgents : [baseAgents.analyst, baseAgents.critic, baseAgents.synthesizer];
 }
 
 // --- Hardened verification call with timeout + retries ---
@@ -109,28 +239,7 @@ async function verifyClaims({ consensus, dissents, citations }: {
 async function runStreamingDebate(ctx: StreamingContext) {
   const { res, prompt, settings } = ctx;
   
-  const agents = [
-    {
-      role: "Analyst",
-      systemPrompt: "You are an analytical AI that focuses on data, evidence, and logical reasoning. Provide structured analysis with clear supporting evidence."
-    },
-    {
-      role: "Critic", 
-      systemPrompt: "You are a critical thinking AI that identifies potential flaws, biases, and alternative perspectives. Challenge assumptions and highlight counterarguments."
-    },
-    {
-      role: "Synthesizer",
-      systemPrompt: "You are a synthesis AI that finds common ground, integrates different viewpoints, and builds toward consensus while acknowledging remaining disagreements."
-    }
-  ];
-
-  // Add Domain Expert for guided mode
-  if (settings.mode === "guided") {
-    agents.push({
-      role: "Domain Expert",
-      systemPrompt: "You are a domain expert AI that provides specialized knowledge, industry best practices, and contextual understanding relevant to the topic."
-    });
-  }
+  const agents = getAgentConfiguration(settings);
 
   const rounds = parseInt(settings.turns) || 3;
   let debate_history: Array<{ agent: string; response: string }> = [];
@@ -156,9 +265,12 @@ async function runStreamingDebate(ctx: StreamingContext) {
         ? `\n\nPrevious discussion:\n${debate_history.map(h => `${h.agent}: ${h.response}`).join('\n\n')}`
         : '';
 
+      const provider = agent.provider || "openai";
+      
       try {
-        sendSSE(res, "provider", { provider: "openai", status: "starting", agent: agent.role });
+        sendSSE(res, "provider", { provider, status: "starting", agent: agent.role });
 
+        // Use appropriate AI provider based on agent configuration
         const stream = await openai.chat.completions.create({
           model: "gpt-4o",
           messages: [
@@ -181,7 +293,7 @@ async function runStreamingDebate(ctx: StreamingContext) {
           if (content) {
             fullResponse += content;
             sendSSE(res, "delta", { 
-              provider: "openai", 
+              provider: provider, 
               text: content, 
               agent: agent.role,
               round: round + 1 
@@ -194,11 +306,11 @@ async function runStreamingDebate(ctx: StreamingContext) {
           response: fullResponse
         });
 
-        sendSSE(res, "provider", { provider: "openai", status: "completed", agent: agent.role });
+        sendSSE(res, "provider", { provider, status: "completed", agent: agent.role });
 
       } catch (error: any) {
         console.error(`Error in ${agent.role} response:`, error);
-        sendSSE(res, "provider", { provider: "openai", status: "error", agent: agent.role, error: error?.message || 'Unknown error' });
+        sendSSE(res, "provider", { provider: provider, status: "error", agent: agent.role, error: error?.message || 'Unknown error' });
       }
     }
   }
