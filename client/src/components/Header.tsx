@@ -1,6 +1,5 @@
 import { Link, useLocation } from "wouter";
-import logoHorizontal from "@assets/symbiosoai-logo-horizontal.png";
-import logoLight from "@assets/symbiosoai-logo-light.png";
+import { Brain } from "lucide-react";
 
 export default function Header() {
   const [location] = useLocation();
@@ -10,15 +9,12 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <img 
-              src={logoHorizontal} 
-              alt="SymbiosoAi" 
-              className="h-8 object-contain"
-              data-testid="logo-symbiosoai"
-            />
+            <div className="brand-mark">
+              <Brain className="text-white text-xs" size={12} />
+            </div>
             <div>
-              <h1 className="text-h3 font-heading font-bold tracking-tight">ThinkTank</h1>
-              <p className="text-caption opacity-80">Intelligent Collaboration, redefined.</p>
+              <h1 className="text-xl font-bold font-mono tracking-tight">SymbiosoAi ThinkTank</h1>
+              <p className="text-sm opacity-80">Collaborative Intelligence, redefined.</p>
             </div>
           </div>
           <nav className="flex gap-2">
@@ -27,21 +23,21 @@ export default function Header() {
               className={`mode-pill ${location === "/simple" ? "active" : ""}`}
               data-testid="link-simple-mode"
             >
-              Simple
+              ⚡ Simple
             </Link>
             <Link 
               href="/guided" 
               className={`mode-pill ${location === "/guided" ? "active" : ""}`}
               data-testid="link-guided-mode"
             >
-              Guided
+              ⚙️ Guided
             </Link>
             <Link 
               href="/sessions" 
               className={`mode-pill ${location.startsWith("/sessions") ? "active" : ""}`}
               data-testid="link-sessions"
             >
-              Sessions
+              📋 Sessions
             </Link>
           </nav>
         </div>
