@@ -178,24 +178,6 @@ export default function GuidedPage() {
               data-testid="input-guided-prompt"
             />
             
-            <Button 
-              onClick={handleSubmit}
-              disabled={thinkMutation.isPending || isStreaming}
-              className="btn-primary flex items-center gap-2"
-              data-testid="button-guided-run"
-            >
-              {(thinkMutation.isPending || isStreaming) ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                  {isStreaming ? "Streaming..." : "Analyzing..."}
-                </>
-              ) : (
-                <>
-                  {useStreaming ? <Zap size={16} /> : <Rocket size={16} />}
-                  {useStreaming ? "Launch Live Stream" : "Launch Guided Analysis"}
-                </>
-              )}
-            </Button>
           </CardContent>
         </Card>
 
@@ -565,10 +547,30 @@ export default function GuidedPage() {
                   </div>
                 </div>
 
-                {/* Apply Configuration Button */}
-                <div className="flex justify-end pt-4 border-t">
+                {/* Action Buttons */}
+                <div className="flex justify-between items-center pt-4 border-t">
+                  <Button 
+                    onClick={handleSubmit}
+                    disabled={thinkMutation.isPending || isStreaming}
+                    className="btn-primary flex items-center gap-2"
+                    data-testid="button-guided-run"
+                  >
+                    {(thinkMutation.isPending || isStreaming) ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                        {isStreaming ? "Streaming..." : "Analyzing..."}
+                      </>
+                    ) : (
+                      <>
+                        {useStreaming ? <Zap size={16} /> : <Rocket size={16} />}
+                        {useStreaming ? "Start Debate" : "Start Debate"}
+                      </>
+                    )}
+                  </Button>
+                  
                   <Button 
                     onClick={handleApplyConfiguration}
+                    variant="outline"
                     className="flex items-center gap-2"
                     data-testid="button-apply-config"
                   >

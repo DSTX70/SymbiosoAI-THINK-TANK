@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, Users, Activity } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { BarChart3, Users, Activity, ChevronDown, ChevronUp } from "lucide-react";
 
 interface TelemetryData {
   avg_ms: number;
@@ -14,6 +16,8 @@ interface TelemetryPanelProps {
 }
 
 export default function TelemetryPanel({ telemetry, isProcessing }: TelemetryPanelProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  
   const defaultTelemetry = {
     avg_ms: 0,
     quality: 0,
@@ -26,46 +30,56 @@ export default function TelemetryPanel({ telemetry, isProcessing }: TelemetryPan
   return (
     <div className="space-y-6">
       <Card className="card-elevated telemetry-widget" data-testid="card-telemetry">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-3">
-            <BarChart3 className="text-primary" size={20} />
-            Performance Telemetry
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="text-center">
-            <div className="metric-value" data-testid="text-avg-response">
-              {isProcessing ? "..." : `${data.avg_ms}ms`}
-            </div>
-            <div className="text-xs text-muted-foreground">Average Response Time</div>
-          </div>
-          <div className="text-center">
-            <div className="metric-value" data-testid="text-quality-score">
-              {isProcessing ? "..." : data.quality.toFixed(1)}
-            </div>
-            <div className="text-xs text-muted-foreground">Quality Score</div>
-          </div>
-          <div className="text-center">
-            <div className="metric-value" data-testid="text-tokens-per-sec">
-              {isProcessing ? "..." : data.tps}
-            </div>
-            <div className="text-xs text-muted-foreground">Tokens/sec</div>
-          </div>
-          <div className="text-center">
-            <div className="metric-value" data-testid="text-active-agents">
-              {data.active_agents || 3}
-            </div>
-            <div className="text-xs text-muted-foreground">Active AI Agents</div>
-          </div>
-          <div className="pt-4 border-t border-border">
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>API Status:</span>
-              <span className="text-secondary font-medium" data-testid="text-api-status">
-                {isProcessing ? "Processing..." : "Healthy"}
-              </span>
-            </div>
-          </div>
-        </CardContent>
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <BarChart3 className="text-primary" size={20} />
+                  Performance Telemetry
+                  {isProcessing && <div className="animate-pulse w-2 h-2 bg-primary rounded-full" />}
+                </div>
+                {isOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </CardTitle>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="space-y-4">
+              <div className="text-center">
+                <div className="metric-value" data-testid="text-avg-response">
+                  {isProcessing ? "..." : `${data.avg_ms}ms`}
+                </div>
+                <div className="text-xs text-muted-foreground">Average Response Time</div>
+              </div>
+              <div className="text-center">
+                <div className="metric-value" data-testid="text-quality-score">
+                  {isProcessing ? "..." : data.quality.toFixed(1)}
+                </div>
+                <div className="text-xs text-muted-foreground">Quality Score</div>
+              </div>
+              <div className="text-center">
+                <div className="metric-value" data-testid="text-tokens-per-sec">
+                  {isProcessing ? "..." : data.tps}
+                </div>
+                <div className="text-xs text-muted-foreground">Tokens/sec</div>
+              </div>
+              <div className="text-center">
+                <div className="metric-value" data-testid="text-active-agents">
+                  {data.active_agents || 3}
+                </div>
+                <div className="text-xs text-muted-foreground">Active AI Agents</div>
+              </div>
+              <div className="pt-4 border-t border-border">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>API Status:</span>
+                  <span className="text-secondary font-medium" data-testid="text-api-status">
+                    {isProcessing ? "Processing..." : "Healthy"}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
 
       <Card className="card-elevated" data-testid="card-ai-agents">
