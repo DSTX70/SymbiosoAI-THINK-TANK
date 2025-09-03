@@ -15,6 +15,7 @@ import { ResultsArea } from "@/components/ResultsArea";
 import ThinkToast from "@/components/ThinkToast";
 import { TemplateLibrary } from "@/components/TemplateLibrary";
 import { WorkspaceManagement } from "@/components/WorkspaceManagement";
+import LiveStreamingSection, { createStreamUrl } from "@/components/LiveStreamingSection";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { ThinkRequest, ThinkResponse } from "@shared/schema";
@@ -25,6 +26,9 @@ export default function ExpertPage() {
   const [debateTitle, setDebateTitle] = useState("");
   const [results, setResults] = useState<ThinkResponse | null>(null);
   const [processingProgress, setProcessingProgress] = useState(0);
+  const [useStreaming, setUseStreaming] = useState(false);
+  const [streamingResult, setStreamingResult] = useState<any>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
   const { toast } = useToast();
 
   // Expert Mode Configuration State
@@ -63,6 +67,8 @@ export default function ExpertPage() {
     enterprise_specialists: [],
     creativity_level: 50,
     deep_analysis_mode: false,
+    // Real-time Streaming
+    use_streaming: false,
   });
 
 
@@ -106,41 +112,105 @@ export default function ExpertPage() {
       return;
     }
 
-    const requestData: ThinkRequest = {
-      prompt: prompt.trim(),
+    if (configuration.use_streaming) {
+      handleStreamingSubmit();
+    } else {
+      const requestData: ThinkRequest = {
+        prompt: prompt.trim(),
+        mode: "expert",
+        context: context.trim() || undefined,
+        debate_title: debateTitle.trim() || undefined,
+        temperature: 0.2,
+        
+        // AI Agent Selection
+        selection_mode: configuration.selection_mode as any,
+        manual_agents: configuration.selection_mode === "manual" ? configuration.manual_agents as any : undefined,
+        domain_experts: configuration.selection_mode === "domain" ? configuration.domain_experts as any : undefined,
+        usecase_type: configuration.selection_mode === "usecase" && configuration.usecase_type !== "" ? configuration.usecase_type as any : undefined,
+        
+        // Expert Mode Features
+        frameworks: configuration.frameworks.length > 0 ? configuration.frameworks as any : undefined,
+        thinking_patterns: configuration.thinking_patterns && configuration.thinking_patterns.length > 0 ? configuration.thinking_patterns as any : undefined,
+        enterprise_specialists: configuration.enterprise_specialists && configuration.enterprise_specialists.length > 0 ? configuration.enterprise_specialists as any : undefined,
+        creativity_level: configuration.creativity_level,
+        routing: configuration.routing,
+        rag: configuration.rag.enabled ? configuration.rag : undefined,
+        security: configuration.security,
+        export_formats: configuration.export_formats.length > 0 ? configuration.export_formats as any : undefined,
+        ethical_lens: configuration.ethical_lens,
+        evidence_per_claim: configuration.evidence_per_claim,
+        max_steps: configuration.max_steps,
+        
+        // Advanced debate settings
+        require_citations: true,
+        enable_fact_check: true,
+        turns: 1, // Keep performance optimization
+        debate_format: "collaborative",
+        response_length: "detailed",
+      };
+
+      thinkMutation.mutate(requestData);
+    }
+  };
+
+  const handleStreamingSubmit = () => {
+    const settings = {
       mode: "expert",
       context: context.trim() || undefined,
       debate_title: debateTitle.trim() || undefined,
-      temperature: 0.2,
-      
-      // AI Agent Selection
-      selection_mode: configuration.selection_mode as any,
-      manual_agents: configuration.selection_mode === "manual" ? configuration.manual_agents as any : undefined,
-      domain_experts: configuration.selection_mode === "domain" ? configuration.domain_experts as any : undefined,
-      usecase_type: configuration.selection_mode === "usecase" && configuration.usecase_type !== "" ? configuration.usecase_type as any : undefined,
-      
-      // Expert Mode Features
-      frameworks: configuration.frameworks.length > 0 ? configuration.frameworks as any : undefined,
-      thinking_patterns: configuration.thinking_patterns && configuration.thinking_patterns.length > 0 ? configuration.thinking_patterns as any : undefined,
-      enterprise_specialists: configuration.enterprise_specialists && configuration.enterprise_specialists.length > 0 ? configuration.enterprise_specialists as any : undefined,
+      require_citations: true,
+      enable_fact_check: true,
+      turns: "1",
+      response_length: "detailed",
+      selection_mode: configuration.selection_mode,
+      manual_agents: configuration.selection_mode === "manual" ? configuration.manual_agents : undefined,
+      domain_experts: configuration.selection_mode === "domain" ? configuration.domain_experts : undefined,
+      usecase_type: configuration.selection_mode === "usecase" && configuration.usecase_type !== "" ? configuration.usecase_type : undefined,
+      frameworks: configuration.frameworks.length > 0 ? configuration.frameworks : undefined,
+      thinking_patterns: configuration.thinking_patterns && configuration.thinking_patterns.length > 0 ? configuration.thinking_patterns : undefined,
+      enterprise_specialists: configuration.enterprise_specialists && configuration.enterprise_specialists.length > 0 ? configuration.enterprise_specialists : undefined,
       creativity_level: configuration.creativity_level,
       routing: configuration.routing,
       rag: configuration.rag.enabled ? configuration.rag : undefined,
       security: configuration.security,
-      export_formats: configuration.export_formats.length > 0 ? configuration.export_formats as any : undefined,
+      export_formats: configuration.export_formats.length > 0 ? configuration.export_formats : undefined,
       ethical_lens: configuration.ethical_lens,
       evidence_per_claim: configuration.evidence_per_claim,
       max_steps: configuration.max_steps,
-      
-      // Advanced debate settings
-      require_citations: true,
-      enable_fact_check: true,
-      turns: 1, // Keep performance optimization
-      debate_format: "collaborative",
-      response_length: "detailed",
+      deep_analysis_mode: configuration.deep_analysis_mode,
     };
 
-    thinkMutation.mutate(requestData);
+    setIsStreaming(true);
+    setStreamingResult(null);
+    setResults(null);
+
+    const streamUrl = createStreamUrl(prompt, settings);
+    const eventSource = new EventSource(streamUrl);
+
+    eventSource.addEventListener("final", (event) => {
+      const data = JSON.parse(event.data);
+      setStreamingResult(data);
+      setResults({
+        consensus: data.consensus,
+        dissents: data.dissents,
+        unresolved: data.unresolved,
+        citations: data.citations,
+        fact_check: data.fact_check,
+        telemetry: data.telemetry
+      });
+      setIsStreaming(false);
+      eventSource.close();
+      toast({ description: "Expert streaming analysis completed successfully!" });
+    });
+
+    eventSource.addEventListener("error", () => {
+      setIsStreaming(false);
+      eventSource.close();
+      toast({ 
+        variant: "destructive",
+        description: "Streaming connection failed" 
+      });
+    });
   };
 
   const handleSaveDraft = () => {
@@ -359,10 +429,27 @@ export default function ExpertPage() {
                 </CardContent>
               </Card>
 
+              {/* Live Streaming Section */}
+              {configuration.use_streaming && (
+                <LiveStreamingSection
+                  onStartStream={(streamControls) => {
+                    setUseStreaming(true);
+                  }}
+                  isActive={isStreaming}
+                  streamingResult={streamingResult}
+                  config={{
+                    showJourney: true,
+                    showFactCheck: true,
+                    autoReconnect: true,
+                    maxRetries: 3
+                  }}
+                />
+              )}
+
               {/* Results */}
               <ResultsArea
                 results={results}
-                isProcessing={thinkMutation.isPending}
+                isProcessing={thinkMutation.isPending || isStreaming}
                 onExport={handleExport}
               />
               

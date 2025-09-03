@@ -58,6 +58,7 @@ interface ConfigurationSidebarProps {
     selection_mode?: string;
     usecase_type?: string;
     deep_analysis_mode?: boolean;
+    use_streaming?: boolean;
   };
   onConfigurationChange: (config: any) => void;
 }
@@ -313,6 +314,23 @@ export function ConfigurationSidebar({ configuration, onConfigurationChange }: C
                 <span>Creative</span>
                 <span>Very Creative</span>
               </div>
+            </div>
+          </div>
+          
+          {/* Real-time Streaming Toggle */}
+          <div className="space-y-3">
+            <div className="p-3 border rounded-lg bg-gradient-to-r from-green-50 to-teal-50 dark:from-green-950/20 dark:to-teal-950/20">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-sm font-medium">Real-time Streaming</Label>
+                <Switch
+                  checked={configuration.use_streaming || false}
+                  onCheckedChange={(checked) => updateConfig('use_streaming', checked)}
+                  data-testid="switch-streaming"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Watch the analysis happen in real-time with live updates and progress tracking.
+              </p>
             </div>
           </div>
         </div>

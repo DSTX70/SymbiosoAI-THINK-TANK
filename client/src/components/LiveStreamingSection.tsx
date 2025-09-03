@@ -1,8 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Radio, Download, Zap } from "lucide-react";
+import { Radio, Download, Zap, AlertTriangle, RotateCw, Wifi, WifiOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 
 interface StreamingResult {
   consensus: string;
@@ -36,6 +36,12 @@ interface LiveStreamingSectionProps {
   streamingResult?: StreamingResult | null;
 }
 
+export interface LiveStreamingRef {
+  connectToStream: (streamUrl: string) => EventSource | null;
+  disconnectStream: () => void;
+  getStreamStatus: () => 'connected' | 'disconnected' | 'error' | 'reconnecting';
+}
+
 export default function LiveStreamingSection({ 
   onStartStream, 
   isStreaming, 
@@ -53,6 +59,11 @@ export default function LiveStreamingSection({
     note?: string;
     citations?: Array<{title?: string; url?: string; source?: string;}>;
   }>>([]);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'error' | 'reconnecting'>('disconnected');
+  const [retryCount, setRetryCount] = useState(0);
+  const currentEventSource = useRef<EventSource | null>(null);
+  const maxRetries = 3;
+  const retryDelay = 2000;
 
   const openaiRef = useRef<HTMLDivElement>(null);
   const claudeRef = useRef<HTMLDivElement>(null);
@@ -92,7 +103,18 @@ export default function LiveStreamingSection({
     toast({ description: "Results exported as JSON successfully!" });
   };
 
-  const connectToStream = (streamUrl: string) => {
+  const disconnectStream = useCallback(() => {
+    if (currentEventSource.current) {
+      currentEventSource.current.close();
+      currentEventSource.current = null;
+      setConnectionStatus('disconnected');
+    }
+  }, []);
+
+  const connectToStream = useCallback((streamUrl: string): EventSource | null => {
+    // Disconnect any existing stream
+    disconnectStream();
+    
     // Reset streaming state
     setOpenaiStream("");
     setClaudeStream("");
@@ -100,8 +122,17 @@ export default function LiveStreamingSection({
     setProgress(0);
     setCurrentStep("");
     setVerificationFindings([]);
+    setRetryCount(0);
+    setConnectionStatus('reconnecting');
 
-    const eventSource = new EventSource(streamUrl);
+    try {
+      const eventSource = new EventSource(streamUrl);
+      currentEventSource.current = eventSource;
+      
+      eventSource.onopen = () => {
+        setConnectionStatus('connected');
+        setRetryCount(0);
+      };
 
     eventSource.addEventListener("ready", (event) => {
       const data = JSON.parse(event.data);
@@ -150,24 +181,81 @@ export default function LiveStreamingSection({
       setProgress(100);
     });
 
-    eventSource.onerror = () => {
-      eventSource.close();
-      setCurrentStep("Stream connection error");
-      toast({ 
-        variant: "destructive",
-        description: "Stream connection failed" 
-      });
+    eventSource.onerror = (event) => {
+      setConnectionStatus('error');
+      setCurrentStep("Connection interrupted");
+      
+      // Auto-retry logic with exponential backoff
+      if (retryCount < maxRetries) {
+        setConnectionStatus('reconnecting');
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          connectToStream(streamUrl);
+        }, retryDelay * Math.pow(2, retryCount));
+      } else {
+        eventSource.close();
+        currentEventSource.current = null;
+        setConnectionStatus('error');
+        toast({ 
+          variant: "destructive",
+          description: `Stream connection failed after ${maxRetries} attempts` 
+        });
+      }
     };
 
     return eventSource;
-  };
-
-  // Expose stream connection for parent component
-  useEffect(() => {
-    if (isStreaming) {
-      // This will be handled by parent component calling connectToStream
+    } catch (error) {
+      setConnectionStatus('error');
+      toast({ 
+        variant: "destructive",
+        description: "Failed to establish stream connection" 
+      });
+      return null;
     }
-  }, [isStreaming]);
+  }, [retryCount, disconnectStream, toast]);
+
+  const getStreamStatus = useCallback(() => connectionStatus, [connectionStatus]);
+
+  // Expose connectToStream for parent components via onStartStream callback
+  useEffect(() => {
+    if (onStartStream) {
+      onStartStream({ connectToStream, disconnectStream, getStreamStatus });
+    }
+  }, [onStartStream, connectToStream, disconnectStream, getStreamStatus]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      disconnectStream();
+    };
+  }, [disconnectStream]);
+
+  // Connection status indicator helpers
+  const getStatusIcon = () => {
+    switch (connectionStatus) {
+      case 'connected':
+        return <Wifi className="text-green-500" size={16} />;
+      case 'reconnecting':
+        return <RotateCw className="text-yellow-500 animate-spin" size={16} />;
+      case 'error':
+        return <WifiOff className="text-red-500" size={16} />;
+      default:
+        return <Radio className="text-gray-400" size={16} />;
+    }
+  };
+  
+  const getStatusText = () => {
+    switch (connectionStatus) {
+      case 'connected':
+        return 'Connected';
+      case 'reconnecting':
+        return `Reconnecting... (${retryCount}/${maxRetries})`;
+      case 'error':
+        return 'Connection failed';
+      default:
+        return 'Disconnected';
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -220,9 +308,22 @@ export default function LiveStreamingSection({
       {isStreaming && (
         <Card className="card-elevated processing-state">
           <CardHeader>
-            <CardTitle className="flex items-center gap-3">
-              <Zap className="text-primary" size={20} />
-              Streaming Progress
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Zap className="text-primary" size={20} />
+                Streaming Progress
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                {getStatusIcon()}
+                <span className={`font-medium ${
+                  connectionStatus === 'connected' ? 'text-green-600' :
+                  connectionStatus === 'reconnecting' ? 'text-yellow-600' :
+                  connectionStatus === 'error' ? 'text-red-600' :
+                  'text-gray-500'
+                }`}>
+                  {getStatusText()}
+                </span>
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
