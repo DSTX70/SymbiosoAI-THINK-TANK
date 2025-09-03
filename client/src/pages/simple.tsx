@@ -20,7 +20,7 @@ export default function SimplePage() {
   const [requireCitations, setRequireCitations] = useState(false);
   const [enableFactCheck, setEnableFactCheck] = useState(false);
   const [enableLiveWeb, setEnableLiveWeb] = useState(false);
-  const [useStreaming, setUseStreaming] = useState(true);
+  const [useStreaming, setUseStreaming] = useState(false); // Default OFF
   const [results, setResults] = useState<ThinkResponse | null>(null);
   const [streamingResult, setStreamingResult] = useState<any>(null);
   const [isStreaming, setIsStreaming] = useState(false);
