@@ -61,19 +61,63 @@ export default {
           border: "var(--sidebar-border)",
           ring: "var(--sidebar-ring)",
         },
-        // SymbiosoAi brand colors
-        blue: "var(--blue)",
-        teal: "var(--teal)",
-        slate: "var(--slate)",
-        silver: "var(--silver)",
-        warm: "var(--warm)",
-        midnight: "var(--midnight)",
-        ink: "var(--ink)",
+        // SymbiosoAi brand colors - Updated with exact palette
+        brand: {
+          midnight: "rgb(var(--brand-midnight))",
+          blue: "rgb(var(--brand-blue))",
+          teal: "rgb(var(--brand-teal))",
+          slate: "rgb(var(--brand-slate))",
+          silver: "rgb(var(--brand-silver))",
+          warm: "rgb(var(--brand-warm))",
+          accent: {
+            50: "rgb(var(--brand-accent-50))",
+            100: "rgb(var(--brand-accent-100))",
+            200: "rgb(var(--brand-accent-200))",
+            300: "rgb(var(--brand-accent-300))",
+            400: "rgb(var(--brand-accent-400))",
+            500: "rgb(var(--brand-accent-500))",
+            600: "rgb(var(--brand-accent-600))",
+            700: "rgb(var(--brand-accent-700))",
+            800: "rgb(var(--brand-accent-800))",
+            900: "rgb(var(--brand-accent-900))",
+          }
+        },
+        // Surface tokens
+        surface: {
+          bg: "var(--surface-bg)",
+          panel: "var(--surface-panel)",
+          elevated: "var(--surface-elevated)",
+        },
+        // Text tokens  
+        text: {
+          primary: "var(--text-primary)",
+          secondary: "var(--text-secondary)",
+          tertiary: "var(--text-tertiary)",
+        },
+        // Status tokens
+        status: {
+          info: "var(--status-info)",
+          success: "var(--status-success)", 
+          warn: "var(--status-warn)",
+          error: "var(--status-error)",
+        },
       },
       fontFamily: {
-        sans: ["var(--font-sans)"],
-        serif: ["var(--font-serif)"],
+        heading: ["var(--font-heading)"],
+        body: ["var(--font-body)"], 
         mono: ["var(--font-mono)"],
+        // Legacy compatibility
+        sans: ["var(--font-body)"],
+        serif: ["var(--font-serif)"],
+      },
+      fontSize: {
+        'display': ['var(--text-display)', { lineHeight: 'var(--lh-display)' }],
+        'h1': ['var(--text-h1)', { lineHeight: 'var(--lh-h1)' }],
+        'h2': ['var(--text-h2)', { lineHeight: 'var(--lh-h2)' }],
+        'h3': ['var(--text-h3)', { lineHeight: 'var(--lh-h3)' }],
+        'lead': ['var(--text-lead)', { lineHeight: 'var(--lh-lead)' }],
+        'body': ['var(--text-body)', { lineHeight: 'var(--lh-body)' }],
+        'caption': ['var(--text-caption)', { lineHeight: 'var(--lh-caption)' }],
       },
       keyframes: {
         "accordion-down": {

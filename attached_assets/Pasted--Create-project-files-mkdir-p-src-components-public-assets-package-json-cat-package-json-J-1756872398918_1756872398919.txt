@@ -1,0 +1,413 @@
+# Create project files
+mkdir -p src/components public/assets
+
+# package.json
+cat > package.json <<'JSON'
+{
+  "name": "symbiosoai-brandkit",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "classnames": "^2.5.1",
+    "framer-motion": "^11.3.30",
+    "lucide-react": "^0.441.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.45",
+    "tailwindcss": "^3.4.10",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.1"
+  }
+}
+JSON
+
+# tsconfig.json
+cat > tsconfig.json <<'JSON'
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] }
+  },
+  "include": ["src"]
+}
+JSON
+
+# vite.config.ts
+cat > vite.config.ts <<'TS'
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+export default defineConfig({ plugins: [react()] })
+TS
+
+# postcss.config.js
+cat > postcss.config.js <<'JS'
+export default { plugins: { tailwindcss: {}, autoprefixer: {} } }
+JS
+
+# tailwind.config.ts
+cat > tailwind.config.ts <<'TS'
+import type { Config } from 'tailwindcss'
+const withAlpha = (v: string) => ({ opacityValue }: any) =>
+  opacityValue === undefined ? `rgb(var(${v}))` : `rgb(var(${v}) / ${opacityValue})`
+export default {
+  darkMode: 'class',
+  content: ['./index.html', './src/**/*.{ts,tsx}'],
+  theme: {
+    extend: {
+      colors: {
+        surface: { bg: withAlpha('--surface-bg'), panel: withAlpha('--surface-panel'), elevated: withAlpha('--surface-elevated') },
+        text: { primary: withAlpha('--text-primary'), secondary: withAlpha('--text-secondary'), tertiary: withAlpha('--text-tertiary') },
+        border: { muted: withAlpha('--border-muted') },
+        brand: { accent: {
+          50: withAlpha('--brand-accent-50'), 100: withAlpha('--brand-accent-100'), 200: withAlpha('--brand-accent-200'),
+          300: withAlpha('--brand-accent-300'), 400: withAlpha('--brand-accent-400'), 500: withAlpha('--brand-accent-500'),
+          600: withAlpha('--brand-accent-600'), 700: withAlpha('--brand-accent-700'), 800: withAlpha('--brand-accent-800'), 900: withAlpha('--brand-accent-900'),
+        }},
+        focus: { ring: withAlpha('--focus-ring') }
+      },
+      borderRadius: { xl: '0.75rem', '2xl': '1rem' },
+      boxShadow: { card: '0 8px 30px rgba(0,0,0,0.12)' },
+      fontFamily: { mont: ['Montserrat','system-ui','sans-serif'], inter: ['Inter','system-ui','sans-serif'] },
+    },
+  },
+  plugins: [],
+} satisfies Config
+TS
+
+# index.html
+cat > index.html <<'HTML'
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SymbiosoAi — Brand Kit</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+    <script>const s=localStorage.getItem('symbiosoai-theme'); if(s==='dark'){document.documentElement.classList.add('dark')}</script>
+  </head>
+  <body class="bg-surface-bg text-text-primary">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+HTML
+
+# src/styles.css
+cat > src/styles.css <<'CSS'
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* Light */
+:root {
+  --surface-bg: 248 250 252; --surface-panel: 255 255 255; --surface-elevated: 245 248 250;
+  --text-primary: 36 44 56; --text-secondary: 72 84 96; --text-tertiary: 113 128 150;
+  --border-muted: 203 213 225;
+  --brand-accent-50: 235 245 255; --brand-accent-100: 207 231 255; --brand-accent-200: 176 216 255;
+  --brand-accent-300: 140 196 255; --brand-accent-400: 56 139 251; --brand-accent-500: 24 119 242;
+  --brand-accent-600: 13 93 201; --brand-accent-700: 12 78 162; --brand-accent-800: 11 65 131; --brand-accent-900: 10 53 108;
+  --focus-ring: 59 130 246;
+}
+/* Dark */
+.dark {
+  --surface-bg: 11 15 26; --surface-panel: 20 28 40; --surface-elevated: 24 33 49;
+  --text-primary: 235 239 245; --text-secondary: 170 182 196; --text-tertiary: 132 146 166;
+  --border-muted: 59 73 97;
+  --brand-accent-50: 235 245 255; --brand-accent-100: 207 231 255; --brand-accent-200: 176 216 255;
+  --brand-accent-300: 140 205 255; --brand-accent-400: 140 205 255; --brand-accent-500: 46 161 255;
+  --brand-accent-600: 22 133 229; --brand-accent-700: 18 112 191; --brand-accent-800: 15 90 153; --brand-accent-900: 12 70 120;
+  --focus-ring: 99 179 237;
+}
+.ring-motif{position:absolute;inset:0;pointer-events:none;background:
+  radial-gradient(closest-side, rgba(255,255,255,0.12), rgba(255,255,255,0) 60%) 75% 28%/38rem 38rem no-repeat;
+  filter: blur(0.2px);}
+.btn{@apply inline-flex items-center justify-center rounded-xl px-4 py-2 font-mont font-bold shadow-sm outline-none transition;}
+.btn-primary{@apply bg-brand-accent-500 text-white hover:bg-brand-accent-400 active:bg-brand-accent-600;}
+.focus-ring:focus-visible{outline:2px solid rgb(var(--focus-ring));outline-offset:2px;}
+CSS
+
+# src/main.tsx
+cat > src/main.tsx <<'TS'
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App'
+import './styles.css'
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode><App /></React.StrictMode>
+)
+TS
+
+# src/tokens.ts
+cat > src/tokens.ts <<'TS'
+export type Token = { name: string; css: string; role: string; }
+const rgbVar = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+export const tokenList: Token[] = [
+  { name: 'brand.accent.500', css: '--brand-accent-500', role: 'Primary Accent / Links / Buttons' },
+  { name: 'text.primary', css: '--text-primary', role: 'Headings' },
+  { name: 'text.secondary', css: '--text-secondary', role: 'Body' },
+  { name: 'text.tertiary', css: '--text-tertiary', role: 'Captions' },
+  { name: 'surface.bg', css: '--surface-bg', role: 'Background' },
+  { name: 'surface.panel', css: '--surface-panel', role: 'Panels/Cards' },
+  { name: 'surface.elevated', css: '--surface-elevated', role: 'Headers/Chrome' },
+  { name: 'border.muted', css: '--border-muted', role: 'Hairlines/Dividers' },
+  { name: 'focus.ring', css: '--focus-ring', role: 'Focus Visible' }
+]
+export function rgbVarToHex (rgb: string) {
+  const [r,g,b] = rgb.split(/\s+/).map(v => parseInt(v, 10) || 0);
+  return '#' + [r,g,b].map(x => x.toString(16).padStart(2,'0')).join('').toUpperCase();
+}
+export function getTokenHex(cssVar: string){
+  const val = rgbVar(cssVar); return rgbVarToHex(val)
+}
+TS
+
+# src/components/ThemeToggle.tsx
+cat > src/components/ThemeToggle.tsx <<'TSX'
+import React from 'react'
+export default function ThemeToggle(){
+  const [dark, setDark] = React.useState(document.documentElement.classList.contains('dark'))
+  const toggle = () => {
+    document.documentElement.classList.toggle('dark')
+    const isDark = document.documentElement.classList.contains('dark')
+    localStorage.setItem('symbiosoai-theme', isDark ? 'dark' : 'light')
+    setDark(isDark)
+  }
+  return <button onClick={toggle} className="btn btn-primary focus-ring">{dark ? 'Light Mode' : 'Dark Mode'}</button>
+}
+TSX
+
+# src/components/LogoShowcase.tsx
+cat > src/components/LogoShowcase.tsx <<'TSX'
+export default function LogoShowcase(){
+  return (
+    <section className="relative rounded-2xl bg-surface-panel shadow-card p-6">
+      <h2 className="font-mont text-2xl mb-4">Logos & Lockups</h2>
+      <p className="text-text-secondary mb-6">Primary horizontal logo with Ai accent. Use white on dark, graphite on light. Maintain clear-space = 1× O-Loop ring thickness.</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+        <div className="rounded-xl border border-border-muted bg-surface-elevated p-6">
+          <img src="/assets/SymbiosoAi-Logo-Horizontal.png" alt="SymbiosoAi Horizontal Logo" className="h-14 object-contain" />
+          <p className="text-sm text-text-tertiary mt-3">Primary — Horizontal</p>
+        </div>
+        <div className="rounded-xl border border-border-muted bg-surface-elevated p-6">
+          <img src="/assets/SymbiosoAi-Logo-Horizontal-White.png" alt="SymbiosoAi Horizontal Logo (White)" className="h-14 object-contain bg-neutral-900 rounded-md p-3" />
+          <p className="text-sm text-text-tertiary mt-3">Primary — Horizontal (White)</p>
+        </div>
+      </div>
+    </section>
+  )
+}
+TSX
+
+# src/components/ColorTokens.tsx
+cat > src/components/ColorTokens.tsx <<'TSX'
+import { tokenList, getTokenHex } from '@/tokens'
+import React from 'react'
+function Swatch({cssVar, label}:{cssVar:string,label:string}){
+  const color = getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim()
+  const hex = getTokenHex(cssVar)
+  return (
+    <div className="p-4 rounded-xl border border-border-muted bg-surface-elevated">
+      <div className="h-16 rounded-md" style={{ backgroundColor: `rgb(${color})` }} />
+      <div className="mt-3 text-sm">
+        <div className="font-medium">{label}</div>
+        <div className="text-text-tertiary">{hex}</div>
+      </div>
+    </div>
+  )
+}
+export default function ColorTokens(){
+  const [, setTick] = React.useState(0)
+  React.useEffect(() => {
+    const obs = new MutationObserver(() => setTick(t => t+1))
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => obs.disconnect()
+  }, [])
+  return (
+    <section className="relative rounded-2xl bg-surface-panel shadow-card p-6">
+      <h2 className="font-mont text-2xl mb-4">Color Tokens</h2>
+      <p className="text-text-secondary mb-6">Use tokens, not hardcoded HEX. Light/Dark mappings are handled via CSS variables.</p>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {tokenList.map(t => (<Swatch key={t.name} cssVar={t.css} label={`${t.name} — ${t.role}`} />))}
+      </div>
+    </section>
+  )
+}
+TSX
+
+# src/components/TypographyScale.tsx
+cat > src/components/TypographyScale.tsx <<'TSX'
+export default function TypographyScale(){
+  return (
+    <section className="relative rounded-2xl bg-surface-panel shadow-card p-6 overflow-hidden">
+      <div className="ring-motif" />
+      <h2 className="font-mont text-2xl mb-6">Typography</h2>
+      <div className="grid lg:grid-cols-2 gap-8">
+        <div>
+          <h3 className="font-mont text-xl mb-4">Headings — Montserrat</h3>
+          <div className="mb-6">
+            <div className="text-[72px]/[84px] font-mont font-bold">SymbiosoAi</div>
+            <div className="text-text-tertiary text-sm mt-1">Display • 72/84</div>
+          </div>
+          <div className="mb-6">
+            <div className="text-[48px]/[60px] font-mont font-bold">Make intelligence collaborative.</div>
+            <div className="text-text-tertiary text-sm mt-1">H1 • 48/60</div>
+          </div>
+          <div className="mb-6">
+            <div className="text-[32px]/[40px] font-mont font-bold">Orchestrate models. Align agents.</div>
+            <div className="text-text-tertiary text-sm mt-1">H2 • 32/40</div>
+          </div>
+          <div className="mb-6">
+            <div className="text-[24px]/[32px] font-mont font-semibold">Think together. Act precisely.</div>
+            <div className="text-text-tertiary text-sm mt-1">H3 • 24/32</div>
+          </div>
+        </div>
+        <div>
+          <h3 className="font-mont text-xl mb-4">Body & UI — Inter</h3>
+          <p className="text-[20px]/[28px] font-inter">SymbiosoAi brings multi-model debate into a single, coherent answer.</p>
+          <div className="text-text-tertiary text-sm mt-1">Lead • 20/28</div>
+          <p className="text-[16px]/[24px] font-inter mt-6">Default paragraph size for long-form content and app UI copy. Use Inter Regular for body, Inter Medium for subheads and labels.</p>
+          <div className="text-text-tertiary text-sm mt-1">Body • 16/24</div>
+          <p className="text-[12px]/[18px] font-inter mt-6 text-text-secondary">Fine print, figure notes, helper text.</p>
+          <div className="text-text-tertiary text-sm mt-1">Caption • 12/18</div>
+          <div className="mt-6">
+            <button className="btn btn-primary focus-ring">Primary Action</button>
+            <a className="ml-4 text-brand-accent-500 hover:underline" href="#">Inline link example</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+TSX
+
+# src/components/Boards.tsx
+cat > src/components/Boards.tsx <<'TSX'
+export default function Boards(){
+  return (
+    <section className="relative rounded-2xl bg-surface-panel shadow-card p-6">
+      <h2 className="font-mont text-2xl mb-4">Typography Board Previews</h2>
+      <p className="text-text-secondary mb-6">These previews reflect the motif and layout. Use the PNG/PDF exports for handoff.</p>
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="rounded-xl border border-border-muted bg-surface-elevated p-4">
+          <img src="/assets/SymbiosoAi_Typography_Dark_v2_1920x1080.png" alt="Dark Board" className="w-full rounded-lg"/>
+          <div className="text-sm text-text-tertiary mt-2">Dark Mode Board (1920×1080)</div>
+        </div>
+        <div className="rounded-xl border border-border-muted bg-surface-elevated p-4">
+          <img src="/assets/SymbiosoAi_Typography_Light_v2_1920x1080.png" alt="Light Board" className="w-full rounded-lg"/>
+          <div className="text-sm text-text-tertiary mt-2">Light Mode Board (1920×1080)</div>
+        </div>
+      </div>
+    </section>
+  )
+}
+TSX
+
+# src/components/Guidelines.tsx
+cat > src/components/Guidelines.tsx <<'TSX'
+export default function Guidelines(){
+  return (
+    <section className="rounded-2xl bg-surface-panel shadow-card p-6">
+      <h2 className="font-mont text-2xl mb-4">Usage Guidelines (Do / Don’t)</h2>
+      <div className="grid md:grid-cols-2 gap-8">
+        <div>
+          <h3 className="font-mont text-xl mb-2">Do</h3>
+          <ul className="list-disc pl-6 text-text-secondary space-y-2">
+            <li>Use the horizontal logo by default; keep <span className="font-bold">Ai</span> in brand accent.</li>
+            <li>Preserve generous clear-space around the mark.</li>
+            <li>Use Montserrat (headings) + Inter (body) only.</li>
+            <li>Respect accessibility contrast and focus states.</li>
+            <li>Map colors through tokens, never hardcode HEX.</li>
+          </ul>
+        </div>
+        <div>
+          <h3 className="font-mont text-xl mb-2">Don’t</h3>
+          <ul className="list-disc pl-6 text-text-secondary space-y-2">
+            <li>Recolor letters arbitrarily or restyle the O-Loop.</li>
+            <li>Place the logo on busy photos without a backplate.</li>
+            <li>Add drop shadows/glows to text outside hero creative.</li>
+            <li>Mix extra display fonts “for flair.”</li>
+            <li>Use color as the only indicator of state/meaning.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  )
+}
+TSX
+
+# src/App.tsx
+cat > src/App.tsx <<'TSX'
+import ThemeToggle from './components/ThemeToggle'
+import LogoShowcase from './components/LogoShowcase'
+import ColorTokens from './components/ColorTokens'
+import TypographyScale from './components/TypographyScale'
+import Boards from './components/Boards'
+import Guidelines from './components/Guidelines'
+
+export default function App(){
+  return (
+    <div className="min-h-screen bg-surface-bg text-text-primary">
+      <header className="sticky top-0 z-20 backdrop-blur bg-surface-bg/60 border-b border-border-muted">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center gap-4">
+          <img src="/assets/SymbiosoAi-Logo-Horizontal.png" className="h-8" alt="SymbiosoAi" />
+          <div className="ml-auto"><ThemeToggle /></div>
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-6 py-10 space-y-10">
+        <h1 className="font-mont text-3xl mb-2">SymbiosoAi — Brand Kit</h1>
+        <p className="text-text-secondary">Make intelligence collaborative. This live handbook includes tokens, typography, logos, and usage rules with Dark/Light theming.</p>
+        <LogoShowcase />
+        <ColorTokens />
+        <TypographyScale />
+        <Boards />
+        <Guidelines />
+      </main>
+
+      <footer className="max-w-6xl mx-auto px-6 py-10 text-text-tertiary text-sm">
+        © {new Date().getFullYear()} SymbiosoAi
+      </footer>
+    </div>
+  )
+}
+TSX
+
+# README
+cat > README.md <<'MD'
+# SymbiosoAi — Brand Kit (Replit)
+
+A Vite + React + Tailwind mini-site that hosts the live brand handbook:
+- Dark/Light token theming (CSS variables)
+- Logo showcase
+- Color tokens grid
+- Typography scale (Montserrat / Inter via Google Fonts)
+- Board previews (PNG assets)
+- Do/Don't usage rules
+
+## Quick Start
+```bash
+npm install
+npm run dev
