@@ -55,7 +55,11 @@ export const thinkRequestSchema = z.object({
     "research-scientist",
     "systems-engineer",
     "behavioral-analyst",
-    "sustainability-consultant"
+    "sustainability-consultant",
+    "grant-writer",
+    "hr-expert",
+    "hospitality-expert",
+    "public-safety-expert"
   ])).optional(),
   usecase_type: z.enum(["business_analysis", "technical_debate", "creative_brainstorm", "research_synthesis", "ethical_discussion", "document_analysis", "general_inquiry"]).optional(),
   response_length: z.enum(["brief", "moderate", "detailed"]).optional(),

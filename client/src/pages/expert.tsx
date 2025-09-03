@@ -29,7 +29,7 @@ export default function ExpertPage() {
 
   // Expert Mode Configuration State
   const [configuration, setConfiguration] = useState({
-    frameworks: ["systems", "first_principles"],
+    frameworks: ["systems_thinking", "first_principles"],
     routing: {
       analyst: 25,
       pragmatist: 30,
@@ -365,6 +365,19 @@ export default function ExpertPage() {
                 isProcessing={thinkMutation.isPending}
                 onExport={handleExport}
               />
+              
+              {/* Session Management */}
+              <Card className="card-elevated">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-3">
+                    <Settings className="text-primary" size={20} />
+                    Session Management
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <WorkspaceManagement />
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="templates" className="space-y-6">

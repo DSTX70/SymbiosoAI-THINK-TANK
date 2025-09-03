@@ -34,7 +34,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 header-gradient text-white">
       <div className="max-w-7xl mx-auto px-6 py-1">
         {/* Logo Row */}
-        <div className="flex justify-center mb-1">
+        <div className="flex justify-center mb-0">
           <Link href="/" className="flex items-center" data-testid="link-home">
             <img 
               src={logoImage} 
@@ -79,13 +79,6 @@ export default function Header() {
               data-testid="link-expert-mode"
             >
               Expert
-            </Link>
-            <Link 
-              href="/sessions" 
-              className={`mode-pill ${location.startsWith("/sessions") ? "active" : ""}`}
-              data-testid="link-sessions"
-            >
-              Sessions
             </Link>
           </nav>
           
