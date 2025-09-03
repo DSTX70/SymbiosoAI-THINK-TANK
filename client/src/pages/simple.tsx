@@ -129,7 +129,12 @@ export default function SimplePage() {
 
       // Merge results: combine consensus, add dissents, merge unresolved (removing clicked question)
       const mergedResults: ThinkResponse = {
-        consensus: results.consensus + "\n\n**Additional Analysis:**\n" + newResults.consensus,
+        consensus: results.consensus + 
+          "\n\n" + 
+          "═".repeat(50) + 
+          "\n🔍 ADDITIONAL ANALYSIS: " + question + 
+          "\n" + "═".repeat(50) + 
+          "\n\n" + newResults.consensus,
         dissents: [...(results.dissents || []), ...(newResults.dissents || [])],
         unresolved: [
           ...(results.unresolved || []).filter(q => q !== question), // Remove clicked question
