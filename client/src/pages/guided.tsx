@@ -20,7 +20,10 @@ export default function GuidedPage() {
   const [requireCitations, setRequireCitations] = useState(false);
   const [enableFactCheck, setEnableFactCheck] = useState(false);
   const [enableLiveWeb, setEnableLiveWeb] = useState(false);
-  const [useStreaming, setUseStreaming] = useState(false); // MUST BE DEFAULT OFF
+  const [useStreaming, setUseStreaming] = useState(() => {
+    console.log("GuidedPage: Initializing useStreaming to FALSE");
+    return false;
+  }); // FORCE DEFAULT OFF
   
   const [results, setResults] = useState<ThinkResponse | null>(null);
   const [streamingResult, setStreamingResult] = useState<any>(null);
@@ -225,7 +228,10 @@ export default function GuidedPage() {
                 <Switch
                   id="streaming"
                   checked={useStreaming}
-                  onCheckedChange={setUseStreaming}
+                  onCheckedChange={(checked) => {
+                    console.log("GuidedPage: Setting useStreaming to", checked);
+                    setUseStreaming(checked);
+                  }}
                   data-testid="switch-streaming"
                 />
                 <Label htmlFor="streaming" className="text-sm font-medium">Real-time Streaming</Label>
