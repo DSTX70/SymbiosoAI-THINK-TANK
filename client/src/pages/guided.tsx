@@ -7,7 +7,8 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Compass, Rocket, SlidersHorizontal, Cog, Zap } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Compass, Rocket, SlidersHorizontal, Cog, Zap, ChevronDown, ChevronUp, Settings, Eye, EyeOff } from "lucide-react";
 import Header from "@/components/Header";
 import TelemetryPanel from "@/components/TelemetryPanel";
 import ResultsSection from "@/components/ResultsSection";
@@ -29,6 +30,10 @@ export default function GuidedPage() {
   const [enableLiveWeb, setEnableLiveWeb] = useState(false);
   const [useStreaming, setUseStreaming] = useState(true);
   const [minSources, setMinSources] = useState(3);
+  
+  // UI State
+  const [isConfigurationOpen, setIsConfigurationOpen] = useState(false);
+  const [isLiveStreamOpen, setIsLiveStreamOpen] = useState(false);
   
   // Agent selection subchoices
   const [manualAgents, setManualAgents] = useState<("analyst" | "pragmatist" | "innovator" | "thoughtful" | "critic")[]>(["analyst", "critic"]);
@@ -144,22 +149,73 @@ export default function GuidedPage() {
     };
   };
 
+  const handleApplyConfiguration = () => {
+    setIsConfigurationOpen(false);
+    toast({ description: "Configuration applied successfully!" });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid lg:grid-cols-5 gap-6">
-          {/* Configuration Sidebar */}
-          <aside className="lg:col-span-1">
-            <Card className="card-elevated">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <SlidersHorizontal className="text-primary" size={20} />
-                  Configuration
+      <main className="max-w-6xl mx-auto px-6 py-8">
+        {/* 1. Guided Analysis Prompt - Top */}
+        <Card className="card-elevated gradient-bg mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3">
+              <Compass className="text-primary" size={20} />
+              Guided Analysis Prompt
+              <div className={`status-indicator ${thinkMutation.isPending ? "status-processing" : results ? "status-complete" : "status-idle"}`} data-testid="status-guided"></div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              rows={4}
+              placeholder="Describe your complex challenge for guided multi-agent analysis..."
+              className="resize-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
+              data-testid="input-guided-prompt"
+            />
+            
+            <Button 
+              onClick={handleSubmit}
+              disabled={thinkMutation.isPending || isStreaming}
+              className="btn-primary flex items-center gap-2"
+              data-testid="button-guided-run"
+            >
+              {(thinkMutation.isPending || isStreaming) ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                  {isStreaming ? "Streaming..." : "Analyzing..."}
+                </>
+              ) : (
+                <>
+                  {useStreaming ? <Zap size={16} /> : <Rocket size={16} />}
+                  {useStreaming ? "Launch Live Stream" : "Launch Guided Analysis"}
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* 2. Configuration Section - Collapsible */}
+        <Card className="card-elevated mb-6">
+          <Collapsible open={isConfigurationOpen} onOpenChange={setIsConfigurationOpen}>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Settings className="text-primary" size={20} />
+                    Configuration
+                  </div>
+                  {isConfigurationOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="space-y-6">
+                {/* AI Selection Mode */}
                 <div className="space-y-2">
                   <Label htmlFor="selection-mode" className="text-sm font-medium">AI Selection Mode</Label>
                   <Select value={selectionMode} onValueChange={setSelectionMode}>
@@ -197,9 +253,9 @@ export default function GuidedPage() {
 
                 {/* Manual Agent Selection */}
                 {selectionMode === "manual" && (
-                  <div className="space-y-3 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <div className="space-y-3 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
                     <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">Select Agents</Label>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {[
                         { 
                           id: "analyst", 
@@ -274,329 +330,112 @@ export default function GuidedPage() {
 
                 {/* Domain Expert Selection */}
                 {selectionMode === "domain" && (
-                  <div className="space-y-3 p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-                    <Label className="text-sm font-medium text-green-900 dark:text-green-100">👨‍⚖️ Select Domain Experts</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      
-                      {/* Legal Domain */}
-                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
-                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">⚖️ Legal</h5>
-                        <div className="space-y-2">
-                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
-                            <Switch 
-                              checked={domainExperts.includes("legal-analyst")}
+                  <div className="space-y-3 p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <Label className="text-sm font-medium text-green-900 dark:text-green-100">Select Domain Experts</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {[
+                        // Legal Domain (2 specialists)
+                        { id: "legal-analyst", label: "⚖️ Legal Analyst", domain: "Legal", description: "Contract analysis, regulatory compliance, legal risk assessment" },
+                        { id: "legal-advocate", label: "🛡️ Legal Advocate", domain: "Legal", description: "Client advocacy, litigation strategy, legal argumentation" },
+                        
+                        // Medical Domain (2 specialists)  
+                        { id: "medical-diagnostician", label: "🩺 Medical Diagnostician", domain: "Medical", description: "Clinical diagnosis, symptom analysis, treatment protocols" },
+                        { id: "medical-researcher", label: "🔬 Medical Researcher", domain: "Medical", description: "Clinical research, drug development, medical innovation" },
+                        
+                        // Finance Domain (2 specialists)
+                        { id: "financial-analyst", label: "📊 Financial Analyst", domain: "Finance", description: "Financial modeling, market analysis, investment evaluation" },
+                        { id: "investment-strategist", label: "💰 Investment Strategist", domain: "Finance", description: "Portfolio management, investment strategy, risk assessment" },
+                        
+                        // Technology Domain (2 specialists)
+                        { id: "tech-architect", label: "🏗️ Tech Architect", domain: "Technology", description: "System design, technical architecture, scalability planning" },
+                        { id: "devops-engineer", label: "⚙️ DevOps Engineer", domain: "Technology", description: "Infrastructure automation, deployment strategies, system optimization" },
+                        
+                        // Other single specialists
+                        { id: "educational-psychologist", label: "🎓 Educational Psychologist", domain: "Education", description: "Learning theories, educational assessment, instructional design" },
+                        { id: "brand-strategist", label: "🎯 Brand Strategist", domain: "Marketing", description: "Brand positioning, market research, consumer behavior analysis" },
+                        { id: "research-scientist", label: "🔬 Research Scientist", domain: "Scientific", description: "Research methodology, data analysis, scientific innovation" },
+                        { id: "systems-engineer", label: "🔧 Systems Engineer", domain: "Engineering", description: "Systems integration, process optimization, technical problem solving" },
+                        { id: "behavioral-analyst", label: "🧠 Behavioral Analyst", domain: "Psychology", description: "Human behavior analysis, psychological assessment, intervention strategies" },
+                        { id: "sustainability-consultant", label: "🌱 Sustainability Consultant", domain: "Sustainability", description: "Environmental impact assessment, sustainability strategy, green technology" }
+                      ].map(expert => (
+                        <div key={expert.id} className="p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                          <div className="flex items-start space-x-3">
+                            <Switch
+                              id={`expert-${expert.id}`}
+                              checked={domainExperts.includes(expert.id)}
                               onCheckedChange={(checked) => {
                                 if (checked) {
-                                  setDomainExperts(prev => [...prev, "legal-analyst"]);
+                                  setDomainExperts(prev => [...prev, expert.id]);
                                 } else {
-                                  setDomainExperts(prev => prev.filter(e => e !== "legal-analyst"));
+                                  setDomainExperts(prev => prev.filter(e => e !== expert.id));
                                 }
                               }}
-                              data-testid="switch-legal-analyst"
+                              data-testid={`switch-expert-${expert.id}`}
+                              className="mt-1"
                             />
-                            <span>The Legal Analyst - Contract analysis, legal precedent, regulatory compliance</span>
-                          </Label>
-                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
-                            <Switch 
-                              checked={domainExperts.includes("legal-advocate")}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setDomainExperts(prev => [...prev, "legal-advocate"]);
-                                } else {
-                                  setDomainExperts(prev => prev.filter(e => e !== "legal-advocate"));
-                                }
-                              }}
-                              data-testid="switch-legal-advocate"
-                            />
-                            <span>The Legal Advocate - Argumentation, legal strategy, client advocacy</span>
-                          </Label>
+                            <div className="flex-1">
+                              <Label htmlFor={`expert-${expert.id}`} className="text-sm cursor-pointer">
+                                <div className="font-medium">{expert.label}</div>
+                                <div className="text-xs font-medium text-green-600 dark:text-green-400 mt-1">{expert.domain}</div>
+                                <div className="text-xs text-muted-foreground mt-1">{expert.description}</div>
+                              </Label>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-
-                      {/* Medical Domain */}
-                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
-                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">🏥 Medical</h5>
-                        <div className="space-y-2">
-                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
-                            <Switch 
-                              checked={domainExperts.includes("medical-diagnostician")}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setDomainExperts(prev => [...prev, "medical-diagnostician"]);
-                                } else {
-                                  setDomainExperts(prev => prev.filter(e => e !== "medical-diagnostician"));
-                                }
-                              }}
-                              data-testid="switch-medical-diagnostician"
-                            />
-                            <span>The Medical Diagnostician - Symptom analysis, clinical diagnostics, differential diagnosis, symptom patterns</span>
-                          </Label>
-                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
-                            <Switch 
-                              checked={domainExperts.includes("medical-researcher")}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setDomainExperts(prev => [...prev, "medical-researcher"]);
-                                } else {
-                                  setDomainExperts(prev => prev.filter(e => e !== "medical-researcher"));
-                                }
-                              }}
-                              data-testid="switch-medical-researcher"
-                            />
-                            <span>The Medical Researcher - Clinical trials, medical literature research, systematic reviews, meta-analysis</span>
-                          </Label>
-                        </div>
-                      </div>
-
-                      {/* Finance Domain */}
-                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
-                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">💰 Finance</h5>
-                        <div className="space-y-2">
-                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
-                            <Switch 
-                              checked={domainExperts.includes("financial-analyst")}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setDomainExperts(prev => [...prev, "financial-analyst"]);
-                                } else {
-                                  setDomainExperts(prev => prev.filter(e => e !== "financial-analyst"));
-                                }
-                              }}
-                              data-testid="switch-financial-analyst"
-                            />
-                            <span>The Financial Analyst - Financial modeling, investment analysis, risk assessment</span>
-                          </Label>
-                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
-                            <Switch 
-                              checked={domainExperts.includes("investment-strategist")}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setDomainExperts(prev => [...prev, "investment-strategist"]);
-                                } else {
-                                  setDomainExperts(prev => prev.filter(e => e !== "investment-strategist"));
-                                }
-                              }}
-                              data-testid="switch-investment-strategist"
-                            />
-                            <span>The Investment Strategist - Portfolio strategy, asset allocation, market psychology</span>
-                          </Label>
-                        </div>
-                      </div>
-
-                      {/* Technology Domain */}
-                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
-                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">💻 Technology</h5>
-                        <div className="space-y-2">
-                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
-                            <Switch 
-                              checked={domainExperts.includes("tech-architect")}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setDomainExperts(prev => [...prev, "tech-architect"]);
-                                } else {
-                                  setDomainExperts(prev => prev.filter(e => e !== "tech-architect"));
-                                }
-                              }}
-                              data-testid="switch-tech-architect"
-                            />
-                            <span>The Tech Architect - System design, scalability, security</span>
-                          </Label>
-                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
-                            <Switch 
-                              checked={domainExperts.includes("devops-engineer")}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setDomainExperts(prev => [...prev, "devops-engineer"]);
-                                } else {
-                                  setDomainExperts(prev => prev.filter(e => e !== "devops-engineer"));
-                                }
-                              }}
-                              data-testid="switch-devops-engineer"
-                            />
-                            <span>The DevOps Engineer - CI/CD, infrastructure, automation</span>
-                          </Label>
-                        </div>
-                      </div>
-
-                      {/* Education Domain */}
-                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
-                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">🎓 Education</h5>
-                        <div className="space-y-2">
-                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
-                            <Switch 
-                              checked={domainExperts.includes("educational-psychologist")}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setDomainExperts(prev => [...prev, "educational-psychologist"]);
-                                } else {
-                                  setDomainExperts(prev => prev.filter(e => e !== "educational-psychologist"));
-                                }
-                              }}
-                              data-testid="switch-educational-psychologist"
-                            />
-                            <span>The Educational Psychologist - Learning theory, cognitive development</span>
-                          </Label>
-                        </div>
-                      </div>
-
-                      {/* Marketing Domain */}
-                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
-                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">📢 Marketing</h5>
-                        <div className="space-y-2">
-                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
-                            <Switch 
-                              checked={domainExperts.includes("brand-strategist")}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setDomainExperts(prev => [...prev, "brand-strategist"]);
-                                } else {
-                                  setDomainExperts(prev => prev.filter(e => e !== "brand-strategist"));
-                                }
-                              }}
-                              data-testid="switch-brand-strategist"
-                            />
-                            <span>The Brand Strategist - Brand positioning, consumer psychology</span>
-                          </Label>
-                        </div>
-                      </div>
-
-                      {/* Scientific Domain */}
-                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
-                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">🔬 Scientific</h5>
-                        <div className="space-y-2">
-                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
-                            <Switch 
-                              checked={domainExperts.includes("research-scientist")}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setDomainExperts(prev => [...prev, "research-scientist"]);
-                                } else {
-                                  setDomainExperts(prev => prev.filter(e => e !== "research-scientist"));
-                                }
-                              }}
-                              data-testid="switch-research-scientist"
-                            />
-                            <span>The Research Scientist - Experimental design, data analysis</span>
-                          </Label>
-                        </div>
-                      </div>
-
-                      {/* Engineering Domain */}
-                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
-                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">⚙️ Engineering</h5>
-                        <div className="space-y-2">
-                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
-                            <Switch 
-                              checked={domainExperts.includes("systems-engineer")}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setDomainExperts(prev => [...prev, "systems-engineer"]);
-                                } else {
-                                  setDomainExperts(prev => prev.filter(e => e !== "systems-engineer"));
-                                }
-                              }}
-                              data-testid="switch-systems-engineer"
-                            />
-                            <span>The Systems Engineer - Systems thinking, optimization, safety analysis</span>
-                          </Label>
-                        </div>
-                      </div>
-
-                      {/* Psychology Domain */}
-                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
-                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">🧠 Psychology</h5>
-                        <div className="space-y-2">
-                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
-                            <Switch 
-                              checked={domainExperts.includes("behavioral-analyst")}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setDomainExperts(prev => [...prev, "behavioral-analyst"]);
-                                } else {
-                                  setDomainExperts(prev => prev.filter(e => e !== "behavioral-analyst"));
-                                }
-                              }}
-                              data-testid="switch-behavioral-analyst"
-                            />
-                            <span>The Behavioral Analyst - Human behavior, cognitive biases, decision-making</span>
-                          </Label>
-                        </div>
-                      </div>
-
-                      {/* Sustainability Domain */}
-                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
-                        <h5 className="font-medium text-gray-700 dark:text-gray-300 mb-2">🌱 Sustainability</h5>
-                        <div className="space-y-2">
-                          <Label className="flex items-center space-x-2 text-sm cursor-pointer">
-                            <Switch 
-                              checked={domainExperts.includes("sustainability-consultant")}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  setDomainExperts(prev => [...prev, "sustainability-consultant"]);
-                                } else {
-                                  setDomainExperts(prev => prev.filter(e => e !== "sustainability-consultant"));
-                                }
-                              }}
-                              data-testid="switch-sustainability-consultant"
-                            />
-                            <span>The Sustainability Consultant - Environmental impact, ESG, circular economy</span>
-                          </Label>
-                        </div>
-                      </div>
-
+                      ))}
                     </div>
                   </div>
                 )}
 
                 {/* Use Case Selection */}
                 {selectionMode === "usecase" && (
-                  <div className="space-y-3 p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                    <Label className="text-sm font-medium text-purple-900 dark:text-purple-100">Analysis Use Case</Label>
-                    <Select value={useCaseType} onValueChange={(value) => setUseCaseType(value as typeof useCaseType)}>
+                  <div className="space-y-3 p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                    <Label className="text-sm font-medium text-purple-900 dark:text-purple-100">Select Use Case</Label>
+                    <Select value={useCaseType} onValueChange={setUseCaseType as any}>
                       <SelectTrigger data-testid="select-usecase">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="business_analysis">
                           <div className="space-y-1">
-                            <div className="font-medium">Business Analysis</div>
-                            <div className="text-xs text-muted-foreground">Auto-selects: Analyst + Pragmatist + Critic • Market research, strategy development, competitive analysis</div>
+                            <div className="font-medium">📊 Business Analysis</div>
+                            <div className="text-xs text-muted-foreground">Market research, competitive analysis, business strategy</div>
                           </div>
                         </SelectItem>
                         <SelectItem value="technical_debate">
                           <div className="space-y-1">
-                            <div className="font-medium">Technical Debate</div>
-                            <div className="text-xs text-muted-foreground">Auto-selects: Analyst + Critic + Pragmatist • Engineering discussions, architecture decisions, technical analysis</div>
+                            <div className="font-medium">⚙️ Technical Debate</div>
+                            <div className="text-xs text-muted-foreground">Architecture decisions, technology selection, technical trade-offs</div>
                           </div>
                         </SelectItem>
                         <SelectItem value="creative_brainstorm">
                           <div className="space-y-1">
-                            <div className="font-medium">Creative Brainstorm</div>
-                            <div className="text-xs text-muted-foreground">Auto-selects: Innovator + Pragmatist + Thoughtful One • Innovation, ideation, creative problem-solving</div>
+                            <div className="font-medium">💡 Creative Brainstorm</div>
+                            <div className="text-xs text-muted-foreground">Innovation sessions, creative problem solving, ideation</div>
                           </div>
                         </SelectItem>
                         <SelectItem value="research_synthesis">
                           <div className="space-y-1">
-                            <div className="font-medium">Research Synthesis</div>
-                            <div className="text-xs text-muted-foreground">Auto-selects: Analyst + Thoughtful One + Research Scientist • Literature review, data analysis, evidence compilation</div>
+                            <div className="font-medium">🔬 Research Synthesis</div>
+                            <div className="text-xs text-muted-foreground">Literature review, data analysis, research conclusions</div>
                           </div>
                         </SelectItem>
                         <SelectItem value="ethical_discussion">
                           <div className="space-y-1">
-                            <div className="font-medium">Ethical Discussion</div>
-                            <div className="text-xs text-muted-foreground">Auto-selects: Thoughtful One + Critic + Analyst • Moral reasoning, value systems, ethical frameworks</div>
+                            <div className="font-medium">🤔 Ethical Discussion</div>
+                            <div className="text-xs text-muted-foreground">Ethical dilemmas, moral reasoning, stakeholder impact</div>
                           </div>
                         </SelectItem>
                         <SelectItem value="document_analysis">
                           <div className="space-y-1">
-                            <div className="font-medium">Document Analysis</div>
-                            <div className="text-xs text-muted-foreground">Auto-selects: Analyst + Thoughtful One + Research Scientist • Text review, content analysis, document processing</div>
+                            <div className="font-medium">📄 Document Analysis</div>
+                            <div className="text-xs text-muted-foreground">Legal documents, contracts, policy analysis</div>
                           </div>
                         </SelectItem>
                         <SelectItem value="general_inquiry">
                           <div className="space-y-1">
-                            <div className="font-medium">General Inquiry</div>
-                            <div className="text-xs text-muted-foreground">Auto-selects: Analyst + Pragmatist + Thoughtful One • Open-ended questions, general knowledge, exploratory discussions</div>
+                            <div className="font-medium">❓ General Inquiry</div>
+                            <div className="text-xs text-muted-foreground">Open-ended questions, general analysis, exploratory research</div>
                           </div>
                         </SelectItem>
                       </SelectContent>
@@ -604,180 +443,181 @@ export default function GuidedPage() {
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="response-length" className="text-sm font-medium">Response Depth</Label>
-                  <Select value={responseLength} onValueChange={setResponseLength}>
-                    <SelectTrigger data-testid="select-length">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="brief">Brief</SelectItem>
-                      <SelectItem value="moderate">Moderate</SelectItem>
-                      <SelectItem value="detailed">Detailed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="rounds" className="text-sm font-medium">Debate Rounds</Label>
-                  <Input
-                    id="rounds"
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={rounds}
-                    onChange={(e) => setRounds(parseInt(e.target.value) || 3)}
-                    data-testid="input-rounds"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="debate-format" className="text-sm font-medium">Debate Format</Label>
-                  <Select value={debateFormat} onValueChange={setDebateFormat}>
-                    <SelectTrigger data-testid="select-format">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="round-robin">Round Robin</SelectItem>
-                      <SelectItem value="structured">Structured</SelectItem>
-                      <SelectItem value="socratic">Socratic</SelectItem>
-                      <SelectItem value="collaborative">Collaborative</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="pt-4 border-t border-border">
-                  <h4 className="font-medium mb-3">Analysis Options</h4>
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="evidence"
-                        checked={requireEvidence}
-                        onCheckedChange={setRequireEvidence}
-                        data-testid="switch-evidence"
-                      />
-                      <Label htmlFor="evidence" className="text-sm">Require Evidence</Label>
+                {/* Additional Configuration Options */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Response Configuration */}
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium">Response Configuration</h4>
+                    <div className="space-y-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="response-length" className="text-sm">Response Length</Label>
+                        <Select value={responseLength} onValueChange={setResponseLength}>
+                          <SelectTrigger data-testid="select-length">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="brief">Brief</SelectItem>
+                            <SelectItem value="moderate">Moderate</SelectItem>
+                            <SelectItem value="detailed">Detailed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="rounds" className="text-sm">Debate Rounds</Label>
+                        <Input
+                          id="rounds"
+                          type="number"
+                          min={1}
+                          max={10}
+                          value={rounds}
+                          onChange={(e) => setRounds(parseInt(e.target.value) || 3)}
+                          data-testid="input-rounds"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="debate-format" className="text-sm">Debate Format</Label>
+                        <Select value={debateFormat} onValueChange={setDebateFormat}>
+                          <SelectTrigger data-testid="select-format">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="round-robin">Round-robin</SelectItem>
+                            <SelectItem value="structured">Structured</SelectItem>
+                            <SelectItem value="socratic">Socratic</SelectItem>
+                            <SelectItem value="collaborative">Collaborative</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="counterarguments"
-                        checked={requireCounterarguments}
-                        onCheckedChange={setRequireCounterarguments}
-                        data-testid="switch-counter"
-                      />
-                      <Label htmlFor="counterarguments" className="text-sm">Counter-arguments</Label>
+                  </div>
+
+                  {/* Advanced Options */}
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium">Advanced Options</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          id="evidence"
+                          checked={requireEvidence}
+                          onCheckedChange={setRequireEvidence}
+                          data-testid="switch-evidence"
+                        />
+                        <Label htmlFor="evidence" className="text-sm">Require Evidence</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          id="counterarguments"
+                          checked={requireCounterarguments}
+                          onCheckedChange={setRequireCounterarguments}
+                          data-testid="switch-counter"
+                        />
+                        <Label htmlFor="counterarguments" className="text-sm">Require Counterarguments</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          id="citations-guided"
+                          checked={requireCitations}
+                          onCheckedChange={setRequireCitations}
+                          data-testid="switch-cite"
+                        />
+                        <Label htmlFor="citations-guided" className="text-sm">Require Citations</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          id="factcheck-guided"
+                          checked={enableFactCheck}
+                          onCheckedChange={setEnableFactCheck}
+                          data-testid="switch-fact"
+                        />
+                        <Label htmlFor="factcheck-guided" className="text-sm">Fact-checking</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          id="liveweb-guided"
+                          checked={enableLiveWeb}
+                          onCheckedChange={setEnableLiveWeb}
+                          data-testid="switch-liveweb-guided"
+                        />
+                        <Label htmlFor="liveweb-guided" className="text-sm">Live Web Search</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          id="streaming-guided"
+                          checked={useStreaming}
+                          onCheckedChange={setUseStreaming}
+                          data-testid="switch-streaming-guided"
+                        />
+                        <Label htmlFor="streaming-guided" className="text-sm">Real-time Streaming</Label>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="min-sources" className="text-sm">Min Sources</Label>
+                        <Input
+                          id="min-sources"
+                          type="number"
+                          min={0}
+                          max={10}
+                          value={minSources}
+                          onChange={(e) => setMinSources(parseInt(e.target.value) || 3)}
+                          data-testid="input-minsrc"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-border">
-                  <h4 className="font-medium mb-3">Verification</h4>
-                  <div className="space-y-3">
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="citations-guided"
-                        checked={requireCitations}
-                        onCheckedChange={setRequireCitations}
-                        data-testid="switch-cite"
-                      />
-                      <Label htmlFor="citations-guided" className="text-sm">Require Citations</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="factcheck-guided"
-                        checked={enableFactCheck}
-                        onCheckedChange={setEnableFactCheck}
-                        data-testid="switch-fact"
-                      />
-                      <Label htmlFor="factcheck-guided" className="text-sm">Fact-checking</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="liveweb-guided"
-                        checked={enableLiveWeb}
-                        onCheckedChange={setEnableLiveWeb}
-                        data-testid="switch-liveweb-guided"
-                      />
-                      <Label htmlFor="liveweb-guided" className="text-sm">Live Web Search</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="streaming-guided"
-                        checked={useStreaming}
-                        onCheckedChange={setUseStreaming}
-                        data-testid="switch-streaming-guided"
-                      />
-                      <Label htmlFor="streaming-guided" className="text-sm">Real-time Streaming</Label>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="min-sources" className="text-sm font-medium">Min Sources</Label>
-                      <Input
-                        id="min-sources"
-                        type="number"
-                        min={0}
-                        max={10}
-                        value={minSources}
-                        onChange={(e) => setMinSources(parseInt(e.target.value) || 3)}
-                        data-testid="input-minsrc"
-                      />
-                    </div>
-                  </div>
+                {/* Apply Configuration Button */}
+                <div className="flex justify-end pt-4 border-t">
+                  <Button 
+                    onClick={handleApplyConfiguration}
+                    className="flex items-center gap-2"
+                    data-testid="button-apply-config"
+                  >
+                    <Settings size={16} />
+                    Apply Configuration
+                  </Button>
                 </div>
               </CardContent>
-            </Card>
-          </aside>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
 
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            {/* Prompt Card */}
-            <Card className="card-elevated gradient-bg mb-6">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <Compass className="text-primary" size={20} />
-                  Guided Analysis Prompt
-                  <div className={`status-indicator ${thinkMutation.isPending ? "status-processing" : results ? "status-complete" : "status-idle"}`} data-testid="status-guided"></div>
+        {/* 3. Live Streams Section - Toggleable (Default Closed) */}
+        <Card className="card-elevated mb-6">
+          <Collapsible open={isLiveStreamOpen} onOpenChange={setIsLiveStreamOpen}>
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {isLiveStreamOpen ? <Eye className="text-primary" size={20} /> : <EyeOff className="text-muted-foreground" size={20} />}
+                    Live Streaming
+                    {useStreaming && <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">Enabled</span>}
+                  </div>
+                  {isLiveStreamOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <Textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  rows={4}
-                  placeholder="Describe your complex challenge for guided multi-agent analysis..."
-                  className="resize-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
-                  data-testid="input-guided-prompt"
-                />
-                
-                <Button 
-                  onClick={handleSubmit}
-                  disabled={thinkMutation.isPending || isStreaming}
-                  className="btn-primary flex items-center gap-2"
-                  data-testid="button-guided-run"
-                >
-                  {(thinkMutation.isPending || isStreaming) ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                      {isStreaming ? "Streaming..." : "Analyzing..."}
-                    </>
-                  ) : (
-                    <>
-                      {useStreaming ? <Zap size={16} /> : <Rocket size={16} />}
-                      {useStreaming ? "Launch Live Stream" : "Launch Guided Analysis"}
-                    </>
-                  )}
-                </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent>
+                {useStreaming ? (
+                  <LiveStreamingSection
+                    onStartStream={handleStreamingSubmit}
+                    isStreaming={isStreaming}
+                    streamingResult={streamingResult}
+                  />
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Zap size={48} className="mx-auto mb-4 opacity-50" />
+                    <p>Enable Real-time Streaming in Configuration to see live debate streams</p>
+                  </div>
+                )}
               </CardContent>
-            </Card>
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
 
-            {/* Live Streaming Section */}
-            {useStreaming && (
-              <LiveStreamingSection
-                onStartStream={handleStreamingSubmit}
-                isStreaming={isStreaming}
-                streamingResult={streamingResult}
-              />
-            )}
-
+        {/* 4. Response Window */}
+        <div className="grid lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-3">
             {/* Analysis Progress */}
             {thinkMutation.isPending && (
               <Card className="card-elevated mb-6 processing-state">
@@ -815,12 +655,12 @@ export default function GuidedPage() {
           </div>
 
           {/* Telemetry Sidebar */}
-          <aside>
+          <div className="lg:col-span-1">
             <TelemetryPanel 
               telemetry={results?.telemetry}
               isProcessing={thinkMutation.isPending}
             />
-          </aside>
+          </div>
         </div>
       </main>
     </div>
