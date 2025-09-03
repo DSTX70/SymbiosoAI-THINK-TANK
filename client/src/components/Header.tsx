@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Sun, Moon, HelpCircle, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import logoImage from "../assets/symbiosoai-logo.png";
+// import logoImage from "../assets/symbiosoai-logo.png";
+const logoImage = "/symbiosoai-logo.png";
 
 export default function Header() {
   const [location] = useLocation();
@@ -38,9 +39,19 @@ export default function Header() {
               <img 
                 src={logoImage} 
                 alt="SymbiosoAi - Collaborative Intelligence, redefined"
-                className="h-20 w-auto"
+                className="h-20 w-auto max-w-md"
                 data-testid="logo-symbiosoai"
+                onError={(e) => {
+                  console.error('Logo failed to load:', e);
+                  e.currentTarget.style.display = 'none';
+                }}
+                onLoad={() => {
+                  console.log('Logo loaded successfully');
+                }}
               />
+              <div className="text-white text-xl font-bold" style={{display: 'none'}}>
+                SymbiosoAi
+              </div>
             </Link>
             <span className="rounded bg-white/20 px-2 py-1 text-xs font-medium">BETA</span>
           </div>
