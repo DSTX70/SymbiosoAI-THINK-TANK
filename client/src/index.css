@@ -1,143 +1,138 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* SymbiosoAi Brand Kit - Global Design System */
+
 :root {
-  /* Brand Colors - Core Palette (Exact HEX from Brand Guide) */
-  --brand-midnight: 11, 11, 11; /* #0B0B0B - Backgrounds (dark mode), primary text */
-  --brand-blue: 0, 153, 255; /* #0099FF - Primary CTA buttons, icons, highlights */
-  --brand-teal: 0, 191, 165; /* #00BFA5 - Secondary CTA, gradients, text on light */
-  --brand-slate: 47, 63, 47; /* #2F3F2F - Backgrounds (light mode), negative space */
-  --brand-silver: 192, 192, 192; /* #C0C0C0 - Accents, dividers, icon strokes */
-  --brand-warm: 248, 248, 248; /* #F8F8F8 - Warm white base */
-  
-  /* Extended Palette - Tints & Shades */
-  --brand-blue-tint: 102, 199, 255; /* #66C7FF - Hover states, subtle highlights */
-  --brand-teal-tint: 123, 128, 199; /* #7B80C7 - Gradients, muted UI states */
-  --brand-blue-shade: 0, 111, 200; /* #006FC8 - UI backgrounds, overlays */
-  --brand-gray-shade: 26, 130, 114; /* #1A8272 - Charts, dark accents */
-  --brand-silver-shade: 160, 36, 64; /* #A02440 - Low-contrast accents */
+  /* Brand Colors - Core Palette */
+  --brand-midnight: 11 11 11; /* #0B0B0B */
+  --brand-blue: 0 153 255; /* #0099FF */
+  --brand-teal: 0 191 165; /* #00BFA5 */
+  --brand-slate: 47 63 47; /* #2F3F2F */
+  --brand-silver: 192 192 192; /* #C0C0C0 */
+  --brand-warm: 248 248 248; /* #F8F8F8 */
 
-  /* Brand Accent Scale (Blue) - 50-200: backgrounds, 300-600: links/icons, 700-900: emphasis */
-  --brand-accent-50: 240, 249, 255; /* Backgrounds, hover states */
-  --brand-accent-100: 224, 242, 254; /* Large data viz fills */
-  --brand-accent-200: 186, 230, 253; /* Backgrounds, states */
-  --brand-accent-300: 102, 199, 255; /* Links, icons, brand flourishes */
-  --brand-accent-400: 56, 189, 248; /* Links, icons */
-  --brand-accent-500: 0, 153, 255; /* #0099FF - Primary brand blue */
-  --brand-accent-600: 0, 111, 200; /* #006FC8 - Brand flourishes */
-  --brand-accent-700: 3, 105, 161; /* Emphasis text on light */
-  --brand-accent-800: 7, 89, 133; /* Emphasis, shadows */
-  --brand-accent-900: 12, 74, 110; /* Emphasis text, shadows */
+  /* Brand Accent Scale (Blue) - Usage: 50-200: backgrounds, 300-600: links/icons, 700-900: emphasis */
+  --brand-accent-50: 235 245 255;
+  --brand-accent-100: 207 231 255;
+  --brand-accent-200: 176 216 255;
+  --brand-accent-300: 140 196 255;
+  --brand-accent-400: 56 139 251;
+  --brand-accent-500: 0 153 255; /* #0099FF - Primary brand blue */
+  --brand-accent-600: 0 111 200; /* #006FC8 */
+  --brand-accent-700: 3 105 161;
+  --brand-accent-800: 7 89 133;
+  --brand-accent-900: 12 74 110;
 
-  /* Typography */
+  /* Typography System */
   --font-heading: 'Montserrat', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* Typography Scale (rem) */
-  --text-display: 4.5rem;
-  --text-h1: 3.0rem;
-  --text-h2: 2.0rem;
-  --text-h3: 1.5rem;
-  --text-lead: 1.25rem;
-  --text-body: 1.0rem;
-  --text-caption: 0.8125rem;
+  /* Typography Scale */
+  --text-display: 4.5rem; /* 72px */
+  --text-h1: 3.0rem; /* 48px */
+  --text-h2: 2.0rem; /* 32px */
+  --text-h3: 1.5rem; /* 24px */
+  --text-lead: 1.25rem; /* 20px */
+  --text-body: 1.0rem; /* 16px */
+  --text-caption: 0.75rem; /* 12px */
 
   /* Line Heights */
   --lh-display: 1.15;
-  --lh-h1: 1.2;
+  --lh-h1: 1.25;
   --lh-h2: 1.25;
-  --lh-h3: 1.3;
-  --lh-lead: 1.6;
-  --lh-body: 1.6;
-  --lh-caption: 1.4;
+  --lh-h3: 1.33;
+  --lh-lead: 1.4;
+  --lh-body: 1.5;
+  --lh-caption: 1.5;
 
-  /* Light Mode Tokens - Based on Brand Palette Guide */
-  --surface-bg: rgb(var(--brand-warm)); /* #F8F8F8 - Very light neutral */
-  --surface-panel: rgb(255, 255, 255); /* Pure white - Cards, modals, panes */
-  --surface-elevated: rgb(var(--brand-warm)); /* #F8F8F8 - Headers, command bars */
+  /* Light Mode Design Tokens */
+  --surface-bg: 248 250 252; /* Very light neutral */
+  --surface-panel: 255 255 255; /* Cards, modals, panes */
+  --surface-elevated: 245 248 250; /* Headers, command bars */
   
-  --text-primary: rgb(var(--brand-midnight)); /* #0B0B0B - Near-black for headings */
-  --text-secondary: rgb(var(--brand-slate)); /* #2F3F2F - Slate mid-tone for body */
-  --text-tertiary: rgb(var(--brand-silver)); /* #C0C0C0 - Captions, meta */
+  --text-primary: 36 44 56; /* Near-black headings */
+  --text-secondary: 72 84 96; /* Slate mid-tone body */
+  --text-tertiary: 113 128 150; /* Captions, meta */
   
-  --border-muted: rgb(var(--brand-silver)); /* #C0C0C0 - Hairlines, dividers */
-  --focus-ring: rgb(var(--brand-accent-500)); /* #0099FF - Accessibility focus */
+  --border-muted: 203 213 225; /* Hairlines, dividers */
+  --focus-ring: 59 130 246; /* Accessibility focus */
   
   /* Status Colors - System Feedback */
-  --status-info: rgb(var(--brand-accent-500)); /* #0099FF - Info states */
-  --status-success: rgb(var(--brand-teal)); /* #00BFA5 - Success states */
-  --status-warn: rgb(255, 193, 7); /* Amber - Warning states */
-  --status-error: rgb(220, 38, 127); /* Red-pink - Error states */
+  --status-info: 0 153 255;
+  --status-success: 0 191 165;
+  --status-warn: 255 193 7;
+  --status-error: 220 38 127;
 
   /* Gradients */
-  --gradient-hero: linear-gradient(180deg, rgb(var(--brand-warm)), rgb(var(--brand-silver) / 0.3));
+  --gradient-hero: linear-gradient(180deg, rgb(var(--surface-bg)), rgb(var(--surface-elevated)));
   --gradient-ring: radial-gradient(circle, rgb(var(--brand-accent-500) / 0.1), transparent 70%);
 
-  /* Motion */
+  /* Motion System */
   --ease-standard: cubic-bezier(0.2, 0.7, 0.0, 1.0);
   --duration-ui: 120ms;
   --duration-panel: 240ms;
   --duration-hero: 600ms;
 
-  /* Legacy Shadcn compatibility */
-  --background: rgb(var(--brand-warm));
-  --foreground: rgb(var(--brand-midnight));
-  --card: rgb(255, 255, 255);
-  --card-foreground: rgb(var(--brand-midnight));
-  --popover: rgb(255, 255, 255);
-  --popover-foreground: rgb(var(--brand-midnight));
+  /* Legacy Shadcn Compatibility */
+  --background: rgb(var(--surface-bg));
+  --foreground: rgb(var(--text-primary));
+  --card: rgb(var(--surface-panel));
+  --card-foreground: rgb(var(--text-primary));
+  --popover: rgb(var(--surface-panel));
+  --popover-foreground: rgb(var(--text-primary));
   --primary: rgb(var(--brand-accent-500));
-  --primary-foreground: rgb(255, 255, 255);
+  --primary-foreground: rgb(255 255 255);
   --secondary: rgb(var(--brand-teal));
-  --secondary-foreground: rgb(255, 255, 255);
-  --muted: rgb(var(--brand-silver));
-  --muted-foreground: rgb(var(--brand-slate));
+  --secondary-foreground: rgb(255 255 255);
+  --muted: rgb(var(--surface-elevated));
+  --muted-foreground: rgb(var(--text-secondary));
   --accent: rgb(var(--brand-accent-100));
-  --accent-foreground: rgb(var(--brand-midnight));
-  --destructive: rgb(220, 38, 127);
-  --destructive-foreground: rgb(255, 255, 255);
-  --border: rgb(var(--brand-silver));
-  --input: rgb(var(--brand-silver));
-  --ring: rgb(var(--brand-accent-500));
-  --radius: 12px;
+  --accent-foreground: rgb(var(--text-primary));
+  --destructive: rgb(var(--status-error));
+  --destructive-foreground: rgb(255 255 255);
+  --border: rgb(var(--border-muted));
+  --input: rgb(var(--border-muted));
+  --ring: rgb(var(--focus-ring));
+  --radius: 0.75rem;
 }
 
 .dark {
-  /* Dark Mode Tokens */
-  --surface-bg: rgb(16, 16, 16); /* Deep graphite/ink blend */
-  --surface-panel: rgb(24, 24, 24); /* Cards, modals, panes */
-  --surface-elevated: rgb(32, 32, 32); /* Headers, command bars */
+  /* Dark Mode Design Tokens */
+  --surface-bg: 11 15 26; /* Deep graphite/ink blend */
+  --surface-panel: 20 28 40; /* Cards, modals, panes */
+  --surface-elevated: 24 33 49; /* Headers, command bars */
   
-  --text-primary: rgb(250, 250, 250); /* Off-white */
-  --text-secondary: rgb(156, 163, 175); /* Cool gray */
-  --text-tertiary: rgb(107, 114, 128); /* Captions, meta */
+  --text-primary: 235 239 245; /* Off-white */
+  --text-secondary: 170 182 196; /* Cool gray */
+  --text-tertiary: 132 146 166; /* Captions, meta */
   
-  --border-muted: rgb(55, 65, 81); /* Subtle cool-gray (alpha-based) */
-  --focus-ring: rgb(var(--brand-accent-500)); /* Same hue, 3:1 contrast */
+  --border-muted: 59 73 97; /* Subtle cool-gray */
+  --focus-ring: 99 179 237; /* Same hue, 3:1 contrast */
 
-  /* Legacy Shadcn compatibility */
-  --background: rgb(16, 16, 16);
-  --foreground: rgb(250, 250, 250);
-  --card: rgb(24, 24, 24);
-  --card-foreground: rgb(250, 250, 250);
-  --popover: rgb(24, 24, 24);
-  --popover-foreground: rgb(250, 250, 250);
+  /* Legacy Shadcn Compatibility */
+  --background: rgb(var(--surface-bg));
+  --foreground: rgb(var(--text-primary));
+  --card: rgb(var(--surface-panel));
+  --card-foreground: rgb(var(--text-primary));
+  --popover: rgb(var(--surface-panel));
+  --popover-foreground: rgb(var(--text-primary));
   --primary: rgb(var(--brand-accent-500));
-  --primary-foreground: rgb(255, 255, 255);
+  --primary-foreground: rgb(255 255 255);
   --secondary: rgb(var(--brand-teal));
-  --secondary-foreground: rgb(255, 255, 255);
-  --muted: rgb(55, 65, 81);
-  --muted-foreground: rgb(156, 163, 175);
-  --accent: rgb(30, 41, 59);
+  --secondary-foreground: rgb(255 255 255);
+  --muted: rgb(var(--surface-elevated));
+  --muted-foreground: rgb(var(--text-secondary));
+  --accent: rgb(30 41 59);
   --accent-foreground: rgb(var(--brand-accent-500));
-  --destructive: rgb(239, 68, 68);
-  --destructive-foreground: rgb(255, 255, 255);
-  --border: rgb(55, 65, 81);
-  --input: rgb(55, 65, 81);
-  --ring: rgb(var(--brand-accent-500));
+  --destructive: rgb(239 68 68);
+  --destructive-foreground: rgb(255 255 255);
+  --border: rgb(var(--border-muted));
+  --input: rgb(var(--border-muted));
+  --ring: rgb(var(--focus-ring));
 }
 
 @layer base {
@@ -147,8 +142,8 @@
 
   body {
     font-family: var(--font-body);
-    background: var(--surface-bg);
-    color: var(--text-primary);
+    background: rgb(var(--surface-bg));
+    color: rgb(var(--text-primary));
     font-size: var(--text-body);
     line-height: var(--lh-body);
     -webkit-font-smoothing: antialiased;
@@ -158,12 +153,12 @@
     min-height: 100vh;
   }
 
-  /* Typography Scale */
+  /* Typography Scale - Brand Kit Specifications */
   .text-display {
     font-family: var(--font-heading);
     font-size: var(--text-display);
     line-height: var(--lh-display);
-    font-weight: 700;
+    font-weight: 800;
   }
 
   h1, .text-h1 {
@@ -188,52 +183,103 @@
   }
 
   .text-lead {
+    font-family: var(--font-body);
     font-size: var(--text-lead);
     line-height: var(--lh-lead);
     font-weight: 500;
   }
 
   p, .text-body {
+    font-family: var(--font-body);
     font-size: var(--text-body);
     line-height: var(--lh-body);
+    font-weight: 400;
   }
 
   .text-caption {
+    font-family: var(--font-body);
     font-size: var(--text-caption);
     line-height: var(--lh-caption);
+    font-weight: 400;
+  }
+
+  /* Focus ring for accessibility */
+  .focus-ring:focus-visible {
+    outline: 2px solid rgb(var(--focus-ring));
+    outline-offset: 2px;
+  }
+
+  /* Reduce motion support */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
 @layer components {
+  /* Header */
   .header-gradient {
-    background: var(--surface-elevated);
-    border-bottom: 1px solid var(--border-muted);
+    background: rgb(var(--surface-elevated));
+    border-bottom: 1px solid rgb(var(--border-muted));
+    backdrop-filter: blur(8px);
   }
 
+  /* Brand Mark - Ring Motif */
   .brand-mark {
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     background: var(--gradient-ring);
     display: flex;
     align-items: center;
     justify-content: center;
     box-shadow: 0 0 20px rgb(var(--brand-accent-500) / 0.3);
+    position: relative;
   }
 
+  .brand-mark::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, rgb(var(--brand-accent-500)), rgb(var(--brand-teal)), rgb(var(--brand-accent-500)));
+    mask: radial-gradient(circle at center, transparent 14px, black 16px);
+    animation: hero-ring-pulse var(--duration-hero) var(--ease-standard) infinite;
+  }
+
+  /* Ring Motif - Concentric Rings */
+  .ring-motif {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      closest-side, 
+      rgb(var(--brand-accent-500) / 0.08), 
+      rgb(var(--brand-accent-500) / 0.04) 40%,
+      transparent 60%
+    ) 75% 28% / 38rem 38rem no-repeat;
+    filter: blur(0.2px);
+  }
+
+  /* Cards */
   .card-elevated {
-    background: var(--surface-panel);
-    border: 1px solid var(--border-muted);
+    background: rgb(var(--surface-panel));
+    border: 1px solid rgb(var(--border-muted));
     border-radius: var(--radius);
-    box-shadow: 0 4px 6px rgb(0, 0, 0 / 0.07);
+    box-shadow: 0 8px 30px rgb(0 0 0 / 0.12);
     transition: all var(--duration-ui) var(--ease-standard);
     position: relative;
     overflow: hidden;
   }
 
   .card-elevated:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 8px 25px rgb(0, 0, 0 / 0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgb(0 0 0 / 0.15);
   }
 
   .card-elevated::before {
@@ -244,9 +290,10 @@
     right: 0;
     height: 1px;
     background: linear-gradient(90deg, transparent, rgb(var(--brand-accent-500)), transparent);
-    opacity: 0.5;
+    opacity: 0.6;
   }
 
+  /* Gradient Backgrounds */
   .gradient-bg {
     background: var(--gradient-hero);
   }
@@ -255,44 +302,52 @@
     background: var(--gradient-ring);
   }
 
+  /* Buttons - Brand Kit Specifications */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius);
+    padding: 0.5rem 1rem;
+    font-family: var(--font-heading);
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
+    outline: none;
+    transition: all var(--duration-ui) var(--ease-standard);
+    cursor: pointer;
+  }
+
   .btn-primary {
     background: linear-gradient(135deg, rgb(var(--brand-accent-500)), rgb(var(--brand-teal)));
     color: white;
     border: none;
-    transition: all var(--duration-ui) var(--ease-standard);
-    font-weight: 500;
   }
 
   .btn-primary:hover {
     transform: translateY(-1px);
-    background: linear-gradient(135deg, rgb(var(--brand-accent-600)), rgb(var(--brand-teal)));
+    background: linear-gradient(135deg, rgb(var(--brand-accent-400)), rgb(var(--brand-teal)));
     box-shadow: 0 4px 12px rgb(var(--brand-accent-500) / 0.3);
   }
 
   .btn-primary:active {
     transform: translateY(0);
+    background: linear-gradient(135deg, rgb(var(--brand-accent-600)), rgb(var(--brand-teal)));
     box-shadow: 0 2px 4px rgb(var(--brand-accent-600) / 0.4) inset;
   }
 
   .btn-secondary {
-    background: var(--surface-panel);
-    color: var(--text-primary);
-    border: 1px solid var(--border-muted);
-    transition: all var(--duration-ui) var(--ease-standard);
+    background: rgb(var(--surface-panel));
+    color: rgb(var(--text-primary));
+    border: 1px solid rgb(var(--border-muted));
   }
 
   .btn-secondary:hover {
     border-color: rgb(var(--brand-accent-500));
     background: rgb(var(--brand-accent-50));
+    color: rgb(var(--brand-accent-700));
   }
 
-  .processing-state {
-    background: linear-gradient(135deg, 
-      rgb(var(--brand-accent-50)), 
-      rgb(var(--brand-teal) / 0.1));
-    border-left: 4px solid rgb(var(--brand-accent-500));
-  }
-
+  /* Status Indicators */
   .status-indicator {
     width: 8px;
     height: 8px;
@@ -302,7 +357,7 @@
   }
 
   .status-idle { 
-    background: var(--border-muted);
+    background: rgb(var(--border-muted));
   }
   
   .status-processing { 
@@ -311,17 +366,18 @@
   }
   
   .status-complete { 
-    background: rgb(var(--brand-teal));
+    background: rgb(var(--status-success));
   }
   
   .status-error { 
-    background: var(--status-error);
+    background: rgb(var(--status-error));
   }
 
+  /* Navigation Pills */
   .mode-pill {
     padding: 8px 16px;
     border-radius: 9999px;
-    border: 1px solid rgb(255, 255, 255 / 0.2);
+    border: 1px solid rgb(255 255 255 / 0.2);
     color: white;
     text-decoration: none;
     transition: all var(--duration-ui) var(--ease-standard);
@@ -336,14 +392,25 @@
   }
 
   .mode-pill:not(.active):hover {
-    background: rgb(255, 255, 255 / 0.1);
-    border-color: rgb(255, 255, 255 / 0.3);
+    background: rgb(255 255 255 / 0.1);
+    border-color: rgb(255 255 255 / 0.3);
   }
 
+  /* Processing States */
+  .processing-state {
+    background: linear-gradient(135deg, 
+      rgb(var(--brand-accent-50)), 
+      rgb(var(--brand-teal) / 0.1));
+    border-left: 4px solid rgb(var(--brand-accent-500));
+  }
+
+  /* Telemetry Widgets */
   .telemetry-widget {
     background: linear-gradient(135deg, 
-      var(--surface-panel), 
+      rgb(var(--surface-panel)), 
       rgb(var(--brand-accent-50)));
+    border: 1px solid rgb(var(--border-muted));
+    border-radius: var(--radius);
   }
 
   .metric-value {
@@ -353,21 +420,60 @@
     font-family: var(--font-heading);
   }
 
-  /* Focus ring for accessibility */
-  .focus-ring:focus {
-    outline: 2px solid var(--focus-ring);
-    outline-offset: 2px;
+  /* Live Streaming Box */
+  .livebox {
+    min-height: 4rem;
+    border: 2px dashed rgb(var(--border-muted));
+    border-radius: var(--radius);
+    padding: 12px;
+    background: rgb(var(--brand-accent-50));
+    font-family: var(--font-mono);
+    font-size: var(--text-caption);
+    line-height: var(--lh-body);
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    white-space: pre-wrap;
   }
 
-  /* Reduce motion support */
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-    }
+  .dark .livebox {
+    background: rgb(30 41 59);
+    border-color: rgb(var(--border-muted));
+  }
+
+  /* Citations */
+  .cite-list {
+    padding-left: 1.25rem;
+  }
+
+  .cite-list li {
+    margin-bottom: 0.25rem;
+    font-size: var(--text-caption);
+    color: rgb(var(--text-secondary));
+  }
+
+  .cite-list a {
+    color: rgb(var(--brand-accent-500));
+    transition: all var(--duration-ui) var(--ease-standard);
+  }
+
+  .cite-list a:hover {
+    text-decoration: underline;
+    color: rgb(var(--brand-accent-600));
+  }
+
+  /* Status Classes */
+  .ok {
+    color: rgb(var(--status-success));
+    font-weight: 600;
+  }
+
+  .bad {
+    color: rgb(var(--status-error));
+    font-weight: 600;
+  }
+
+  .muted {
+    color: rgb(var(--text-tertiary));
   }
 }
 
@@ -385,27 +491,27 @@
   }
 
   .bg-surface-panel {
-    background: var(--surface-panel);
+    background: rgb(var(--surface-panel));
   }
 
   .bg-surface-elevated {
-    background: var(--surface-elevated);
+    background: rgb(var(--surface-elevated));
   }
 
   .border-brand-muted {
-    border-color: var(--border-muted);
+    border-color: rgb(var(--border-muted));
   }
 }
 
-/* Animations */
+/* Brand Kit Animations */
 @keyframes hero-ring-pulse {
   0%, 100% { 
-    opacity: 1;
-    box-shadow: 0 0 5px rgb(var(--brand-accent-500)), 0 0 10px rgb(var(--brand-accent-500));
+    opacity: 0;
+    transform: scale(0.95);
   }
   50% { 
-    opacity: 0.88;
-    box-shadow: 0 0 10px rgb(var(--brand-accent-500)), 0 0 20px rgb(var(--brand-accent-500));
+    opacity: 0.12;
+    transform: scale(1.02);
   }
 }
 
@@ -425,90 +531,7 @@
   50% { opacity: 0.5; }
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--border-muted);
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgb(var(--brand-accent-500));
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgb(var(--brand-teal));
-}
-
-/* Live streaming styles */
-.livebox {
-  min-height: 4rem;
-  border: 2px dashed var(--border-muted);
-  border-radius: var(--radius);
-  padding: 12px;
-  background: rgb(var(--brand-accent-50));
-  font-family: var(--font-mono);
-  font-size: var(--text-caption);
-  line-height: var(--lh-body);
-  overflow-wrap: break-word;
-  word-wrap: break-word;
-  white-space: pre-wrap;
-}
-
-.dark .livebox {
-  background: rgb(30, 41, 59);
-  border-color: rgb(55, 65, 81);
-}
-
-.processing-state {
-  border-left: 4px solid rgb(var(--brand-accent-500));
-  background: rgb(var(--brand-accent-50));
-}
-
-.dark .processing-state {
-  background: rgb(30, 41, 59);
-}
-
-/* Citation styles */
-.cite-list {
-  padding-left: 1.25rem;
-}
-
-.cite-list li {
-  margin-bottom: 0.25rem;
-  font-size: var(--text-caption);
-  color: var(--text-secondary);
-}
-
-.cite-list a {
-  color: rgb(var(--brand-accent-500));
-  transition: all var(--duration-ui) var(--ease-standard);
-}
-
-.cite-list a:hover {
-  text-decoration: underline;
-  color: rgb(var(--brand-accent-600));
-}
-
-/* Status utility classes */
-.ok {
-  color: var(--status-success);
-  font-weight: 600;
-}
-
-.bad {
-  color: var(--status-error);
-  font-weight: 600;
-}
-
-.muted {
-  color: var(--text-tertiary);
-}
-
-/* Hero ring animation - gentle radial glow */
+/* Hero Ring Animation - Gentle radial glow */
 @keyframes hero-ring-glow {
   0%, 100% { 
     opacity: 0;
@@ -521,4 +544,27 @@
 .hero-ring {
   animation: hero-ring-glow 6s var(--ease-standard) infinite;
   background: var(--gradient-ring);
+}
+
+/* Custom Scrollbar - Brand Themed */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(var(--surface-elevated));
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--brand-accent-500));
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--brand-accent-600));
+}
+
+/* Dark Mode Scrollbar */
+.dark ::-webkit-scrollbar-track {
+  background: rgb(var(--surface-panel));
 }

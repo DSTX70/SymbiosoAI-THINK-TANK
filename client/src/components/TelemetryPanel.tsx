@@ -49,25 +49,25 @@ export default function TelemetryPanel({ telemetry, isProcessing }: TelemetryPan
                 <div className="metric-value" data-testid="text-avg-response">
                   {isProcessing ? "..." : `${data.avg_ms}ms`}
                 </div>
-                <div className="text-xs text-muted-foreground">Average Response Time</div>
+                <div className="text-caption font-body" style={{ color: 'rgb(var(--text-tertiary))' }}>Average Response Time</div>
               </div>
               <div className="text-center">
                 <div className="metric-value" data-testid="text-quality-score">
                   {isProcessing ? "..." : data.quality.toFixed(1)}
                 </div>
-                <div className="text-xs text-muted-foreground">Quality Score</div>
+                <div className="text-caption font-body" style={{ color: 'rgb(var(--text-tertiary))' }}>Quality Score</div>
               </div>
               <div className="text-center">
                 <div className="metric-value" data-testid="text-tokens-per-sec">
                   {isProcessing ? "..." : data.tps}
                 </div>
-                <div className="text-xs text-muted-foreground">Tokens/sec</div>
+                <div className="text-caption font-body" style={{ color: 'rgb(var(--text-tertiary))' }}>Tokens/sec</div>
               </div>
               <div className="text-center">
                 <div className="metric-value" data-testid="text-active-agents">
                   {data.active_agents || 3}
                 </div>
-                <div className="text-xs text-muted-foreground">Active AI Agents</div>
+                <div className="text-caption font-body" style={{ color: 'rgb(var(--text-tertiary))' }}>Active AI Agents</div>
               </div>
               <div className="pt-4 border-t border-border">
                 <div className="flex justify-between text-xs text-muted-foreground">
