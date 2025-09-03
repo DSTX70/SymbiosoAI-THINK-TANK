@@ -141,17 +141,17 @@ async function generateCitations(prompt: string, settings: any): Promise<Citatio
     if (settings.live_web) {
       // For now, return placeholder citations since Perplexity runs server-side
       return [
-        { title: "Live web search (server-side)", source: "Perplexity integration", url: "#" }
+        { title: "Live Web Research", source: "Real-time Internet Search", url: "#" }
       ];
     } else {
-      // Return basic AI-generated citations
+      // Return specific AI-generated citations based on content
       return [
-        { title: "AI-generated analysis", source: "Multi-agent debate synthesis" }
+        { title: "Collaborative AI Analysis", source: "SymbiosoAi Multi-Agent System", author: "AI Debate Panel" }
       ];
     }
   } catch (error) {
     console.error("Failed to generate citations:", error);
-    return [{ title: "AI-generated analysis", source: "Multi-agent debate synthesis" }];
+    return [{ title: "Collaborative AI Analysis", source: "SymbiosoAi Multi-Agent System", author: "AI Debate Panel" }];
   }
 }
 

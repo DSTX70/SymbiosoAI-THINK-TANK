@@ -572,7 +572,7 @@ Respond only with valid JSON.`;
   } else {
     // Basic citations and fact-check
     if (settings.require_citations) {
-      citations = [{ title: "AI-generated analysis", source: "Multi-agent debate synthesis" }];
+      citations = [{ title: "Collaborative AI Analysis", source: "SymbiosoAi Multi-Agent System", author: "AI Debate Panel" }];
     }
     if (settings.enable_fact_check) {
       factCheckFindings = [{
