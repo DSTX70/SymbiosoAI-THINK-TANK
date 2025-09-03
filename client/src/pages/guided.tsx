@@ -153,7 +153,7 @@ export default function GuidedPage() {
             <Button 
               onClick={handleSubmit}
               disabled={thinkMutation.isPending || isStreaming}
-              className="btn-primary w-full flex items-center justify-center gap-2 h-12"
+              className="w-full flex items-center justify-center gap-2 h-12 bg-primary text-primary-foreground hover:bg-primary/90"
               data-testid="button-start-thinking"
             >
               {(thinkMutation.isPending || isStreaming) ? (
@@ -240,7 +240,7 @@ export default function GuidedPage() {
             <Button 
               onClick={handleStreamingSubmit}
               disabled={isStreaming || thinkMutation.isPending}
-              className="btn-primary w-full flex items-center justify-center gap-2 h-12"
+              className="w-full flex items-center justify-center gap-2 h-12 bg-primary text-primary-foreground hover:bg-primary/90"
               data-testid="button-start-live-stream"
             >
               {isStreaming ? (
