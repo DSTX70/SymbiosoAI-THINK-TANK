@@ -12,6 +12,7 @@ interface ResultsSectionProps {
   unresolved?: string[];
   citations?: Citation[];
   isVisible?: boolean;
+  onQuestionClick?: (question: string) => void;
 }
 
 export default function ResultsSection({ 
@@ -19,7 +20,8 @@ export default function ResultsSection({
   dissents = [], 
   unresolved = [], 
   citations = [],
-  isVisible = false 
+  isVisible = false,
+  onQuestionClick
 }: ResultsSectionProps) {
   const { toast } = useToast();
 
@@ -161,8 +163,21 @@ export default function ResultsSection({
             <div className="space-y-2" data-testid="section-unresolved">
               {unresolved.length > 0 ? (
                 unresolved.map((question, index) => (
-                  <div key={index} className="p-2 bg-blue-50 dark:bg-blue-950/20 rounded text-sm" data-testid={`unresolved-${index}`}>
+                  <div 
+                    key={index} 
+                    className={`p-2 bg-blue-50 dark:bg-blue-950/20 rounded text-sm transition-all ${
+                      onQuestionClick 
+                        ? 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 hover:border-blue-300 border border-transparent' 
+                        : ''
+                    }`}
+                    onClick={() => onQuestionClick?.(question)}
+                    data-testid={`unresolved-${index}`}
+                    title={onQuestionClick ? "Click to explore this question further" : undefined}
+                  >
                     {question}
+                    {onQuestionClick && (
+                      <span className="text-xs text-blue-600 dark:text-blue-400 ml-2">→ Click to explore</span>
+                    )}
                   </div>
                 ))
               ) : (

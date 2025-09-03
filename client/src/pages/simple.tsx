@@ -109,6 +109,47 @@ export default function SimplePage() {
     };
   };
 
+  const handleQuestionClick = async (question: string) => {
+    if (!results) return;
+
+    toast({ description: `Exploring question: "${question}"...` });
+
+    // Create a new debate with the clicked question as prompt
+    const requestData: ThinkRequest = {
+      prompt: question.trim(),
+      mode: "simple",
+      require_citations: requireCitations,
+      enable_fact_check: enableFactCheck,
+      live_web: enableLiveWeb,
+    };
+
+    try {
+      const response = await apiRequest("POST", "/api/think", requestData);
+      const newResults = await response.json() as ThinkResponse;
+
+      // Merge results: combine consensus, add dissents, merge unresolved (removing clicked question)
+      const mergedResults: ThinkResponse = {
+        consensus: results.consensus + "\n\n**Additional Analysis:**\n" + newResults.consensus,
+        dissents: [...(results.dissents || []), ...(newResults.dissents || [])],
+        unresolved: [
+          ...(results.unresolved || []).filter(q => q !== question), // Remove clicked question
+          ...(newResults.unresolved || []) // Add new unresolved questions
+        ],
+        citations: [...(results.citations || []), ...(newResults.citations || [])],
+        fact_check: newResults.fact_check || results.fact_check,
+        telemetry: newResults.telemetry || results.telemetry
+      };
+
+      setResults(mergedResults);
+      toast({ description: `Question explored and results merged successfully!` });
+    } catch (error: any) {
+      toast({ 
+        variant: "destructive",
+        description: error.message || "Failed to explore question" 
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -212,6 +253,7 @@ export default function SimplePage() {
               unresolved={results?.unresolved}
               citations={results?.citations}
               isVisible={!!results}
+              onQuestionClick={handleQuestionClick}
             />
           </div>
 
