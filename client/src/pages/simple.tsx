@@ -76,7 +76,7 @@ export default function SimplePage() {
       require_citations: requireCitations,
       enable_fact_check: enableFactCheck,
       live_web: enableLiveWeb,
-      turns: "3",
+      turns: "1",
       response_length: "moderate"
     };
 

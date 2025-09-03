@@ -47,7 +47,7 @@ export async function runMultiAgentDebate(
   fact_check?: { findings: FactCheckFinding[] };
 }> {
   const agents = settings.mode === "guided" ? AI_AGENTS : AI_AGENTS.slice(0, 3);
-  const rounds = settings.turns || 3;
+  const rounds = settings.turns || 1;
   
   let debate_history: Array<{ agent: string; response: string }> = [];
   

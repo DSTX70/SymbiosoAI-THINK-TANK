@@ -80,17 +80,17 @@ export default function GuidedPage() {
         domain_experts: selectionMode === "domain" ? domainExperts : undefined,
         usecase_type: selectionMode === "usecase" && usecaseType !== "" ? usecaseType as any : undefined,
         response_length: "moderate",
-        turns: 3,
+        turns: 1,
         debate_format: "collaborative",
-        require_evidence: true,
-        require_counterarguments: true,
+        require_evidence: false,
+        require_counterarguments: false,
         require_citations: requireCitations,
         enable_fact_check: enableFactCheck,
         live_web: enableLiveWeb,
         model_provider: selectedModel,
         verification: {
           fact_check: enableFactCheck,
-          min_sources: 3,
+          min_sources: 1,
         },
       };
 
@@ -106,15 +106,15 @@ export default function GuidedPage() {
       domain_experts: selectionMode === "domain" ? domainExperts : undefined,
       usecase_type: selectionMode === "usecase" && usecaseType !== "" ? usecaseType as any : undefined,
       response_length: "moderate",
-      turns: "3",
+      turns: "1",
       debate_format: "collaborative",
-      require_evidence: true,
-      require_counterarguments: true,
+      require_evidence: false,
+      require_counterarguments: false,
       require_citations: requireCitations,
       enable_fact_check: enableFactCheck,
       live_web: enableLiveWeb,
       model_provider: selectedModel,
-      min_sources: "3",
+      min_sources: "1",
     };
 
     setIsStreaming(true);
@@ -166,17 +166,17 @@ export default function GuidedPage() {
       domain_experts: selectionMode === "domain" ? domainExperts : undefined,
       usecase_type: selectionMode === "usecase" && usecaseType !== "" ? usecaseType as any : undefined,
       response_length: "moderate",
-      turns: 3,
+      turns: 1,
       debate_format: "collaborative",
-      require_evidence: true,
-      require_counterarguments: true,
+      require_evidence: false,
+      require_counterarguments: false,
       require_citations: requireCitations,
       enable_fact_check: enableFactCheck,
       live_web: enableLiveWeb,
       model_provider: selectedModel,
       verification: {
         fact_check: enableFactCheck,
-        min_sources: 3,
+        min_sources: 1,
       },
     };
 
