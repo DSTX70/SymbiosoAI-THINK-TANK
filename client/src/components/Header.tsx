@@ -34,7 +34,7 @@ export default function Header() {
     <header className="sticky top-0 z-50 header-gradient text-white">
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col items-start gap-2">
             <Link href="/" className="flex items-center" data-testid="link-home">
               <img 
                 src={logoImage} 
