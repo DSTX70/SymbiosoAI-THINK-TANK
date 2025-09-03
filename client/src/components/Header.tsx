@@ -35,12 +35,14 @@ export default function Header() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center" data-testid="link-home">
-              <img 
-                src={logoImage} 
-                alt="SymbiosoAi - Collaborative Intelligence, redefined"
-                className="h-8 w-auto"
-                data-testid="logo-symbiosoai"
-              />
+              <div className="bg-white/95 rounded-lg px-3 py-1">
+                <img 
+                  src={logoImage} 
+                  alt="SymbiosoAi - Collaborative Intelligence, redefined"
+                  className="h-6 w-auto"
+                  data-testid="logo-symbiosoai"
+                />
+              </div>
             </Link>
             <span className="rounded bg-white/20 px-2 py-1 text-xs font-medium">BETA</span>
           </div>
