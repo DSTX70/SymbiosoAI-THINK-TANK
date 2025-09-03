@@ -2,6 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Handshake, AlertTriangle, HelpCircle, Share2, Save, Printer, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import type { Citation } from "@shared/schema";
 
 interface ResultsSectionProps {
@@ -34,8 +36,57 @@ export default function ResultsSection({
     window.print();
   };
 
-  const handleExportPDF = () => {
-    toast({ description: "PDF export functionality will be available soon" });
+  const handleExportPDF = async () => {
+    try {
+      const element = document.querySelector('[data-testid="section-results"]') as HTMLElement;
+      if (!element) {
+        toast({ 
+          variant: "destructive",
+          description: "Could not find results section to export" 
+        });
+        return;
+      }
+
+      // Generate canvas from HTML
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+      
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 295; // A4 height in mm  
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      
+      let position = 0;
+      
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+      
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      
+      pdf.save('ai-analysis-results.pdf');
+      toast({ description: "PDF exported successfully!" });
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast({ 
+        variant: "destructive",
+        description: "Failed to export PDF. Please try again." 
+      });
+    }
   };
 
   if (!isVisible) return null;

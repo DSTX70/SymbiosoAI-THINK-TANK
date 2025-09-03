@@ -168,11 +168,11 @@ function SessionCard({ session }: { session: Session }) {
                 <Badge variant={session.mode === "simple" ? "secondary" : "default"}>
                   {session.mode}
                 </Badge>
-                {hasResults && (
+                {hasResults ? (
                   <Badge variant="outline" className="text-green-600 border-green-200">
                     Completed
                   </Badge>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
