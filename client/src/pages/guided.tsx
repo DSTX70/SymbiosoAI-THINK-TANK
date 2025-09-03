@@ -168,7 +168,14 @@ export default function GuidedPage() {
           "\n🔍 ADDITIONAL ANALYSIS: " + question + 
           "\n" + "═".repeat(50) + 
           "\n\n" + newResults.consensus,
-        dissents: [...(results.dissents || []), ...(newResults.dissents || [])],
+        dissents: [
+          ...(results.dissents || []),
+          ...(newResults.dissents || []).map(dissent => ({
+            ...dissent,
+            position: `🔍 [From: ${question}] ${dissent.position}`,
+            reasoning: dissent.reasoning
+          }))
+        ],
         unresolved: [
           ...(results.unresolved || []).filter(q => q !== question), // Remove clicked question
           ...(newResults.unresolved || []) // Add new unresolved questions
