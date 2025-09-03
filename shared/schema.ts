@@ -38,6 +38,7 @@ export const thinkRequestSchema = z.object({
   enable_fact_check: z.boolean().optional(),
   live_web: z.boolean().optional(),
   temperature: z.number().min(0).max(2).optional(),
+  model_provider: z.enum(["openai", "anthropic"]).optional(),
   
   // Guided mode options
   selection_mode: z.enum(["smart", "manual", "domain", "usecase"]).optional(),

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Compass, Rocket, Zap } from "lucide-react";
+import { Compass, Rocket, Zap, Bot } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TelemetryPanel from "@/components/TelemetryPanel";
@@ -20,6 +20,7 @@ export default function GuidedPage() {
   const [requireCitations, setRequireCitations] = useState(false);
   const [enableFactCheck, setEnableFactCheck] = useState(false);
   const [enableLiveWeb, setEnableLiveWeb] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<"openai" | "anthropic">("openai");
   const [useStreaming, setUseStreaming] = useState(() => {
     console.log("GuidedPage: Initializing useStreaming to FALSE");
     return false;
@@ -73,6 +74,7 @@ export default function GuidedPage() {
         require_citations: requireCitations,
         enable_fact_check: enableFactCheck,
         live_web: enableLiveWeb,
+        model_provider: selectedModel,
         verification: {
           fact_check: enableFactCheck,
           min_sources: 3,
@@ -95,6 +97,7 @@ export default function GuidedPage() {
       require_citations: requireCitations,
       enable_fact_check: enableFactCheck,
       live_web: enableLiveWeb,
+      model_provider: selectedModel,
       min_sources: "3",
     };
 
@@ -151,6 +154,7 @@ export default function GuidedPage() {
       require_citations: requireCitations,
       enable_fact_check: enableFactCheck,
       live_web: enableLiveWeb,
+      model_provider: selectedModel,
       verification: {
         fact_check: enableFactCheck,
         min_sources: 3,
@@ -227,6 +231,63 @@ export default function GuidedPage() {
               className="resize-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
               data-testid="input-collaborative-prompt"
             />
+          </CardContent>
+        </Card>
+
+        {/* AI Model Selection */}
+        <Card className="card-elevated mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3">
+              <Bot className="text-primary" size={20} />
+              AI Model Selection
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4">
+              <div 
+                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                  selectedModel === "openai" 
+                    ? "border-primary bg-primary/10" 
+                    : "border-muted hover:border-primary/50"
+                }`}
+                onClick={() => setSelectedModel("openai")}
+                data-testid="model-openai"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-4 h-4 rounded-full border-2 ${
+                    selectedModel === "openai" 
+                      ? "border-primary bg-primary" 
+                      : "border-muted"
+                  }`} />
+                  <div>
+                    <h3 className="font-medium">OpenAI GPT-4o</h3>
+                    <p className="text-sm text-muted-foreground">Advanced reasoning and analysis</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div 
+                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                  selectedModel === "anthropic" 
+                    ? "border-primary bg-primary/10" 
+                    : "border-muted hover:border-primary/50"
+                }`}
+                onClick={() => setSelectedModel("anthropic")}
+                data-testid="model-anthropic"
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-4 h-4 rounded-full border-2 ${
+                    selectedModel === "anthropic" 
+                      ? "border-primary bg-primary" 
+                      : "border-muted"
+                  }`} />
+                  <div>
+                    <h3 className="font-medium">Anthropic Claude</h3>
+                    <p className="text-sm text-muted-foreground">Thoughtful and nuanced responses</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
