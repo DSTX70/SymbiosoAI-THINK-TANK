@@ -17,7 +17,10 @@ import {
   Download, 
   Search,
   Zap,
-  Target
+  Target,
+  Users,
+  UserCheck,
+  Briefcase
 } from "lucide-react";
 
 interface ConfigurationSidebarProps {
@@ -46,12 +49,16 @@ interface ConfigurationSidebarProps {
     ethical_lens: boolean;
     evidence_per_claim: number;
     max_steps: number;
+    manual_agents?: string[];
+    domain_experts?: string[];
+    selection_mode?: string;
+    usecase_type?: string;
   };
   onConfigurationChange: (config: any) => void;
 }
 
 export function ConfigurationSidebar({ configuration, onConfigurationChange }: ConfigurationSidebarProps) {
-  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['reasoning']));
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['agents']));
 
   const toggleSection = (section: string) => {
     const newOpenSections = new Set(openSections);
@@ -113,6 +120,137 @@ export function ConfigurationSidebar({ configuration, onConfigurationChange }: C
 
   return (
     <div className="space-y-4">
+      {/* AI Agent Selection */}
+      <SectionCard id="agents" title="AI Agent Selection" icon={Users}>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Selection Mode</Label>
+            <Select
+              value={configuration.selection_mode || "smart"}
+              onValueChange={(value) => updateConfig('selection_mode', value)}
+              data-testid="select-agent-mode"
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Choose selection mode" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="smart">Smart Selection</SelectItem>
+                <SelectItem value="manual">Manual Selection</SelectItem>
+                <SelectItem value="domain">Domain Experts</SelectItem>
+                <SelectItem value="usecase">Use Case Specific</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {configuration.selection_mode === "manual" && (
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Select AI Personalities</Label>
+              <div className="space-y-3">
+                {[
+                  { id: "analyst", name: "The Analyst", desc: "Data-driven insights and systematic analysis" },
+                  { id: "pragmatist", name: "The Pragmatist", desc: "Implementation-focused and realistic solutions" },
+                  { id: "innovator", name: "The Innovator", desc: "Creative thinking and breakthrough approaches" },
+                  { id: "thoughtful", name: "The Thoughtful One", desc: "Balanced perspectives and ethical considerations" },
+                  { id: "critic", name: "The Critic", desc: "Challenge assumptions and identify weaknesses" }
+                ].map((agent) => (
+                  <div key={agent.id} className="flex items-start space-x-3 p-3 border rounded-lg">
+                    <Checkbox
+                      id={agent.id}
+                      checked={(configuration.manual_agents || []).includes(agent.id)}
+                      onCheckedChange={(checked) => {
+                        const currentAgents = configuration.manual_agents || [];
+                        const newAgents = checked
+                          ? [...currentAgents, agent.id]
+                          : currentAgents.filter(id => id !== agent.id);
+                        updateConfig('manual_agents', newAgents);
+                      }}
+                      data-testid={`checkbox-agent-${agent.id}`}
+                    />
+                    <div className="grid gap-1.5 leading-none">
+                      <label
+                        htmlFor={agent.id}
+                        className="text-sm font-medium leading-none cursor-pointer"
+                      >
+                        {agent.name}
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        {agent.desc}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {configuration.selection_mode === "domain" && (
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Select Domain Experts</Label>
+              <div className="grid grid-cols-1 gap-3">
+                {[
+                  { id: "legal-analyst", name: "Legal Analyst", desc: "Legal compliance and risk assessment" },
+                  { id: "tech-architect", name: "Tech Architect", desc: "System design and technical strategy" },
+                  { id: "financial-analyst", name: "Financial Analyst", desc: "Financial modeling and market analysis" },
+                  { id: "medical-researcher", name: "Medical Researcher", desc: "Healthcare and medical research expertise" },
+                  { id: "brand-strategist", name: "Brand Strategist", desc: "Marketing and brand positioning" },
+                  { id: "research-scientist", name: "Research Scientist", desc: "Scientific research and methodology" }
+                ].map((expert) => (
+                  <div key={expert.id} className="flex items-start space-x-3 p-3 border rounded-lg">
+                    <Checkbox
+                      id={expert.id}
+                      checked={(configuration.domain_experts || []).includes(expert.id)}
+                      onCheckedChange={(checked) => {
+                        const currentExperts = configuration.domain_experts || [];
+                        const newExperts = checked
+                          ? [...currentExperts, expert.id]
+                          : currentExperts.filter(id => id !== expert.id);
+                        updateConfig('domain_experts', newExperts);
+                      }}
+                      data-testid={`checkbox-expert-${expert.id}`}
+                    />
+                    <div className="grid gap-1.5 leading-none">
+                      <label
+                        htmlFor={expert.id}
+                        className="text-sm font-medium leading-none cursor-pointer"
+                      >
+                        {expert.name}
+                      </label>
+                      <p className="text-xs text-muted-foreground">
+                        {expert.desc}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {configuration.selection_mode === "usecase" && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Use Case Type</Label>
+              <Select
+                value={configuration.usecase_type || ""}
+                onValueChange={(value) => updateConfig('usecase_type', value)}
+                data-testid="select-usecase-type"
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose use case" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="business_analysis">Business Analysis</SelectItem>
+                  <SelectItem value="technical_debate">Technical Debate</SelectItem>
+                  <SelectItem value="creative_brainstorm">Creative Brainstorm</SelectItem>
+                  <SelectItem value="research_synthesis">Research Synthesis</SelectItem>
+                  <SelectItem value="ethical_discussion">Ethical Discussion</SelectItem>
+                  <SelectItem value="document_analysis">Document Analysis</SelectItem>
+                  <SelectItem value="general_inquiry">General Inquiry</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+      </SectionCard>
+
       {/* Reasoning Frameworks */}
       <SectionCard id="reasoning" title="Reasoning Frameworks" icon={Brain}>
         <div className="space-y-3">

@@ -51,6 +51,11 @@ export default function ExpertPage() {
     ethical_lens: true,
     evidence_per_claim: 2,
     max_steps: 5,
+    // AI Agent Selection
+    selection_mode: "smart",
+    manual_agents: [],
+    domain_experts: [],
+    usecase_type: "",
   });
 
 
@@ -100,6 +105,12 @@ export default function ExpertPage() {
       context: context.trim() || undefined,
       debate_title: debateTitle.trim() || undefined,
       temperature: 0.2,
+      
+      // AI Agent Selection
+      selection_mode: configuration.selection_mode as any,
+      manual_agents: configuration.selection_mode === "manual" ? configuration.manual_agents as any : undefined,
+      domain_experts: configuration.selection_mode === "domain" ? configuration.domain_experts as any : undefined,
+      usecase_type: configuration.selection_mode === "usecase" && configuration.usecase_type !== "" ? configuration.usecase_type as any : undefined,
       
       // Expert Mode Features
       frameworks: configuration.frameworks.length > 0 ? configuration.frameworks as any : undefined,
