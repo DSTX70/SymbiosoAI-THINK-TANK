@@ -13,6 +13,8 @@ import TelemetryPanel from "@/components/TelemetryPanel";
 import { ConfigurationSidebar } from "@/components/ConfigurationSidebar";
 import { ResultsArea } from "@/components/ResultsArea";
 import ThinkToast from "@/components/ThinkToast";
+import { TemplateLibrary } from "@/components/TemplateLibrary";
+import { WorkspaceManagement } from "@/components/WorkspaceManagement";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { ThinkRequest, ThinkResponse } from "@shared/schema";
@@ -281,82 +283,106 @@ export default function ExpertPage() {
 
         {/* Center (fills remaining width) */}
         <section className="min-w-0 overflow-y-auto px-4 md:px-6 py-6">
-          <div className="space-y-6">
-            {/* Prompt Input */}
-            <Card className="card-elevated gradient-bg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <Brain className="text-primary" size={20} />
-                  Expert Analysis Request
-                  <div className={`status-indicator ${thinkMutation.isPending ? "status-processing" : results ? "status-complete" : "status-idle"}`} data-testid="status-expert"></div>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="debate-title">Analysis Title (Optional)</Label>
-                  <Input
-                    id="debate-title"
-                    value={debateTitle}
-                    onChange={(e) => setDebateTitle(e.target.value)}
-                    placeholder="Brief title for this analysis session..."
-                    data-testid="input-debate-title"
-                  />
-                </div>
+          <Tabs defaultValue="analysis" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="analysis" data-testid="tab-analysis">Expert Analysis</TabsTrigger>
+              <TabsTrigger value="templates" data-testid="tab-templates">Template Library</TabsTrigger>
+              <TabsTrigger value="workspace" data-testid="tab-workspace">Workspace</TabsTrigger>
+            </TabsList>
 
-                <div className="space-y-2">
-                  <Label htmlFor="prompt">Primary Question or Challenge</Label>
-                  <Textarea
-                    id="prompt"
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    rows={4}
-                    placeholder="Describe your complex challenge or question for expert AI analysis..."
-                    className="resize-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
-                    data-testid="input-prompt"
-                  />
-                </div>
+            <TabsContent value="analysis" className="space-y-6">
+              {/* Prompt Input */}
+              <Card className="card-elevated gradient-bg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-3">
+                    <Brain className="text-primary" size={20} />
+                    Expert Analysis Request
+                    <div className={`status-indicator ${thinkMutation.isPending ? "status-processing" : results ? "status-complete" : "status-idle"}`} data-testid="status-expert"></div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="debate-title">Analysis Title (Optional)</Label>
+                    <Input
+                      id="debate-title"
+                      value={debateTitle}
+                      onChange={(e) => setDebateTitle(e.target.value)}
+                      placeholder="Brief title for this analysis session..."
+                      data-testid="input-debate-title"
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="context">Additional Context (Optional)</Label>
-                  <Textarea
-                    id="context"
-                    value={context}
-                    onChange={(e) => setContext(e.target.value)}
-                    rows={3}
-                    placeholder="Provide any relevant background, constraints, or specific requirements..."
-                    className="resize-none"
-                    data-testid="input-context"
-                  />
-                </div>
-                
-                <Button 
-                  onClick={handleSubmit}
-                  disabled={thinkMutation.isPending}
-                  className="btn-primary flex items-center gap-2 w-full"
-                  data-testid="button-start-expert-analysis"
-                >
-                  {thinkMutation.isPending ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                      Processing Expert Analysis...
-                    </>
-                  ) : (
-                    <>
-                      <Play size={16} />
-                      Start Expert Analysis
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
+                  <div className="space-y-2">
+                    <Label htmlFor="prompt">Primary Question or Challenge</Label>
+                    <Textarea
+                      id="prompt"
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      rows={4}
+                      placeholder="Describe your complex challenge or question for expert AI analysis..."
+                      className="resize-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
+                      data-testid="input-prompt"
+                    />
+                  </div>
 
-            {/* Results */}
-            <ResultsArea
-              results={results}
-              isProcessing={thinkMutation.isPending}
-              onExport={handleExport}
-            />
-          </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="context">Additional Context (Optional)</Label>
+                    <Textarea
+                      id="context"
+                      value={context}
+                      onChange={(e) => setContext(e.target.value)}
+                      rows={3}
+                      placeholder="Provide any relevant background, constraints, or specific requirements..."
+                      className="resize-none"
+                      data-testid="input-context"
+                    />
+                  </div>
+                  
+                  <Button 
+                    onClick={handleSubmit}
+                    disabled={thinkMutation.isPending}
+                    className="btn-primary flex items-center gap-2 w-full"
+                    data-testid="button-start-expert-analysis"
+                  >
+                    {thinkMutation.isPending ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                        Processing Expert Analysis...
+                      </>
+                    ) : (
+                      <>
+                        <Play size={16} />
+                        Start Expert Analysis
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Results */}
+              <ResultsArea
+                results={results}
+                isProcessing={thinkMutation.isPending}
+                onExport={handleExport}
+              />
+            </TabsContent>
+
+            <TabsContent value="templates" className="space-y-6">
+              <Card className="card-elevated">
+                <CardContent className="p-6">
+                  <TemplateLibrary />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="workspace" className="space-y-6">
+              <Card className="card-elevated">
+                <CardContent className="p-6">
+                  <WorkspaceManagement />
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </section>
 
         {/* Right sidebar (288px) */}

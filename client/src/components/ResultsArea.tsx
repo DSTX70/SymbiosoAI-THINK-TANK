@@ -5,6 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   FileText, 
   MessageSquare, 
@@ -263,90 +265,184 @@ export function ResultsArea({ results, isProcessing, onExport }: ResultsAreaProp
 
           <TabsContent value="factcheck" className="mt-4">
             <ScrollArea className="h-96">
-              {results.fact_check && results.fact_check.findings && results.fact_check.findings.length > 0 ? (
+              <div className="space-y-4">
+                {/* Question Generation Controls */}
+                <div className="p-4 border rounded-lg bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20">
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium mb-2">How can sustainable energy adoption be accelerated in developing countries?</h4>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-xs text-muted-foreground">From: Climate Strategy Analysis</span>
+                      <Badge variant="outline" className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300">
+                        High Complexity
+                      </Badge>
+                    </div>
+                    <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white">
+                      Start Debate
+                    </Button>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="text-xs">
+                      Generate New Questions
+                    </Button>
+                    <Button variant="outline" size="sm" className="text-xs text-blue-600 dark:text-blue-400">
+                      Clear All
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Fact-Check Configuration */}
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      Clickable Fact-Check Ratings
-                    </h4>
-                    {results.fact_check.verification_settings && (
-                      <div className="text-xs text-muted-foreground">
-                        {results.fact_check.verification_settings.depth === 'comprehensive' ? 'Comprehensive' : 'Standard'} Verification
-                      </div>
-                    )}
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <h4 className="text-sm font-medium">Clickable Fact-Check Ratings</h4>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Click on any fact-check rating to dive deep into verification sources, methodology, and confidence levels.
                   </p>
+
+                  {/* Verification Controls */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Verification Depth</Label>
+                      <Select defaultValue="standard" data-testid="select-verification-depth">
+                        <SelectTrigger>
+                          <SelectValue placeholder="Standard Verification" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="standard">Standard Verification</SelectItem>
+                          <SelectItem value="comprehensive">Comprehensive Verification</SelectItem>
+                          <SelectItem value="expert_review">Expert Review</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Minimum Sources</Label>
+                      <Select defaultValue="3" data-testid="select-minimum-sources">
+                        <SelectTrigger>
+                          <SelectValue placeholder="3 sources" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 source</SelectItem>
+                          <SelectItem value="2">2 sources</SelectItem>
+                          <SelectItem value="3">3 sources</SelectItem>
+                          <SelectItem value="5">5 sources</SelectItem>
+                          <SelectItem value="10">10 sources</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sample Fact-Check Ratings */}
+                <div className="space-y-3">
+                  <h5 className="text-sm font-medium">Sample Fact-Check Ratings</h5>
                   
-                  <div className="space-y-3">
-                    {results.fact_check.findings.map((finding, index) => (
-                      <div 
-                        key={index} 
-                        className="cursor-pointer p-4 border rounded-lg hover:bg-muted/30 transition-colors"
-                        onClick={() => handleFactCheckClick(finding)}
-                        data-testid={`interactive-fact-check-${index}`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <p className="text-sm text-foreground font-medium mb-2">
-                              "{finding.claim}"
-                            </p>
-                            <div className="flex items-center gap-3">
-                              <Badge 
-                                variant="outline" 
-                                className={`${getStatusColor(finding.status)} font-medium`}
-                              >
-                                {getStatusLabel(finding.status)}
-                              </Badge>
-                              {finding.confidence && (
-                                <span className="text-sm font-medium text-foreground">
-                                  {finding.confidence}% Confidence
-                                </span>
-                              )}
-                              {finding.sources_count && (
-                                <span className="text-xs text-muted-foreground">
-                                  {finding.sources_count} sources
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          {getStatusIcon(finding.status)}
+                  {/* Sample 1 - Verified */}
+                  <div className="cursor-pointer p-4 border rounded-lg hover:bg-muted/30 transition-colors bg-white dark:bg-gray-800">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <p className="text-sm text-foreground font-medium mb-2">
+                          "Renewable energy costs have decreased by 80% over the past decade"
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 font-medium">
+                            ✓ VERIFIED
+                          </Badge>
+                          <span className="text-sm font-medium text-foreground">92% Confidence</span>
                         </div>
-                        {finding.note && (
-                          <p className="text-xs text-muted-foreground mt-2">
-                            {finding.note}
-                          </p>
-                        )}
                       </div>
-                    ))}
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    </div>
                   </div>
 
-                  {/* Verification Settings Display */}
-                  {results.fact_check.verification_settings && (
-                    <div className="mt-4 p-3 bg-muted/20 rounded-lg">
-                      <h5 className="text-xs font-medium mb-2">Verification Configuration</h5>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <span className="text-muted-foreground">Verification Depth:</span>
-                          <span className="ml-1 capitalize">{results.fact_check.verification_settings.depth || 'Standard'}</span>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Minimum Sources:</span>
-                          <span className="ml-1">{results.fact_check.verification_settings.min_sources || 3}</span>
+                  {/* Sample 2 - Disputed */}
+                  <div className="cursor-pointer p-4 border rounded-lg hover:bg-muted/30 transition-colors bg-white dark:bg-gray-800">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <p className="text-sm text-foreground font-medium mb-2">
+                          "Quantum computers will break all current encryption within 5 years"
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline" className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100 font-medium">
+                            ⚠ DISPUTED
+                          </Badge>
+                          <span className="text-sm font-medium text-foreground">34% Confidence</span>
                         </div>
                       </div>
+                      <AlertTriangle className="h-4 w-4 text-orange-500" />
                     </div>
-                  )}
+                  </div>
+
+                  {/* Sample 3 - Partially Verified */}
+                  <div className="cursor-pointer p-4 border rounded-lg hover:bg-muted/30 transition-colors bg-white dark:bg-gray-800">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <p className="text-sm text-foreground font-medium mb-2">
+                          "Remote work increases productivity by 15-25% on average"
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 font-medium">
+                            🔍 PARTIALLY VERIFIED
+                          </Badge>
+                          <span className="text-sm font-medium text-foreground">76% Confidence</span>
+                        </div>
+                      </div>
+                      <HelpCircle className="h-4 w-4 text-blue-500" />
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                <div className="text-center py-8">
-                  <CheckCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No fact-check data available</p>
-                  <p className="text-xs text-muted-foreground mt-2">Enable fact-checking in Expert mode for interactive verification</p>
-                </div>
-              )}
+
+                {/* Dynamic Results */}
+                {results.fact_check && results.fact_check.findings && results.fact_check.findings.length > 0 && (
+                  <div className="space-y-3 pt-4 border-t">
+                    <h5 className="text-sm font-medium">Current Analysis Results</h5>
+                    <div className="space-y-3">
+                      {results.fact_check.findings.map((finding, index) => (
+                        <div 
+                          key={index} 
+                          className="cursor-pointer p-4 border rounded-lg hover:bg-muted/30 transition-colors"
+                          onClick={() => handleFactCheckClick(finding)}
+                          data-testid={`interactive-fact-check-${index}`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1">
+                              <p className="text-sm text-foreground font-medium mb-2">
+                                "{finding.claim}"
+                              </p>
+                              <div className="flex items-center gap-3">
+                                <Badge 
+                                  variant="outline" 
+                                  className={`${getStatusColor(finding.status)} font-medium`}
+                                >
+                                  {getStatusLabel(finding.status)}
+                                </Badge>
+                                {finding.confidence && (
+                                  <span className="text-sm font-medium text-foreground">
+                                    {finding.confidence}% Confidence
+                                  </span>
+                                )}
+                                {finding.sources_count && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {finding.sources_count} sources
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {getStatusIcon(finding.status)}
+                          </div>
+                          {finding.note && (
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {finding.note}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </ScrollArea>
           </TabsContent>
 
@@ -483,7 +579,7 @@ export function ResultsArea({ results, isProcessing, onExport }: ResultsAreaProp
                   </div>
                 )}
 
-                {/* Visual Story Maps */}
+                {/* Enhanced Visual Story Maps */}
                 <div className="space-y-3 mt-6">
                   <Separator />
                   <h4 className="text-sm font-medium flex items-center gap-2">
@@ -495,67 +591,110 @@ export function ResultsArea({ results, isProcessing, onExport }: ResultsAreaProp
                   </p>
                   
                   <div className="space-y-4">
-                    {/* Journey Progress */}
-                    <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 rounded-lg">
-                      <h5 className="text-sm font-medium mb-3 flex items-center gap-2">
-                        <Target className="h-4 w-4 text-blue-500" />
-                        Journey Insights
-                      </h5>
+                    {/* Coverage Analysis */}
+                    <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 rounded-lg border-l-4 border-l-blue-500">
+                      <h5 className="text-sm font-medium mb-2">COVERAGE ANALYSIS</h5>
+                      <div className="text-2xl font-bold text-blue-600 mb-1">78% Complete</div>
+                      <p className="text-xs text-muted-foreground">Strong technical coverage, weak social aspects</p>
+                    </div>
+
+                    {/* Focus Areas */}
+                    <div className="p-4 bg-gradient-to-r from-teal-50 to-green-50 dark:from-teal-950/20 dark:to-green-950/20 rounded-lg border-l-4 border-l-teal-500">
+                      <h5 className="text-sm font-medium mb-2">FOCUS AREAS</h5>
+                      <div className="text-2xl font-bold text-teal-600 mb-1">5 Identified</div>
+                      <p className="text-xs text-muted-foreground">Technology, Economics, Policy, Social, Environmental</p>
+                    </div>
+
+                    {/* Connections */}
+                    <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 rounded-lg border-l-4 border-l-purple-500">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Link className="h-4 w-4 text-purple-500" />
+                        <h5 className="text-sm font-medium">CONNECTIONS</h5>
+                      </div>
+                      <div className="text-2xl font-bold text-purple-600 mb-1">12 Links</div>
+                      <p className="text-xs text-muted-foreground">Strong interdisciplinary connections found</p>
+                    </div>
+
+                    {/* Journey Timeline */}
+                    <div className="space-y-3">
+                      <h5 className="text-sm font-medium">Journey Timeline</h5>
                       
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div className="text-center p-2 bg-white/50 dark:bg-gray-800/50 rounded">
-                          <div className="text-lg font-bold text-blue-600">78%</div>
-                          <div className="text-xs text-muted-foreground">Complete</div>
-                          <div className="text-xs text-muted-foreground">Strong technical coverage, weak social aspects</div>
-                        </div>
-                        <div className="text-center p-2 bg-white/50 dark:bg-gray-800/50 rounded">
-                          <div className="text-lg font-bold text-green-600">12</div>
-                          <div className="text-xs text-muted-foreground">Links</div>
-                          <div className="text-xs text-muted-foreground">Strong interdisciplinary connections found</div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 p-2 bg-white/30 dark:bg-gray-800/30 rounded text-xs">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                          <span className="font-medium">1</span>
-                          <span>Initial Question</span>
-                          <span className="text-muted-foreground ml-auto">5 minutes ago • 3 models participated</span>
-                        </div>
-                        <div className="flex items-center gap-2 p-2 bg-white/30 dark:bg-gray-800/30 rounded text-xs">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span className="font-medium">2</span>
-                          <span>Deep Analysis</span>
-                          <span className="text-muted-foreground ml-auto">3 minutes ago • High complexity analysis</span>
-                        </div>
-                        <div className="flex items-center gap-2 p-2 bg-blue-100 dark:bg-blue-900/30 rounded text-xs">
-                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                          <span className="font-medium">3</span>
-                          <span>Current Focus</span>
-                          <span className="text-muted-foreground ml-auto">Now • In progress</span>
-                        </div>
-                        <div className="flex items-center gap-2 p-2 bg-white/20 dark:bg-gray-800/20 rounded text-xs opacity-50">
-                          <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                          <span className="font-medium">?</span>
-                          <span>Knowledge Gap</span>
-                          <span className="text-muted-foreground ml-auto">Identified gap • Click to explore</span>
+                      {/* Step 1 - Completed */}
+                      <div className="relative">
+                        <div className="absolute left-4 top-8 w-0.5 h-16 bg-blue-200 dark:bg-blue-800"></div>
+                        <div className="flex items-start gap-4 p-4 bg-white dark:bg-gray-800 rounded-lg border">
+                          <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
+                            1
+                          </div>
+                          <div className="flex-1">
+                            <h6 className="font-medium text-sm">Initial Question</h6>
+                            <p className="text-xs text-muted-foreground">Started debate on renewable energy adoption</p>
+                            <div className="text-xs text-muted-foreground mt-1">5 MINUTES AGO • 3 MODELS PARTICIPATED</div>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="flex gap-2 mt-4">
-                        <Button size="sm" variant="outline" className="text-xs">
-                          <FileText size={12} className="mr-1" />
-                          Reset Journey
-                        </Button>
-                        <Button size="sm" variant="outline" className="text-xs">
-                          <Download size={12} className="mr-1" />
-                          Export Map
-                        </Button>
-                        <Button size="sm" variant="outline" className="text-xs">
-                          <Target size={12} className="mr-1" />
-                          Find Gaps
-                        </Button>
+                      {/* Step 2 - Completed */}
+                      <div className="relative">
+                        <div className="absolute left-4 top-8 w-0.5 h-16 bg-green-200 dark:bg-green-800"></div>
+                        <div className="flex items-start gap-4 p-4 bg-white dark:bg-gray-800 rounded-lg border">
+                          <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
+                            2
+                          </div>
+                          <div className="flex-1">
+                            <h6 className="font-medium text-sm">Deep Analysis</h6>
+                            <p className="text-xs text-muted-foreground">Explored economic implications and policy challenges</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className="text-xs text-muted-foreground">3 MINUTES AGO</div>
+                              <Badge variant="outline" className="text-xs bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300">
+                                HIGH COMPLEXITY ANALYSIS
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
                       </div>
+
+                      {/* Step 3 - In Progress */}
+                      <div className="relative">
+                        <div className="absolute left-4 top-8 w-0.5 h-16 bg-green-200 dark:bg-green-800"></div>
+                        <div className="flex items-start gap-4 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                          <div className="w-8 h-8 bg-green-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 animate-pulse">
+                            3
+                          </div>
+                          <div className="flex-1">
+                            <h6 className="font-medium text-sm">Current Focus</h6>
+                            <p className="text-xs text-muted-foreground">Investigating technology adoption barriers</p>
+                            <div className="text-xs text-green-600 dark:text-green-400 font-medium mt-1">NOW • IN PROGRESS</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Knowledge Gap */}
+                      <div className="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                        <div className="w-8 h-8 bg-gray-400 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
+                          ?
+                        </div>
+                        <div className="flex-1">
+                          <h6 className="font-medium text-sm">Knowledge Gap</h6>
+                          <p className="text-xs text-muted-foreground">Missing analysis on social acceptance factors</p>
+                          <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mt-1">IDENTIFIED GAP • CLICK TO EXPLORE</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 pt-2">
+                      <Button size="sm" variant="outline" className="text-xs">
+                        Reset Journey
+                      </Button>
+                      <Button size="sm" variant="outline" className="text-xs">
+                        <Download size={12} className="mr-1" />
+                        Export Map
+                      </Button>
+                      <Button size="sm" variant="outline" className="text-xs">
+                        <Target size={12} className="mr-1" />
+                        Find Gaps
+                      </Button>
                     </div>
                   </div>
                 </div>
