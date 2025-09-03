@@ -39,7 +39,7 @@ export default function Header() {
             <img 
               src={logoImage} 
               alt="SymbiosoAi - Collaborative Intelligence, redefined"
-              className="h-80 w-auto max-w-2xl"
+              className="h-16 w-auto max-w-lg"
               data-testid="logo-symbiosoai"
               onError={(e) => {
                 console.error('Logo failed to load:', e);
