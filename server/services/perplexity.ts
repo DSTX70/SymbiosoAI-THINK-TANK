@@ -92,11 +92,15 @@ class PerplexityService {
       const answer = data.choices[0]?.message?.content || "";
       
       // Convert Perplexity citations to our format
-      const citations: Citation[] = (data.citations || []).map((url, index) => ({
-        title: `Web Source ${index + 1}`,
-        url,
-        source: new URL(url).hostname,
-      }));
+      const citations: Citation[] = (data.citations || []).map((url, index) => {
+        const hostname = new URL(url).hostname;
+        const sourceName = hostname.replace('www.', '').split('.')[0];
+        return {
+          title: `${sourceName} - ${hostname}`,
+          url,
+          source: hostname,
+        };
+      });
 
       return { answer, citations };
     } catch (error: any) {
