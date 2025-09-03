@@ -24,6 +24,8 @@ export default function SimplePage() {
   const [results, setResults] = useState<ThinkResponse | null>(null);
   const [streamingResult, setStreamingResult] = useState<any>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isProcessingQuestion, setIsProcessingQuestion] = useState(false);
+  const [currentQuestion, setCurrentQuestion] = useState<string>("");
   const { toast } = useToast();
 
   const thinkMutation = useMutation({
@@ -110,8 +112,10 @@ export default function SimplePage() {
   };
 
   const handleQuestionClick = async (question: string) => {
-    if (!results) return;
+    if (!results || isProcessingQuestion) return;
 
+    setIsProcessingQuestion(true);
+    setCurrentQuestion(question);
     toast({ description: `Exploring question: "${question}"...` });
 
     // Create a new debate with the clicked question as prompt
@@ -165,6 +169,9 @@ export default function SimplePage() {
         variant: "destructive",
         description: error.message || "Failed to explore question" 
       });
+    } finally {
+      setIsProcessingQuestion(false);
+      setCurrentQuestion("");
     }
   };
 
@@ -273,6 +280,8 @@ export default function SimplePage() {
               isVisible={!!results}
               onQuestionClick={handleQuestionClick}
               onCustomQuestion={handleQuestionClick} // Reuse same logic for custom questions
+              isProcessingQuestion={isProcessingQuestion}
+              currentQuestion={currentQuestion}
             />
           </div>
 

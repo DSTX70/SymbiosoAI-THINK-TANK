@@ -28,6 +28,8 @@ export default function GuidedPage() {
   const [results, setResults] = useState<ThinkResponse | null>(null);
   const [streamingResult, setStreamingResult] = useState<any>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isProcessingQuestion, setIsProcessingQuestion] = useState(false);
+  const [currentQuestion, setCurrentQuestion] = useState<string>("");
   const { toast } = useToast();
 
   const thinkMutation = useMutation({
@@ -130,8 +132,10 @@ export default function GuidedPage() {
   };
 
   const handleQuestionClick = async (question: string) => {
-    if (!results) return;
+    if (!results || isProcessingQuestion) return;
 
+    setIsProcessingQuestion(true);
+    setCurrentQuestion(question);
     toast({ description: `Exploring question: "${question}"...` });
 
     // Create a new debate with the clicked question as prompt
@@ -195,6 +199,9 @@ export default function GuidedPage() {
         variant: "destructive",
         description: error.message || "Failed to explore question" 
       });
+    } finally {
+      setIsProcessingQuestion(false);
+      setCurrentQuestion("");
     }
   };
 
@@ -351,6 +358,8 @@ export default function GuidedPage() {
               isVisible={true} // Always show results window
               onQuestionClick={handleQuestionClick}
               onCustomQuestion={handleQuestionClick} // Reuse same logic for custom questions
+              isProcessingQuestion={isProcessingQuestion}
+              currentQuestion={currentQuestion}
             />
           </div>
 

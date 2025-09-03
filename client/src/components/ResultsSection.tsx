@@ -16,6 +16,8 @@ interface ResultsSectionProps {
   isVisible?: boolean;
   onQuestionClick?: (question: string) => void;
   onCustomQuestion?: (question: string) => void;
+  isProcessingQuestion?: boolean;
+  currentQuestion?: string;
 }
 
 export default function ResultsSection({ 
@@ -25,7 +27,9 @@ export default function ResultsSection({
   citations = [],
   isVisible = false,
   onQuestionClick,
-  onCustomQuestion
+  onCustomQuestion,
+  isProcessingQuestion = false,
+  currentQuestion = ""
 }: ResultsSectionProps) {
   const { toast } = useToast();
   const [customQuestion, setCustomQuestion] = useState("");
@@ -97,11 +101,18 @@ export default function ResultsSection({
   };
 
   const handleCustomQuestionSubmit = () => {
-    if (!customQuestion.trim()) {
-      toast({ 
-        variant: "destructive",
-        description: "Please enter a question to explore" 
-      });
+    if (!customQuestion.trim() || isProcessingQuestion) {
+      if (isProcessingQuestion) {
+        toast({ 
+          variant: "destructive",
+          description: "Please wait for current question to finish processing" 
+        });
+      } else {
+        toast({ 
+          variant: "destructive",
+          description: "Please enter a question to explore" 
+        });
+      }
       return;
     }
 
@@ -192,16 +203,30 @@ export default function ResultsSection({
                   <div 
                     key={index} 
                     className={`p-2 bg-blue-50 dark:bg-blue-950/20 rounded text-sm transition-all ${
-                      onQuestionClick 
+                      onQuestionClick && !isProcessingQuestion
                         ? 'cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 hover:border-blue-300 border border-transparent' 
-                        : ''
+                        : isProcessingQuestion && currentQuestion === question
+                        ? 'border-2 border-blue-500 bg-blue-100 dark:bg-blue-900/50'
+                        : 'opacity-50 cursor-not-allowed'
                     }`}
-                    onClick={() => onQuestionClick?.(question)}
+                    onClick={() => !isProcessingQuestion && onQuestionClick?.(question)}
                     data-testid={`unresolved-${index}`}
-                    title={onQuestionClick ? "Click to explore this question further" : undefined}
+                    title={
+                      isProcessingQuestion && currentQuestion === question 
+                        ? "Processing this question..." 
+                        : isProcessingQuestion 
+                        ? "Please wait while other question is processing"
+                        : onQuestionClick ? "Click to explore this question further" : undefined
+                    }
                   >
+                    {isProcessingQuestion && currentQuestion === question && (
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600" />
+                        <span className="text-xs text-blue-600 font-medium">Processing...</span>
+                      </div>
+                    )}
                     {question}
-                    {onQuestionClick && (
+                    {onQuestionClick && !isProcessingQuestion && (
                       <span className="text-xs text-blue-600 dark:text-blue-400 ml-2">→ Click to explore</span>
                     )}
                   </div>
@@ -278,20 +303,46 @@ export default function ResultsSection({
                 value={customQuestion}
                 onChange={(e) => setCustomQuestion(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Ask the AI agents to explore a specific question..."
+                placeholder={isProcessingQuestion ? "Processing current question..." : "Ask the AI agents to explore a specific question..."}
                 className="flex-1"
+                disabled={isProcessingQuestion}
                 data-testid="input-custom-question"
               />
               <Button 
                 onClick={handleCustomQuestionSubmit}
-                disabled={!customQuestion.trim()}
+                disabled={!customQuestion.trim() || isProcessingQuestion}
                 className="btn-primary"
                 data-testid="button-ask-question"
               >
-                <MessageCircle size={16} className="mr-2" />
-                Ask
+                {isProcessingQuestion ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <MessageCircle size={16} className="mr-2" />
+                    Ask
+                  </>
+                )}
               </Button>
             </div>
+            {isProcessingQuestion && currentQuestion && (
+              <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 border-l-4 border-blue-400 rounded">
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
+                  <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    Processing Question:
+                  </span>
+                </div>
+                <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                  "{currentQuestion}"
+                </p>
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                  AI agents are analyzing this question. This may take 1-3 minutes...
+                </p>
+              </div>
+            )}
             <p className="text-xs text-muted-foreground mt-2">
               Your question will be debated by the AI agents and results will be merged with the current analysis.
             </p>
