@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Search, ArrowLeft, FileText, Filter } from "lucide-react";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import { formatDistanceToNow } from "date-fns";
 import type { Session } from "@shared/schema";
 
@@ -136,6 +137,7 @@ export default function SessionsPage() {
           </div>
         )}
       </main>
+      <Footer />
     </div>
   );
 }

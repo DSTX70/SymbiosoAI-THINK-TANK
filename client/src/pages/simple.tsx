@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Lightbulb, Play, Zap } from "lucide-react";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import TelemetryPanel from "@/components/TelemetryPanel";
 import ResultsSection from "@/components/ResultsSection";
 import LiveStreamingSection, { createStreamUrl } from "@/components/LiveStreamingSection";
@@ -223,6 +224,7 @@ export default function SimplePage() {
           </aside>
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

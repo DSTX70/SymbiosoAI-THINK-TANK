@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Clock, Download, Share2 } from "lucide-react";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import { formatDistanceToNow, format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import ResultsSection from "@/components/ResultsSection";
@@ -227,6 +228,7 @@ export default function SessionDetailPage() {
           </Card>
         )}
       </main>
+      <Footer />
     </div>
   );
 }
