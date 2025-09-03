@@ -1,7 +1,7 @@
 import type { Citation, FactCheckFinding } from "@shared/schema";
 
 const PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions";
-const PERPLEXITY_MODEL = "llama-3.1-sonar-small-128k-online";
+const PERPLEXITY_MODEL = "sonar-pro";
 
 interface PerplexityMessage {
   role: "system" | "user" | "assistant";

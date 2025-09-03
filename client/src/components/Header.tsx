@@ -32,6 +32,13 @@ export default function Header() {
             >
               ⚙️ Guided
             </Link>
+            <Link 
+              href="/sessions" 
+              className={`mode-pill ${location.startsWith("/sessions") ? "active" : ""}`}
+              data-testid="link-sessions"
+            >
+              📋 Sessions
+            </Link>
           </nav>
         </div>
       </div>
