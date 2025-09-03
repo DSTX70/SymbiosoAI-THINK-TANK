@@ -157,6 +157,9 @@ export default function GuidedPage() {
       const response = await apiRequest("POST", "/api/think", requestData);
       const newResults = await response.json() as ThinkResponse;
 
+      console.log("Original results:", results);
+      console.log("New results from question:", newResults);
+
       // Merge results: combine consensus, add dissents, merge unresolved (removing clicked question)
       const mergedResults: ThinkResponse = {
         consensus: results.consensus + 
@@ -174,6 +177,9 @@ export default function GuidedPage() {
         fact_check: newResults.fact_check || results.fact_check,
         telemetry: newResults.telemetry || results.telemetry
       };
+
+      console.log("Merged results:", mergedResults);
+      console.log("Consensus length - Original:", results.consensus?.length, "Merged:", mergedResults.consensus?.length);
 
       setResults(mergedResults);
       toast({ description: `Question explored and results merged successfully!` });
