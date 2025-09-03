@@ -260,8 +260,8 @@ export default function GuidedPage() {
                       : "border-muted"
                   }`} />
                   <div>
-                    <h3 className="font-medium">OpenAI GPT-4o</h3>
-                    <p className="text-sm text-muted-foreground">Advanced reasoning and analysis</p>
+                    <h3 className="font-medium">OpenAI GPT-5</h3>
+                    <p className="text-sm text-muted-foreground">Latest model with advanced reasoning</p>
                   </div>
                 </div>
               </div>
@@ -282,8 +282,8 @@ export default function GuidedPage() {
                       : "border-muted"
                   }`} />
                   <div>
-                    <h3 className="font-medium">Anthropic Claude</h3>
-                    <p className="text-sm text-muted-foreground">Thoughtful and nuanced responses</p>
+                    <h3 className="font-medium">Claude Sonnet 4</h3>
+                    <p className="text-sm text-muted-foreground">Latest Anthropic model with deep reasoning</p>
                   </div>
                 </div>
               </div>
