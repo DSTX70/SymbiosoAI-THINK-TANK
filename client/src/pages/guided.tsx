@@ -142,7 +142,7 @@ export default function GuidedPage() {
               Collaborative Prompt
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
             <Textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
@@ -151,93 +151,89 @@ export default function GuidedPage() {
               className="resize-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
               data-testid="input-collaborative-prompt"
             />
-            
-            {/* Start Collaborative Thinking Button - Below Input */}
-            <Button 
-              onClick={handleSubmit}
-              disabled={thinkMutation.isPending || isStreaming}
-              className="w-full flex items-center justify-center gap-2 h-12 bg-primary text-primary-foreground hover:bg-primary/90"
-              data-testid="button-start-thinking"
-            >
-              {(thinkMutation.isPending || isStreaming) ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                  {isStreaming ? "Thinking..." : "Processing..."}
-                </>
-              ) : (
-                <>
-                  <Rocket size={16} />
-                  Start Collaborative Thinking
-                </>
-              )}
-            </Button>
           </CardContent>
         </Card>
 
-        {/* Toggle Options */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {/* 2. Require Citations */}
-          <Card className="card-elevated">
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-3">
-                <Switch
-                  id="citations"
-                  checked={requireCitations}
-                  onCheckedChange={setRequireCitations}
-                  data-testid="switch-citations"
-                />
-                <Label htmlFor="citations" className="text-sm font-medium">Require Citations</Label>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Compact Toggle Options */}
+        <Card className="card-elevated mb-6">
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-2 gap-6">
+              {/* Column 1 */}
+              <div className="space-y-4">
+                {/* Require Citations */}
+                <div className="flex items-center space-x-3">
+                  <Switch
+                    id="citations"
+                    checked={requireCitations}
+                    onCheckedChange={setRequireCitations}
+                    data-testid="switch-citations"
+                  />
+                  <Label htmlFor="citations" className="text-sm font-medium">Require Citations</Label>
+                </div>
 
-          {/* 3. Enable Fact-checking */}
-          <Card className="card-elevated">
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-3">
-                <Switch
-                  id="factcheck"
-                  checked={enableFactCheck}
-                  onCheckedChange={setEnableFactCheck}
-                  data-testid="switch-factcheck"
-                />
-                <Label htmlFor="factcheck" className="text-sm font-medium">Enable Fact-checking</Label>
+                {/* Live Web Search */}
+                <div className="flex items-center space-x-3">
+                  <Switch
+                    id="liveweb"
+                    checked={enableLiveWeb}
+                    onCheckedChange={setEnableLiveWeb}
+                    data-testid="switch-liveweb"
+                  />
+                  <Label htmlFor="liveweb" className="text-sm font-medium">Live Web Search</Label>
+                </div>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* 4. Live Web Search */}
-          <Card className="card-elevated">
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-3">
-                <Switch
-                  id="liveweb"
-                  checked={enableLiveWeb}
-                  onCheckedChange={setEnableLiveWeb}
-                  data-testid="switch-liveweb"
-                />
-                <Label htmlFor="liveweb" className="text-sm font-medium">Live Web Search</Label>
-              </div>
-            </CardContent>
-          </Card>
+              {/* Column 2 */}
+              <div className="space-y-4">
+                {/* Enable Fact-checking */}
+                <div className="flex items-center space-x-3">
+                  <Switch
+                    id="factcheck"
+                    checked={enableFactCheck}
+                    onCheckedChange={setEnableFactCheck}
+                    data-testid="switch-factcheck"
+                  />
+                  <Label htmlFor="factcheck" className="text-sm font-medium">Enable Fact-checking</Label>
+                </div>
 
-          {/* 5. Real-time Streaming */}
-          <Card className="card-elevated">
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-3">
-                <Switch
-                  id="streaming"
-                  checked={useStreaming}
-                  onCheckedChange={(checked) => {
-                    console.log("GuidedPage: Setting useStreaming to", checked);
-                    setUseStreaming(checked);
-                  }}
-                  data-testid="switch-streaming"
-                />
-                <Label htmlFor="streaming" className="text-sm font-medium">Real-time Streaming</Label>
+                {/* Real-time Streaming */}
+                <div className="flex items-center space-x-3">
+                  <Switch
+                    id="streaming"
+                    checked={useStreaming}
+                    onCheckedChange={(checked) => {
+                      console.log("GuidedPage: Setting useStreaming to", checked);
+                      setUseStreaming(checked);
+                    }}
+                    data-testid="switch-streaming"
+                  />
+                  <Label htmlFor="streaming" className="text-sm font-medium">Real-time Streaming</Label>
+                </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Start Collaborative Thinking Button - After Toggles */}
+        <div className="mb-6">
+          <Button 
+            onClick={handleSubmit}
+            disabled={thinkMutation.isPending || isStreaming}
+            className="w-full flex items-center justify-center gap-2 h-12 bg-primary text-primary-foreground hover:bg-primary/90"
+            data-testid="button-start-thinking"
+          >
+            {(thinkMutation.isPending || isStreaming) ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                {isStreaming ? "Thinking..." : "Processing..."}
+              </>
+            ) : (
+              <>
+                <Rocket size={16} />
+                Start Collaborative Thinking
+              </>
+            )}
+          </Button>
         </div>
 
         {/* Start Live Stream Button - Only when streaming is enabled */}
