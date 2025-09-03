@@ -192,12 +192,20 @@ export function ConfigurationSidebar({ configuration, onConfigurationChange }: C
               <Label className="text-sm font-medium">Select Domain Experts</Label>
               <div className="grid grid-cols-1 gap-3">
                 {[
-                  { id: "legal-analyst", name: "Legal Analyst", desc: "Legal compliance and risk assessment" },
-                  { id: "tech-architect", name: "Tech Architect", desc: "System design and technical strategy" },
+                  { id: "legal-analyst", name: "Legal Analyst", desc: "Legal research and case analysis" },
+                  { id: "legal-advocate", name: "Legal Advocate", desc: "Legal argumentation and advocacy" },
+                  { id: "medical-diagnostician", name: "Medical Diagnostician", desc: "Clinical diagnosis and medical analysis" },
+                  { id: "medical-researcher", name: "Medical Researcher", desc: "Medical research and clinical studies" },
                   { id: "financial-analyst", name: "Financial Analyst", desc: "Financial modeling and market analysis" },
-                  { id: "medical-researcher", name: "Medical Researcher", desc: "Healthcare and medical research expertise" },
-                  { id: "brand-strategist", name: "Brand Strategist", desc: "Marketing and brand positioning" },
-                  { id: "research-scientist", name: "Research Scientist", desc: "Scientific research and methodology" }
+                  { id: "investment-strategist", name: "Investment Strategist", desc: "Investment planning and portfolio strategy" },
+                  { id: "tech-architect", name: "Tech Architect", desc: "System design and technical architecture" },
+                  { id: "devops-engineer", name: "DevOps Engineer", desc: "Infrastructure and deployment strategies" },
+                  { id: "educational-psychologist", name: "Educational Psychologist", desc: "Learning theory and educational strategies" },
+                  { id: "brand-strategist", name: "Brand Strategist", desc: "Brand positioning and marketing strategy" },
+                  { id: "research-scientist", name: "Research Scientist", desc: "Scientific methodology and research design" },
+                  { id: "systems-engineer", name: "Systems Engineer", desc: "Complex systems analysis and optimization" },
+                  { id: "behavioral-analyst", name: "Behavioral Analyst", desc: "Human behavior and decision-making patterns" },
+                  { id: "sustainability-consultant", name: "Sustainability Consultant", desc: "Environmental impact and sustainable solutions" }
                 ].map((expert) => (
                   <div key={expert.id} className="flex items-start space-x-3 p-3 border rounded-lg">
                     <Checkbox
