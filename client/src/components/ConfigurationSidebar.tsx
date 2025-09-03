@@ -207,7 +207,11 @@ export function ConfigurationSidebar({ configuration, onConfigurationChange }: C
                   { id: "research-scientist", name: "Research Scientist", desc: "Scientific methodology and research design" },
                   { id: "systems-engineer", name: "Systems Engineer", desc: "Complex systems analysis and optimization" },
                   { id: "behavioral-analyst", name: "Behavioral Analyst", desc: "Human behavior and decision-making patterns" },
-                  { id: "sustainability-consultant", name: "Sustainability Consultant", desc: "Environmental impact and sustainable solutions" }
+                  { id: "sustainability-consultant", name: "Sustainability Consultant", desc: "Environmental impact and sustainable solutions" },
+                  { id: "grant-writer", name: "Grant Writing Expert", desc: "Nonprofit grants, corporate philanthropy, RFPs, logic models & budgets" },
+                  { id: "hr-expert", name: "HR Domain Expert", desc: "People operations, hiring, performance management & employment practices" },
+                  { id: "hospitality-expert", name: "Hospitality Expert", desc: "Guest experience, F&B operations, venue management & service optimization" },
+                  { id: "public-safety-expert", name: "Public Safety Expert", desc: "Emergency management, crisis response, ICS/NIMS & disaster preparedness" }
                 ].map((expert) => (
                   <div key={expert.id} className="flex items-start space-x-3 p-3 border rounded-lg">
                     <Checkbox
