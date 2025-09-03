@@ -332,6 +332,62 @@ function getAgentConfiguration(settings: any): AgentConfig[] {
       selectedAgents.push(generalPersonalities.synthesizer);
       break;
 
+    case "expert":
+      // Expert Mode: Use all agents with routing weights
+      const availableAgents = {
+        analyst: generalPersonalities.analyst,
+        pragmatist: generalPersonalities.pragmatist,
+        thoughtful: generalPersonalities.thoughtful,
+        innovator: generalPersonalities.innovator,
+        critic: generalPersonalities.critic
+      };
+      
+      // Apply routing weights if provided, otherwise use all agents
+      if (settings.routing) {
+        selectedAgents = Object.entries(settings.routing)
+          .filter(([_, weight]) => weight && (weight as number) > 0)
+          .sort(([_a, weightA], [_b, weightB]) => (weightB as number) - (weightA as number))
+          .map(([agentId, _]) => {
+            const agent = availableAgents[agentId as keyof typeof availableAgents];
+            if (agent && settings.frameworks && settings.frameworks.length > 0) {
+              // Enhance system prompt with selected frameworks
+              const frameworkContext = settings.frameworks.map((fw: string) => 
+                fw.replace('_', ' ')
+              ).join(', ');
+              return {
+                ...agent,
+                systemPrompt: `${agent.systemPrompt} Apply ${frameworkContext} reasoning frameworks to your analysis.`
+              };
+            }
+            return agent;
+          })
+          .filter(Boolean);
+      } else {
+        // Default Expert Mode agents
+        selectedAgents = [
+          generalPersonalities.analyst,
+          generalPersonalities.pragmatist,
+          generalPersonalities.thoughtful,
+          generalPersonalities.innovator,
+          generalPersonalities.critic
+        ];
+      }
+      
+      // Add ethical lens if enabled
+      if (settings.ethical_lens) {
+        selectedAgents.forEach(agent => {
+          agent.systemPrompt += " Always consider ethical implications and potential societal impacts in your analysis.";
+        });
+      }
+      
+      // Enhanced synthesizer for Expert Mode
+      selectedAgents.push({
+        role: "Expert Synthesizer",
+        systemPrompt: "You are an Expert Synthesizer AI that creates comprehensive synthesis from multi-agent discussions. Integrate diverse perspectives, identify patterns, reconcile contradictions, and provide nuanced conclusions. Consider evidence quality, logical consistency, and practical implications.",
+        provider: "anthropic" as const
+      });
+      break;
+
     case "smart":
     default:
       selectedAgents = [

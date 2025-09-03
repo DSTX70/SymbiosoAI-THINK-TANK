@@ -32,7 +32,7 @@ export const insertSessionSchema = createInsertSchema(sessions).pick({
 
 export const thinkRequestSchema = z.object({
   prompt: z.string().min(1),
-  mode: z.enum(["simple", "guided"]),
+  mode: z.enum(["simple", "guided", "expert"]),
   // Simple mode options
   require_citations: z.boolean().optional(),
   enable_fact_check: z.boolean().optional(),
@@ -67,6 +67,39 @@ export const thinkRequestSchema = z.object({
     fact_check: z.boolean().optional(),
     min_sources: z.number().min(0).max(10).optional(),
   }).optional(),
+  
+  // Expert mode options
+  context: z.string().optional(),
+  selected_models: z.array(z.string()).optional(),
+  use_case: z.string().optional(),
+  debate_title: z.string().optional(),
+  timestamp: z.string().optional(),
+  frameworks: z.array(z.enum(["systems", "design", "first_principles", "dialectical"])).optional(),
+  max_steps: z.number().min(1).max(20).optional(),
+  evidence_per_claim: z.number().min(1).max(10).optional(),
+  include_counterarguments: z.boolean().optional(),
+  ethical_lens: z.boolean().optional(),
+  models: z.array(z.enum(["analyst", "pragmatist", "thoughtful", "innovator", "critic"])).optional(),
+  routing: z.object({
+    analyst: z.number().min(0).max(100).optional(),
+    pragmatist: z.number().min(0).max(100).optional(),
+    thoughtful: z.number().min(0).max(100).optional(),
+    innovator: z.number().min(0).max(100).optional(),
+    critic: z.number().min(0).max(100).optional(),
+  }).optional(),
+  rag: z.object({
+    enabled: z.boolean().optional(),
+    top_k: z.number().min(1).max(50).optional(),
+    max_tokens: z.number().min(100).max(4000).optional(),
+    web: z.boolean().optional(),
+    code: z.boolean().optional(),
+  }).optional(),
+  security: z.object({
+    pii_redaction: z.boolean().optional(),
+    log_masking: z.boolean().optional(),
+    region: z.string().optional(),
+  }).optional(),
+  export_formats: z.array(z.enum(["pdf", "json", "txt", "story_map"])).optional(),
 });
 
 export const thinkResponseSchema = z.object({

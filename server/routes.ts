@@ -76,12 +76,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const endTime = Date.now();
       const duration = endTime - startTime;
 
-      // Calculate telemetry
+      // Calculate telemetry (enhanced for Expert Mode)
       const telemetry = {
         avg_ms: duration,
         quality: Math.min(5.0, Math.max(1.0, 4.5 + (Math.random() - 0.5) * 0.4)), // Simulated quality score
         tps: Math.round(1000 / duration * 10), // Tokens per second estimate
-        active_agents: validatedData.mode === "guided" ? 4 : 3,
+        active_agents: validatedData.mode === "expert" ? 5 : validatedData.mode === "guided" ? 4 : 3,
+        models_used: validatedData.mode === "expert" && validatedData.models ? validatedData.models : undefined,
+        total_tokens: validatedData.mode === "expert" ? Math.round(duration * 0.5) : undefined, // Estimate
       };
 
       const response: ThinkResponse = {

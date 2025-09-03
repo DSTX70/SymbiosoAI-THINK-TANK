@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import SimplePage from "@/pages/simple";
 import GuidedPage from "@/pages/guided";
+import ExpertPage from "@/pages/expert";
 import SessionsPage from "@/pages/sessions";
 import SessionDetailPage from "@/pages/session-detail";
 import NotFound from "@/pages/not-found";
@@ -15,6 +16,7 @@ function Router() {
       <Route path="/" component={() => <Redirect to="/simple" />} />
       <Route path="/simple" component={SimplePage} />
       <Route path="/guided" component={GuidedPage} />
+      <Route path="/expert" component={ExpertPage} />
       <Route path="/sessions" component={SessionsPage} />
       <Route path="/sessions/:id" component={SessionDetailPage} />
       <Route component={NotFound} />
