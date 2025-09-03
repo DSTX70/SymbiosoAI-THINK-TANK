@@ -58,7 +58,13 @@ export default function Header() {
         {/* Navigation Row */}
         <div className="flex items-center justify-between">
           <nav className="flex gap-2 items-center">
-            <span className="rounded bg-white/20 px-2 py-1 text-xs font-medium mr-4">BETA</span>
+            <Link 
+              href="/" 
+              className={`mode-pill ${location === "/" ? "active" : ""}`}
+              data-testid="link-home"
+            >
+              Home
+            </Link>
             <Link 
               href="/simple" 
               className={`mode-pill ${location === "/simple" ? "active" : ""}`}
@@ -84,6 +90,7 @@ export default function Header() {
           
           {/* Enhanced Header Features */}
           <div className="flex items-center space-x-2">
+            <span className="rounded bg-white/20 px-2 py-1 text-xs font-medium">BETA</span>
             <Button variant="ghost" size="icon" onClick={toggleTheme} data-testid="button-toggle-theme" className="text-white hover:bg-white/20">
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
