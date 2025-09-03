@@ -64,28 +64,28 @@ export default function Header() {
               className={`mode-pill ${location === "/simple" ? "active" : ""}`}
               data-testid="link-simple-mode"
             >
-              ⚡ Simple
+              Simple
             </Link>
             <Link 
               href="/guided" 
               className={`mode-pill ${location === "/guided" ? "active" : ""}`}
               data-testid="link-guided-mode"
             >
-              ⚙️ Guided
+              Guided
             </Link>
             <Link 
               href="/expert" 
               className={`mode-pill ${location === "/expert" ? "active" : ""}`}
               data-testid="link-expert-mode"
             >
-              🧠 Expert
+              Expert
             </Link>
             <Link 
               href="/sessions" 
               className={`mode-pill ${location.startsWith("/sessions") ? "active" : ""}`}
               data-testid="link-sessions"
             >
-              📋 Sessions
+              Sessions
             </Link>
           </nav>
           
