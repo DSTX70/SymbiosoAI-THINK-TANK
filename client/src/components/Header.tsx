@@ -32,9 +32,9 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 header-gradient text-white">
-      <div className="max-w-7xl mx-auto px-6 py-4">
+      <div className="max-w-7xl mx-auto px-6 py-1">
         {/* Logo Row */}
-        <div className="flex justify-center mb-4">
+        <div className="flex justify-center mb-1">
           <Link href="/" className="flex items-center" data-testid="link-home">
             <img 
               src={logoImage} 
