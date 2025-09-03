@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import type { Express, Request, Response } from "express";
 import { perplexityService } from "./services/perplexity";
 import type { Citation, FactCheckFinding, FollowUpQuestion, FocusAreas, AgentConfig } from "@shared/schema";
+import { advancedFactChecker } from "./services/factchecker";
 
 // --- Verification service configuration ---
 const VERIFY_URL = process.env.VERIFY_URL || "";
@@ -43,32 +44,29 @@ function extractClaims(text: string): string[] {
   return sentences.slice(0, 3).map(s => s.trim());
 }
 
-// Generate enhanced fact-check findings with confidence levels
-function generateEnhancedFactChecks(claims: string[], settings: any): FactCheckFinding[] {
-  const statuses = ["verified", "disputed", "partially_verified", "supported", "contradicted", "inconclusive"] as const;
-  const depths = ["standard", "comprehensive", "expert_review"] as const;
-  
-  return claims.map((claim, index) => {
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-    const confidence = Math.floor(Math.random() * 40) + 60; // 60-100% confidence
-    const sources_count = Math.floor(Math.random() * 8) + 3; // 3-10 sources
+// Real fact-checking using advanced verification service
+async function generateEnhancedFactChecks(claims: string[], settings: any): Promise<FactCheckFinding[]> {
+  try {
+    // Use advanced fact-checker for real verification
+    return await advancedFactChecker.enhancedFactCheck(claims, settings);
+  } catch (error) {
+    console.error("Advanced fact-checking failed, using fallback:", error);
     
-    return {
-      claim: claim.length > 100 ? claim.substring(0, 100) + "..." : claim,
-      status,
-      confidence,
-      verification_depth: depths[Math.floor(Math.random() * depths.length)],
-      sources_count,
-      note: status === "disputed" ? "Multiple sources present contradictory evidence" :
-            status === "partially_verified" ? "Some aspects verified, others require additional investigation" :
-            status === "verified" ? "High confidence with strong source agreement" : undefined,
-      citations: Array.from({ length: Math.min(3, sources_count) }, (_, i) => ({
-        title: `Verification Source ${i + 1}`,
-        url: `https://example.com/source-${index}-${i}`,
-        source: `Academic Journal ${String.fromCharCode(65 + i)}`
-      }))
-    };
-  });
+    // Fallback to basic verification if advanced system fails
+    return claims.slice(0, 3).map((claim, index) => ({
+      claim: claim.length > 150 ? claim.substring(0, 147) + "..." : claim,
+      status: "inconclusive" as const,
+      confidence: 40,
+      verification_depth: "standard" as const,
+      sources_count: 1,
+      note: "Live fact-checking temporarily unavailable - please try again shortly",
+      citations: [{
+        title: "Verification temporarily unavailable",
+        source: "System Status",
+        note: "Fact-checking service will resume shortly"
+      }]
+    }));
+  }
 }
 
 // Generate follow-up questions based on analysis
@@ -754,7 +752,7 @@ Respond only with valid JSON.`;
   };
 
   // Generate enhanced features for Expert mode
-  const enhancedFactChecks = settings.enable_fact_check ? generateEnhancedFactChecks(claims, settings) : [];
+  const enhancedFactChecks = settings.enable_fact_check ? await generateEnhancedFactChecks(claims, settings) : [];
   const followUpQuestions = generateFollowUpQuestions(consensus, unresolved, settings);
   const focusAreas = generateFocusAreas(consensus, settings);
 
