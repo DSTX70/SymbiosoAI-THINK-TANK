@@ -272,6 +272,7 @@ export default function SimplePage() {
               citations={results?.citations}
               isVisible={!!results}
               onQuestionClick={handleQuestionClick}
+              onCustomQuestion={handleQuestionClick} // Reuse same logic for custom questions
             />
           </div>
 

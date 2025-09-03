@@ -350,6 +350,7 @@ export default function GuidedPage() {
               citations={results?.citations}
               isVisible={true} // Always show results window
               onQuestionClick={handleQuestionClick}
+              onCustomQuestion={handleQuestionClick} // Reuse same logic for custom questions
             />
           </div>
 

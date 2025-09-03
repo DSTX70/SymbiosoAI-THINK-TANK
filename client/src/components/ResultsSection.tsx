@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Handshake, AlertTriangle, HelpCircle, Share2, Save, Printer, FileText } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Handshake, AlertTriangle, HelpCircle, Share2, Save, Printer, FileText, MessageCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -13,6 +15,7 @@ interface ResultsSectionProps {
   citations?: Citation[];
   isVisible?: boolean;
   onQuestionClick?: (question: string) => void;
+  onCustomQuestion?: (question: string) => void;
 }
 
 export default function ResultsSection({ 
@@ -21,9 +24,11 @@ export default function ResultsSection({
   unresolved = [], 
   citations = [],
   isVisible = false,
-  onQuestionClick
+  onQuestionClick,
+  onCustomQuestion
 }: ResultsSectionProps) {
   const { toast } = useToast();
+  const [customQuestion, setCustomQuestion] = useState("");
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -88,6 +93,27 @@ export default function ResultsSection({
         variant: "destructive",
         description: "Failed to export PDF. Please try again." 
       });
+    }
+  };
+
+  const handleCustomQuestionSubmit = () => {
+    if (!customQuestion.trim()) {
+      toast({ 
+        variant: "destructive",
+        description: "Please enter a question to explore" 
+      });
+      return;
+    }
+
+    if (onCustomQuestion) {
+      onCustomQuestion(customQuestion.trim());
+      setCustomQuestion(""); // Clear the input after submitting
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleCustomQuestionSubmit();
     }
   };
 
@@ -236,6 +262,42 @@ export default function ResultsSection({
           </div>
         </CardContent>
       </Card>
+
+      {/* Ask a Question Section */}
+      {onCustomQuestion && (
+        <Card className="card-elevated">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3">
+              <MessageCircle className="text-primary" size={20} />
+              Ask a Question
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-3">
+              <Input
+                value={customQuestion}
+                onChange={(e) => setCustomQuestion(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Ask the AI agents to explore a specific question..."
+                className="flex-1"
+                data-testid="input-custom-question"
+              />
+              <Button 
+                onClick={handleCustomQuestionSubmit}
+                disabled={!customQuestion.trim()}
+                className="btn-primary"
+                data-testid="button-ask-question"
+              >
+                <MessageCircle size={16} className="mr-2" />
+                Ask
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Your question will be debated by the AI agents and results will be merged with the current analysis.
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
