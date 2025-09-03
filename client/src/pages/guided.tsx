@@ -441,33 +441,39 @@ export default function GuidedPage() {
               <TabsContent value="usecase" className="mt-4">
                 <div className="space-y-4">
                   <h4 className="font-medium">Select Use Case Type</h4>
-                  <Select value={usecaseType} onValueChange={setUsecaseType}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a use case type..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="business_analysis">Business Analysis</SelectItem>
-                      <SelectItem value="technical_debate">Technical Debate</SelectItem>
-                      <SelectItem value="creative_brainstorm">Creative Brainstorm</SelectItem>
-                      <SelectItem value="research_synthesis">Research Synthesis</SelectItem>
-                      <SelectItem value="ethical_discussion">Ethical Discussion</SelectItem>
-                      <SelectItem value="document_analysis">Document Analysis</SelectItem>
-                      <SelectItem value="general_inquiry">General Inquiry</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {usecaseType && (
-                    <div className="p-3 bg-muted rounded-lg">
-                      <p className="text-sm">
-                        {usecaseType === "business_analysis" && "Agents will focus on market analysis, competitive positioning, and quantitative evaluation."}
-                        {usecaseType === "technical_debate" && "Agents will provide systematic technical analysis, challenge assumptions, and focus on implementation feasibility."}
-                        {usecaseType === "creative_brainstorm" && "Agents will generate creative solutions, evaluate feasibility, and consider stakeholder perspectives."}
-                        {usecaseType === "research_synthesis" && "Agents will systematically review evidence, consider implications, and evaluate methodology."}
-                        {usecaseType === "ethical_discussion" && "Agents will explore ethical frameworks, challenge assumptions, and provide systematic moral reasoning."}
-                        {usecaseType === "document_analysis" && "Agents will systematically analyze content, evaluate claims, and provide structured insights."}
-                        {usecaseType === "general_inquiry" && "Agents will provide comprehensive analysis suitable for general questions and discussions."}
-                      </p>
-                    </div>
-                  )}
+                  <div className="grid gap-3">
+                    {[
+                      { id: "business_analysis", name: "Business Analysis", desc: "Market analysis, competitive positioning, and quantitative evaluation" },
+                      { id: "technical_debate", name: "Technical Debate", desc: "Systematic technical analysis, challenge assumptions, and implementation feasibility" },
+                      { id: "creative_brainstorm", name: "Creative Brainstorm", desc: "Generate creative solutions, evaluate feasibility, and consider stakeholder perspectives" },
+                      { id: "research_synthesis", name: "Research Synthesis", desc: "Systematically review evidence, consider implications, and evaluate methodology" },
+                      { id: "ethical_discussion", name: "Ethical Discussion", desc: "Explore ethical frameworks, challenge assumptions, and provide systematic moral reasoning" },
+                      { id: "document_analysis", name: "Document Analysis", desc: "Systematically analyze content, evaluate claims, and provide structured insights" },
+                      { id: "general_inquiry", name: "General Inquiry", desc: "Comprehensive analysis suitable for general questions and discussions" }
+                    ].map((usecase) => (
+                      <div 
+                        key={usecase.id} 
+                        className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                          usecaseType === usecase.id 
+                            ? "border-primary bg-primary/10" 
+                            : "border-muted hover:border-primary/50"
+                        }`}
+                        onClick={() => setUsecaseType(usecase.id as any)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-4 h-4 rounded-full border-2 ${
+                            usecaseType === usecase.id 
+                              ? "border-primary bg-primary" 
+                              : "border-muted"
+                          }`} />
+                          <div>
+                            <h3 className="font-medium">{usecase.name}</h3>
+                            <p className="text-sm text-muted-foreground">{usecase.desc}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </TabsContent>
             </Tabs>
