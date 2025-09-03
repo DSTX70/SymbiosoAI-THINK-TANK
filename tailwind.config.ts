@@ -62,13 +62,26 @@ export default {
           ring: "var(--sidebar-ring)",
         },
         // SymbiosoAi brand colors
-        blue: "var(--blue)",
-        teal: "var(--teal)",
-        slate: "var(--slate)",
-        silver: "var(--silver)",
-        warm: "var(--warm)",
-        midnight: "var(--midnight)",
-        ink: "var(--ink)",
+        brand: {
+          blue: {
+            DEFAULT: "var(--color-brand-accent-500)",
+            tint: "var(--color-brand-accent-tint)",
+            shade: "var(--color-brand-accent-shade)",
+          },
+          teal: {
+            DEFAULT: "var(--color-brand-teal-500)",
+            tint: "var(--color-brand-teal-tint)", 
+            shade: "var(--color-brand-teal-shade)",
+          },
+          slate: "var(--color-neutral-slate)",
+          silver: "var(--color-neutral-silver)",
+          silverTint: "var(--color-neutral-silver-tint)",
+          silverShade: "var(--color-neutral-silver-shade)",
+          grayTint: "var(--color-neutral-gray-tint)",
+          grayShade: "var(--color-neutral-gray-shade)",
+          black: "var(--color-neutral-black)",
+          white: "var(--color-neutral-white)",
+        },
       },
       fontFamily: {
         sans: ["var(--font-sans)"],

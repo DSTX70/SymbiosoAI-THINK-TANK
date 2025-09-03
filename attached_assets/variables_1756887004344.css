@@ -1,0 +1,37 @@
+:root {
+  --color-brand-accent-500: #0099FF;
+  --color-brand-accent-tint: #66C7FF;
+  --color-brand-accent-shade: #006FCC;
+  --color-brand-teal-500: #00BFA5;
+  --color-brand-teal-tint: #66E0C7;
+  --color-brand-teal-shade: #008272;
+  --color-neutral-slate: #2F3F2F;
+  --color-neutral-silver: #C0C0C0;
+  --color-neutral-silver-tint: #E0E0E0;
+  --color-neutral-silver-shade: #A0A0A0;
+  --color-neutral-gray-tint: #7F8F7F;
+  --color-neutral-gray-shade: #1A241A;
+  --color-neutral-black: #0B0B0B;
+  --color-neutral-white: #F8F8F8;
+  --text-primary: #0B0B0B;
+  --text-secondary: #7F8F7F;
+  --surface-bg: #F8F8F8;
+  --surface-panel: #FFFFFF;
+  --border-muted: #E0E0E0;
+  --focus-ring: #0099FF;
+  --gradient-hero: linear-gradient(135deg, #0099FF 0%, #00BFA5 55%, #0B0B0B 100%);
+  --gradient-alt: linear-gradient(135deg, #0099FF 0%, #00BFA5 60%, #C0C0C0 100%);
+  --font-heading: "Montserrat", ui-sans-serif, system-ui;
+  --font-body: "Inter", ui-sans-serif, system-ui;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+}
+[data-theme="dark"] {
+  --text-primary: #F2F2F2;
+  --text-secondary: #B8C0C0;
+  --surface-bg: #0F1212;
+  --surface-panel: #1B2020;
+  --border-muted: #242C2C;
+}

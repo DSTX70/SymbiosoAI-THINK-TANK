@@ -1,63 +1,66 @@
+@import '../../tokens/variables.css';
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: hsl(40, 40%, 98%);
-  --foreground: hsl(240, 10%, 7%);
-  --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(240, 10%, 7%);
-  --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(240, 10%, 7%);
-  --primary: hsl(200, 100%, 50%);
-  --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(174, 100%, 37%);
-  --secondary-foreground: hsl(0, 0%, 100%);
-  --muted: hsl(240, 5%, 84%);
-  --muted-foreground: hsl(240, 4%, 46%);
-  --accent: hsl(174, 60%, 88%);
-  --accent-foreground: hsl(240, 10%, 7%);
-  --destructive: hsl(0, 84%, 60%);
-  --destructive-foreground: hsl(0, 0%, 100%);
-  --border: hsl(240, 6%, 90%);
-  --input: hsl(240, 6%, 90%);
-  --ring: hsl(200, 100%, 50%);
-  --radius: 12px;
-  --font-sans: 'Inter', system-ui, sans-serif;
+  /* Shadcn compatibility using SymbiosoAi tokens */
+  --background: var(--surface-bg);
+  --foreground: var(--text-primary);
+  --card: var(--surface-panel);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-panel);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--color-brand-accent-500);
+  --primary-foreground: var(--color-neutral-white);
+  --secondary: var(--color-brand-teal-500);
+  --secondary-foreground: var(--color-neutral-white);
+  --muted: var(--color-neutral-silver-tint);
+  --muted-foreground: var(--text-secondary);
+  --accent: var(--color-brand-teal-tint);
+  --accent-foreground: var(--text-primary);
+  --destructive: #ef4444;
+  --destructive-foreground: var(--color-neutral-white);
+  --border: var(--border-muted);
+  --input: var(--border-muted);
+  --ring: var(--focus-ring);
+  --radius: var(--radius-md);
+  --font-sans: var(--font-body);
   --font-serif: 'Georgia', serif;
   --font-mono: 'JetBrains Mono', monospace;
 
   /* SymbiosoAi brand colors */
-  --blue: hsl(200, 100%, 50%);
-  --teal: hsl(174, 100%, 37%);
-  --slate: hsl(47, 63%, 47%);
-  --silver: hsl(240, 6%, 90%);
-  --warm: hsl(40, 40%, 98%);
-  --midnight: hsl(240, 10%, 7%);
-  --ink: hsl(240, 10%, 7%);
+  --blue: var(--color-brand-accent-500);
+  --teal: var(--color-brand-teal-500);
+  --slate: var(--color-neutral-slate);
+  --silver: var(--color-neutral-silver);
+  --warm: var(--color-neutral-white);
+  --midnight: var(--color-neutral-black);
+  --ink: var(--color-neutral-black);
 }
 
-.dark {
-  --background: hsl(0, 0%, 0%);
-  --foreground: hsl(200, 7%, 91%);
-  --card: hsl(228, 10%, 10%);
-  --card-foreground: hsl(0, 0%, 85%);
-  --popover: hsl(0, 0%, 0%);
-  --popover-foreground: hsl(200, 7%, 91%);
-  --primary: hsl(204, 88%, 53%);
-  --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(195, 15%, 95%);
-  --secondary-foreground: hsl(240, 10%, 7%);
-  --muted: hsl(0, 0%, 9%);
-  --muted-foreground: hsl(210, 3%, 46%);
-  --accent: hsl(206, 70%, 8%);
-  --accent-foreground: hsl(204, 88%, 53%);
-  --destructive: hsl(356, 91%, 54%);
-  --destructive-foreground: hsl(0, 0%, 100%);
-  --border: hsl(210, 5%, 15%);
-  --input: hsl(208, 28%, 18%);
-  --ring: hsl(203, 89%, 53%);
+[data-theme="dark"], .dark {
+  /* Dark mode using SymbiosoAi tokens */
+  --background: var(--surface-bg);
+  --foreground: var(--text-primary);
+  --card: var(--surface-panel);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-panel);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--color-brand-accent-500);
+  --primary-foreground: var(--color-neutral-white);
+  --secondary: var(--color-brand-teal-500);
+  --secondary-foreground: var(--color-neutral-white);
+  --muted: var(--border-muted);
+  --muted-foreground: var(--text-secondary);
+  --accent: var(--color-brand-teal-tint);
+  --accent-foreground: var(--text-primary);
+  --destructive: #ef4444;
+  --destructive-foreground: var(--color-neutral-white);
+  --border: var(--border-muted);
+  --input: var(--border-muted);
+  --ring: var(--focus-ring);
 }
 
 @layer base {
@@ -67,21 +70,21 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
-    background-image: 
-      radial-gradient(circle at 20% 10%, hsla(200, 100%, 50%, 0.08) 0%, transparent 50%),
-      radial-gradient(circle at 80% 20%, hsla(174, 100%, 37%, 0.06) 0%, transparent 50%),
-      repeating-linear-gradient(135deg, hsla(240, 10%, 7%, 0.02) 0px, hsla(240, 10%, 7%, 0.02) 1px, transparent 1px, transparent 40px);
+    font-family: var(--font-body);
+    background: var(--gradient-hero);
     background-attachment: fixed;
     min-height: 100vh;
+  }
+
+  /* Official SymbiosoAi typography */
+  h1, h2, h3, h4, h5, h6, .display {
+    font-family: var(--font-heading);
   }
 }
 
 @layer components {
   .header-gradient {
-    background: linear-gradient(135deg, 
-      hsl(240, 10%, 7%) 0%, 
-      hsl(240, 15%, 9%) 50%, 
-      hsl(240, 10%, 7%) 100%);
+    background: var(--gradient-hero);
     border-bottom: 1px solid hsla(0, 0%, 100%, 0.1);
   }
 
@@ -89,15 +92,48 @@
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    background: var(--gradient-hero);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 0 20px hsla(200, 100%, 50%, 0.3);
+    box-shadow: 0 0 20px var(--color-brand-accent-tint);
+  }
+
+  /* Official SymbiosoAi button styles */
+  .button-primary {
+    @apply inline-flex items-center justify-center px-5 py-3 rounded-md transition-all;
+    background: var(--color-brand-accent-500);
+    color: var(--color-neutral-white);
+  }
+
+  .button-primary:hover {
+    background: var(--color-brand-accent-shade);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 153, 255, 0.3);
+  }
+
+  .button-secondary {
+    @apply inline-flex items-center justify-center px-5 py-3 rounded-md border transition-all;
+    border-color: var(--color-brand-teal-500);
+    color: var(--color-brand-teal-500);
+    background: transparent;
+  }
+
+  .button-secondary:hover {
+    background: var(--color-brand-teal-500);
+    color: var(--color-neutral-white);
+  }
+
+  /* Official SymbiosoAi card style */
+  .card {
+    @apply p-6 rounded-lg border;
+    background: var(--surface-panel);
+    border-color: var(--border-muted);
   }
 
   .card-elevated {
-    @apply bg-card border border-border rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 relative overflow-hidden;
+    @apply bg-card border border-border shadow-lg hover:shadow-xl transition-all duration-200 relative overflow-hidden;
+    border-radius: var(--radius-lg);
   }
 
   .card-elevated:hover {
@@ -111,34 +147,21 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    background: linear-gradient(90deg, transparent, var(--color-brand-accent-500), transparent);
     opacity: 0.5;
   }
 
   .gradient-bg {
-    background: linear-gradient(135deg, 
-      hsla(200, 100%, 50%, 0.05), 
-      hsla(174, 100%, 37%, 0.05));
+    background: var(--gradient-alt);
   }
 
+  /* Legacy button compatibility */
   .btn-primary {
-    @apply bg-gradient-to-r from-primary to-secondary text-primary-foreground border-none transition-all duration-200;
-  }
-
-  .btn-primary:hover {
-    @apply transform -translate-y-0.5;
-    background: linear-gradient(135deg, 
-      hsl(200, 100%, 45%), 
-      hsl(174, 100%, 32%));
-    box-shadow: 0 4px 12px hsla(200, 100%, 50%, 0.3);
+    @apply button-primary;
   }
 
   .btn-secondary {
-    @apply bg-card text-foreground border border-border transition-all duration-200;
-  }
-
-  .btn-secondary:hover {
-    @apply bg-accent border-primary;
+    @apply button-secondary;
   }
 
   .processing-state {

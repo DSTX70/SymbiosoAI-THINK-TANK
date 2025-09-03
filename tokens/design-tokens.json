@@ -1,0 +1,76 @@
+{
+  "color": {
+    "brand": {
+      "accent": {
+        "500": {
+          "value": "#0099FF"
+        },
+        "tint": {
+          "value": "#66C7FF"
+        },
+        "shade": {
+          "value": "#006FCC"
+        }
+      },
+      "teal": {
+        "500": {
+          "value": "#00BFA5"
+        },
+        "tint": {
+          "value": "#66E0C7"
+        },
+        "shade": {
+          "value": "#008272"
+        }
+      },
+      "neutral": {
+        "slate": {
+          "value": "#2F3F2F"
+        },
+        "silver": {
+          "value": "#C0C0C0"
+        },
+        "silverTint": {
+          "value": "#E0E0E0"
+        },
+        "silverShade": {
+          "value": "#A0A0A0"
+        },
+        "grayTint": {
+          "value": "#7F8F7F"
+        },
+        "grayShade": {
+          "value": "#1A241A"
+        },
+        "black": {
+          "value": "#0B0B0B"
+        },
+        "white": {
+          "value": "#F8F8F8"
+        }
+      }
+    }
+  },
+  "font": {
+    "heading": {
+      "value": "Montserrat"
+    },
+    "body": {
+      "value": "Inter"
+    }
+  },
+  "radius": {
+    "sm": {
+      "value": "8px"
+    },
+    "md": {
+      "value": "12px"
+    },
+    "lg": {
+      "value": "20px"
+    },
+    "xl": {
+      "value": "28px"
+    }
+  }
+}
