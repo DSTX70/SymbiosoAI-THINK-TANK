@@ -60,6 +60,7 @@ export default function ExpertPage() {
     thinking_patterns: [],
     enterprise_specialists: [],
     creativity_level: 50,
+    deep_analysis_mode: false,
   });
 
 

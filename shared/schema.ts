@@ -140,7 +140,10 @@ export const thinkResponseSchema = z.object({
   fact_check: z.object({
     findings: z.array(z.object({
       claim: z.string(),
-      status: z.enum(["supported", "contradicted", "inconclusive"]),
+      status: z.enum(["verified", "disputed", "partially_verified", "supported", "contradicted", "inconclusive"]),
+      confidence: z.number().min(0).max(100).optional(),
+      verification_depth: z.enum(["standard", "comprehensive", "expert_review"]).optional(),
+      sources_count: z.number().min(0).optional(),
       note: z.string().optional(),
       citations: z.array(z.object({
         title: z.string().optional(),
@@ -148,6 +151,23 @@ export const thinkResponseSchema = z.object({
         source: z.string().optional(),
       })).optional(),
     })),
+    verification_settings: z.object({
+      depth: z.enum(["standard", "comprehensive", "expert_review"]).optional(),
+      min_sources: z.number().min(0).max(10).optional(),
+    }).optional(),
+  }).optional(),
+  follow_up_questions: z.array(z.object({
+    question: z.string(),
+    category: z.string().optional(),
+    complexity: z.enum(["low", "medium", "high"]).optional(),
+  })).optional(),
+  focus_areas: z.object({
+    identified: z.array(z.string()).optional(),
+    connections: z.array(z.object({
+      from: z.string(),
+      to: z.string(),
+      strength: z.enum(["weak", "moderate", "strong"]).optional(),
+    })).optional(),
   }).optional(),
 });
 
@@ -166,9 +186,27 @@ export type Citation = {
 };
 export type FactCheckFinding = {
   claim: string;
-  status: "supported" | "contradicted" | "inconclusive";
+  status: "verified" | "disputed" | "partially_verified" | "supported" | "contradicted" | "inconclusive";
+  confidence?: number;
+  verification_depth?: "standard" | "comprehensive" | "expert_review";
+  sources_count?: number;
   note?: string;
   citations?: Array<{title?: string; url?: string; source?: string;}>;
+};
+
+export type FollowUpQuestion = {
+  question: string;
+  category?: string;
+  complexity?: "low" | "medium" | "high";
+};
+
+export type FocusAreas = {
+  identified?: string[];
+  connections?: Array<{
+    from: string;
+    to: string;
+    strength?: "weak" | "moderate" | "strong";
+  }>;
 };
 
 export type AgentConfig = {

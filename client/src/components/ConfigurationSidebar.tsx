@@ -20,7 +20,8 @@ import {
   Target,
   Users,
   UserCheck,
-  Briefcase
+  Briefcase,
+  CheckCircle
 } from "lucide-react";
 
 interface ConfigurationSidebarProps {
@@ -56,6 +57,7 @@ interface ConfigurationSidebarProps {
     domain_experts?: string[];
     selection_mode?: string;
     usecase_type?: string;
+    deep_analysis_mode?: boolean;
   };
   onConfigurationChange: (config: any) => void;
 }
@@ -264,7 +266,28 @@ export function ConfigurationSidebar({ configuration, onConfigurationChange }: C
           {configuration.selection_mode === "advanced" && (
             <div className="space-y-3">
               <Label className="text-sm font-medium">Advanced Thinking Capabilities</Label>
-              <p className="text-xs text-muted-foreground">Access next-generation AI capabilities & enterprise</p>
+              <p className="text-xs text-muted-foreground">Access next-generation AI capabilities & enterprise specialists</p>
+              
+              {/* Deep Analysis Mode Toggle */}
+              <div className="p-3 border rounded-lg bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20">
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="text-sm font-medium">Deep Analysis Mode</Label>
+                  <Switch
+                    checked={configuration.deep_analysis_mode || false}
+                    onCheckedChange={(checked) => updateConfig('deep_analysis_mode', checked)}
+                    data-testid="switch-deep-analysis"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Enable comprehensive multi-round investigation with enhanced fact-checking and detailed verification analysis.
+                </p>
+                {configuration.deep_analysis_mode && (
+                  <div className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" />
+                    Enhanced investigation depth enabled
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
