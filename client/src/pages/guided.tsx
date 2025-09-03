@@ -253,63 +253,6 @@ export default function GuidedPage() {
           </CardContent>
         </Card>
 
-        {/* AI Model Selection */}
-        <Card className="card-elevated mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-3">
-              <Bot className="text-primary" size={20} />
-              AI Model Selection
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div 
-                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                  selectedModel === "openai" 
-                    ? "border-primary bg-primary/10" 
-                    : "border-muted hover:border-primary/50"
-                }`}
-                onClick={() => setSelectedModel("openai")}
-                data-testid="model-openai"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-4 h-4 rounded-full border-2 ${
-                    selectedModel === "openai" 
-                      ? "border-primary bg-primary" 
-                      : "border-muted"
-                  }`} />
-                  <div>
-                    <h3 className="font-medium">OpenAI GPT-5</h3>
-                    <p className="text-sm text-muted-foreground">Latest model with advanced reasoning</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div 
-                className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                  selectedModel === "anthropic" 
-                    ? "border-primary bg-primary/10" 
-                    : "border-muted hover:border-primary/50"
-                }`}
-                onClick={() => setSelectedModel("anthropic")}
-                data-testid="model-anthropic"
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-4 h-4 rounded-full border-2 ${
-                    selectedModel === "anthropic" 
-                      ? "border-primary bg-primary" 
-                      : "border-muted"
-                  }`} />
-                  <div>
-                    <h3 className="font-medium">Claude Sonnet 4</h3>
-                    <p className="text-sm text-muted-foreground">Latest Anthropic model with deep reasoning</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Agent Selection Section */}
         <Card className="card-elevated mb-6">
           <CardHeader>
@@ -319,6 +262,56 @@ export default function GuidedPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {/* AI Model Selection */}
+            <div className="mb-6">
+              <h4 className="font-medium mb-3">AI Model Provider</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div 
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    selectedModel === "openai" 
+                      ? "border-primary bg-primary/10" 
+                      : "border-muted hover:border-primary/50"
+                  }`}
+                  onClick={() => setSelectedModel("openai")}
+                  data-testid="model-openai"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-4 h-4 rounded-full border-2 ${
+                      selectedModel === "openai" 
+                        ? "border-primary bg-primary" 
+                        : "border-muted"
+                    }`} />
+                    <div>
+                      <h3 className="font-medium">OpenAI GPT-5</h3>
+                      <p className="text-sm text-muted-foreground">Latest model with advanced reasoning</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div 
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    selectedModel === "anthropic" 
+                      ? "border-primary bg-primary/10" 
+                      : "border-muted hover:border-primary/50"
+                  }`}
+                  onClick={() => setSelectedModel("anthropic")}
+                  data-testid="model-anthropic"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-4 h-4 rounded-full border-2 ${
+                      selectedModel === "anthropic" 
+                        ? "border-primary bg-primary" 
+                        : "border-muted"
+                    }`} />
+                    <div>
+                      <h3 className="font-medium">Claude Sonnet 4</h3>
+                      <p className="text-sm text-muted-foreground">Latest Anthropic model with deep reasoning</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <Tabs value={selectionMode} onValueChange={(value: string) => setSelectionMode(value as any)}>
               <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="smart" className="flex items-center gap-2">
@@ -363,7 +356,7 @@ export default function GuidedPage() {
                       <div key={agent.id} className="flex items-start space-x-3 p-3 border rounded-lg">
                         <Checkbox
                           id={agent.id}
-                          checked={manualAgents.includes(agent.id)}
+                          checked={manualAgents.includes(agent.id as any)}
                           onCheckedChange={(checked) => {
                             if (checked) {
                               setManualAgents([...manualAgents, agent.id as any]);
@@ -412,7 +405,7 @@ export default function GuidedPage() {
                       <div key={expert.id} className="flex items-start space-x-3 p-3 border rounded-lg">
                         <Checkbox
                           id={expert.id}
-                          checked={domainExperts.includes(expert.id)}
+                          checked={domainExperts.includes(expert.id as any)}
                           onCheckedChange={(checked) => {
                             if (checked) {
                               setDomainExperts([...domainExperts, expert.id as any]);
