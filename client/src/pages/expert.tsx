@@ -56,6 +56,10 @@ export default function ExpertPage() {
     manual_agents: [],
     domain_experts: [],
     usecase_type: "",
+    // Advanced AI Capabilities
+    thinking_patterns: [],
+    enterprise_specialists: [],
+    creativity_level: 50,
   });
 
 
@@ -114,6 +118,9 @@ export default function ExpertPage() {
       
       // Expert Mode Features
       frameworks: configuration.frameworks.length > 0 ? configuration.frameworks as any : undefined,
+      thinking_patterns: configuration.thinking_patterns && configuration.thinking_patterns.length > 0 ? configuration.thinking_patterns as any : undefined,
+      enterprise_specialists: configuration.enterprise_specialists && configuration.enterprise_specialists.length > 0 ? configuration.enterprise_specialists as any : undefined,
+      creativity_level: configuration.creativity_level,
       routing: configuration.routing,
       rag: configuration.rag.enabled ? configuration.rag : undefined,
       security: configuration.security,

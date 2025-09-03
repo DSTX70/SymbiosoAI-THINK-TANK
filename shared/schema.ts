@@ -41,7 +41,7 @@ export const thinkRequestSchema = z.object({
   model_provider: z.enum(["openai", "anthropic"]).optional(),
   
   // Guided mode options
-  selection_mode: z.enum(["smart", "manual", "domain", "usecase"]).optional(),
+  selection_mode: z.enum(["smart", "manual", "domain", "usecase", "advanced"]).optional(),
   
   // Agent selection subchoices
   manual_agents: z.array(z.enum(["analyst", "pragmatist", "innovator", "thoughtful", "critic"])).optional(),
@@ -73,8 +73,23 @@ export const thinkRequestSchema = z.object({
   selected_models: z.array(z.string()).optional(),
   use_case: z.string().optional(),
   debate_title: z.string().optional(),
+  
+  // Advanced AI Capabilities (Expert Mode)
+  thinking_patterns: z.array(z.enum([
+    "multi_perspective", "scenario_planning", "root_cause", 
+    "risk_modeling", "information_synthesis", "meta_analysis"
+  ])).optional(),
+  enterprise_specialists: z.array(z.enum([
+    "constitutional_scholar", "risk_strategist", "ai_systems_architect",
+    "cybersecurity_strategist", "cognitive_neuroscientist", "systems_policy_analyst", 
+    "innovation_strategist"
+  ])).optional(),
+  creativity_level: z.number().min(0).max(100).optional(),
   timestamp: z.string().optional(),
-  frameworks: z.array(z.enum(["systems", "design", "first_principles", "dialectical"])).optional(),
+  frameworks: z.array(z.enum([
+    "systematic_analysis", "critical_thinking", "design_thinking", "first_principles", 
+    "systems_thinking", "dialectical_reasoning", "abductive_reasoning", "forensic_analysis"
+  ])).optional(),
   max_steps: z.number().min(1).max(20).optional(),
   evidence_per_claim: z.number().min(1).max(10).optional(),
   include_counterarguments: z.boolean().optional(),
