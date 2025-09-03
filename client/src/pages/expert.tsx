@@ -6,7 +6,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, Save, Play, Lightbulb, Settings, Sun, Moon, HelpCircle } from "lucide-react";
+import { Brain, Save, Play, Lightbulb, Settings } from "lucide-react";
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import TelemetryPanel from "@/components/TelemetryPanel";
 import { ConfigurationSidebar } from "@/components/ConfigurationSidebar";
 import { ResultsArea } from "@/components/ResultsArea";
@@ -20,7 +22,6 @@ export default function ExpertPage() {
   const [context, setContext] = useState("");
   const [debateTitle, setDebateTitle] = useState("");
   const [results, setResults] = useState<ThinkResponse | null>(null);
-  const [isDark, setIsDark] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
   const { toast } = useToast();
 
@@ -52,14 +53,6 @@ export default function ExpertPage() {
     max_steps: 5,
   });
 
-  // Dark mode effect
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-      setIsDark(true);
-      document.documentElement.classList.add('dark');
-    }
-  }, []);
 
   const thinkMutation = useMutation({
     mutationFn: async (data: ThinkRequest) => {
@@ -166,17 +159,6 @@ export default function ExpertPage() {
     }
   };
 
-  const toggleTheme = () => {
-    const newIsDark = !isDark;
-    setIsDark(newIsDark);
-    if (newIsDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  };
 
   const cancel = () => {
     // Note: This would need actual cancellation logic in a real implementation
@@ -222,34 +204,10 @@ export default function ExpertPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground">
+    <div className="min-h-screen bg-background">
+      <Header />
       {/* Toast (non-blocking) */}
       <ThinkToast isProcessing={thinkMutation.isPending} processingProgress={processingProgress} onCancel={cancel} />
-
-      {/* Header */}
-      <header className="bg-card border-b border-border px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <Brain className="h-5 w-5 text-primary" />
-              <h1 className="text-xl font-semibold text-foreground">SymbiosoAi ThinkTank</h1>
-            </div>
-            <span className="rounded bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">BETA</span>
-          </div>
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="icon" onClick={toggleTheme} data-testid="button-toggle-theme">
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
-            <Button variant="ghost" size="icon" data-testid="button-help">
-              <HelpCircle className="h-4 w-4" />
-            </Button>
-            <div className="flex items-center space-x-2 rounded-lg bg-muted px-3 py-2">
-              <div className="h-2 w-2 rounded-full bg-secondary" />
-              <span className="text-sm text-muted-foreground">API Connected</span>
-            </div>
-          </div>
-        </div>
-      </header>
 
       {/* Main: Responsive GRID — sidebars when space allows */}
       <main
@@ -392,6 +350,8 @@ export default function ExpertPage() {
           </div>
         </aside>
       </main>
+      
+      <Footer />
     </div>
   );
 }
