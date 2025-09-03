@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Brain, Sun, Moon, HelpCircle } from "lucide-react";
+import { Sun, Moon, HelpCircle, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import logoImage from "../assets/symbiosoai-logo.png";
 
 export default function Header() {
   const [location] = useLocation();
@@ -33,13 +34,14 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="brand-mark">
-              <Brain className="text-white text-xs" size={12} />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold font-mono tracking-tight">SymbiosoAi ThinkTank</h1>
-              <p className="text-sm opacity-80">Collaborative Intelligence, redefined.</p>
-            </div>
+            <Link href="/" className="flex items-center" data-testid="link-home">
+              <img 
+                src={logoImage} 
+                alt="SymbiosoAi - Collaborative Intelligence, redefined"
+                className="h-8 w-auto"
+                data-testid="logo-symbiosoai"
+              />
+            </Link>
             <span className="rounded bg-white/20 px-2 py-1 text-xs font-medium">BETA</span>
           </div>
           <div className="flex items-center space-x-4">
