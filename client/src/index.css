@@ -195,6 +195,21 @@
   .mode-pill:not(.active):hover {
     @apply bg-white/10 border-white/30;
   }
+  
+  /* Compact mobile version for header controls */
+  .mode-pill-compact {
+    @apply px-2 py-1 rounded text-xs font-medium transition-all duration-200 text-white no-underline;
+    @apply bg-white/10 backdrop-blur-sm border border-white/20;
+  }
+  
+  .mode-pill-compact.active {
+    @apply bg-gradient-to-r from-primary to-secondary border-none font-semibold;
+    box-shadow: 0 0 10px hsla(200, 100%, 50%, 0.2);
+  }
+  
+  .mode-pill-compact:not(.active):hover {
+    @apply bg-white/20 border-white/30;
+  }
 
   .telemetry-widget {
     background: linear-gradient(135deg, 
