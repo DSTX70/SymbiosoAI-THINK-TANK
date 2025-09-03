@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,12 +6,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, Save, Play, Lightbulb, Settings } from "lucide-react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import { Brain, Save, Play, Lightbulb, Settings, Sun, Moon, HelpCircle } from "lucide-react";
 import TelemetryPanel from "@/components/TelemetryPanel";
 import { ConfigurationSidebar } from "@/components/ConfigurationSidebar";
 import { ResultsArea } from "@/components/ResultsArea";
+import ThinkToast from "@/components/ThinkToast";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { ThinkRequest, ThinkResponse } from "@shared/schema";
@@ -21,6 +20,8 @@ export default function ExpertPage() {
   const [context, setContext] = useState("");
   const [debateTitle, setDebateTitle] = useState("");
   const [results, setResults] = useState<ThinkResponse | null>(null);
+  const [isDark, setIsDark] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState(0);
   const { toast } = useToast();
 
   // Expert Mode Configuration State
@@ -51,6 +52,15 @@ export default function ExpertPage() {
     max_steps: 5,
   });
 
+  // Dark mode effect
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      setIsDark(true);
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
+
   const thinkMutation = useMutation({
     mutationFn: async (data: ThinkRequest) => {
       const response = await apiRequest("POST", "/api/think", data);
@@ -58,15 +68,29 @@ export default function ExpertPage() {
     },
     onSuccess: (data: ThinkResponse) => {
       setResults(data);
+      setProcessingProgress(100);
       toast({ description: "Expert analysis completed successfully!" });
     },
     onError: (error: any) => {
+      setProcessingProgress(0);
       toast({ 
         variant: "destructive",
         description: error.message || "Failed to process expert analysis" 
       });
     },
   });
+
+  // Processing progress simulation
+  useEffect(() => {
+    if (!thinkMutation.isPending) {
+      setProcessingProgress(0);
+      return;
+    }
+    const id = window.setInterval(() => {
+      setProcessingProgress(prev => Math.min(prev + Math.random() * 15, 85));
+    }, 500);
+    return () => window.clearInterval(id);
+  }, [thinkMutation.isPending]);
 
   const handleSubmit = () => {
     if (!prompt.trim()) {
@@ -142,6 +166,37 @@ export default function ExpertPage() {
     }
   };
 
+  const toggleTheme = () => {
+    const newIsDark = !isDark;
+    setIsDark(newIsDark);
+    if (newIsDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
+
+  const cancel = () => {
+    // Note: This would need actual cancellation logic in a real implementation
+    setProcessingProgress(0);
+    toast({ description: "Analysis cancelled" });
+  };
+
+  const currentSession = useMemo(
+    () => ({
+      mode: "Expert Reasoning",
+      models: 5,
+      startTime: new Date().toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      }),
+    }),
+    []
+  );
+
   const handleExport = (format: string) => {
     if (!results) return;
     
@@ -167,144 +222,176 @@ export default function ExpertPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      
-      <main className="max-w-[1600px] mx-auto px-6 py-8">
-        <div className="grid lg:grid-cols-12 gap-6">
-          {/* Configuration Sidebar */}
-          <aside className="lg:col-span-3">
-            <div className="space-y-6">
-              <Card className="card-elevated">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
-                    <Settings className="text-primary" size={20} />
-                    Expert Configuration
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={handleSaveDraft}
-                      data-testid="button-save-draft"
-                      className="flex-1"
-                    >
-                      <Save size={14} className="mr-1" />
-                      Save
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={handleLoadDraft}
-                      data-testid="button-load-draft"
-                      className="flex-1"
-                    >
-                      Load
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <ConfigurationSidebar
-                configuration={configuration}
-                onConfigurationChange={setConfiguration}
-              />
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
+      {/* Toast (non-blocking) */}
+      <ThinkToast isProcessing={thinkMutation.isPending} processingProgress={processingProgress} onCancel={cancel} />
+
+      {/* Header */}
+      <header className="bg-card border-b border-border px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <Brain className="h-5 w-5 text-primary" />
+              <h1 className="text-xl font-semibold text-foreground">SymbiosoAi ThinkTank</h1>
             </div>
-          </aside>
-
-          {/* Main Content */}
-          <div className="lg:col-span-6">
-            <div className="space-y-6">
-              {/* Prompt Input */}
-              <Card className="card-elevated gradient-bg">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
-                    <Brain className="text-primary" size={20} />
-                    Expert Analysis Request
-                    <div className={`status-indicator ${thinkMutation.isPending ? "status-processing" : results ? "status-complete" : "status-idle"}`} data-testid="status-expert"></div>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="debate-title">Analysis Title (Optional)</Label>
-                    <Input
-                      id="debate-title"
-                      value={debateTitle}
-                      onChange={(e) => setDebateTitle(e.target.value)}
-                      placeholder="Brief title for this analysis session..."
-                      data-testid="input-debate-title"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="prompt">Primary Question or Challenge</Label>
-                    <Textarea
-                      id="prompt"
-                      value={prompt}
-                      onChange={(e) => setPrompt(e.target.value)}
-                      rows={4}
-                      placeholder="Describe your complex challenge or question for expert AI analysis..."
-                      className="resize-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
-                      data-testid="input-prompt"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="context">Additional Context (Optional)</Label>
-                    <Textarea
-                      id="context"
-                      value={context}
-                      onChange={(e) => setContext(e.target.value)}
-                      rows={3}
-                      placeholder="Provide any relevant background, constraints, or specific requirements..."
-                      className="resize-none"
-                      data-testid="input-context"
-                    />
-                  </div>
-                  
-                  <Button 
-                    onClick={handleSubmit}
-                    disabled={thinkMutation.isPending}
-                    className="btn-primary flex items-center gap-2 w-full"
-                    data-testid="button-start-expert-analysis"
-                  >
-                    {thinkMutation.isPending ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                        Processing Expert Analysis...
-                      </>
-                    ) : (
-                      <>
-                        <Play size={16} />
-                        Start Expert Analysis
-                      </>
-                    )}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Results */}
-              <ResultsArea
-                results={results}
-                isProcessing={thinkMutation.isPending}
-                onExport={handleExport}
-              />
+            <span className="rounded bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">BETA</span>
+          </div>
+          <div className="flex items-center space-x-4">
+            <Button variant="ghost" size="icon" onClick={toggleTheme} data-testid="button-toggle-theme">
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
+            <Button variant="ghost" size="icon" data-testid="button-help">
+              <HelpCircle className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center space-x-2 rounded-lg bg-muted px-3 py-2">
+              <div className="h-2 w-2 rounded-full bg-secondary" />
+              <span className="text-sm text-muted-foreground">API Connected</span>
             </div>
           </div>
+        </div>
+      </header>
 
-          {/* Telemetry Sidebar */}
-          <aside className="lg:col-span-3">
+      {/* Main: Responsive GRID — sidebars when space allows */}
+      <main
+        className="
+          min-h-0 flex-1 grid
+          grid-cols-[minmax(0,1fr)]                 /* < lg: center only */
+          lg:grid-cols-[16rem_minmax(0,1fr)]        /* lg..xl: left + center */
+          xl:grid-cols-[16rem_minmax(0,1fr)_18rem]  /* xl+: left + center + right */
+        "
+      >
+        {/* Left sidebar (256px) */}
+        <aside className="hidden lg:block border-r border-border overflow-y-auto">
+          <div className="w-64 p-4 space-y-6">
+            <Card className="card-elevated">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-3">
+                  <Settings className="text-primary" size={20} />
+                  Expert Configuration
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleSaveDraft}
+                    data-testid="button-save-draft"
+                    className="flex-1"
+                  >
+                    <Save size={14} className="mr-1" />
+                    Save
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleLoadDraft}
+                    data-testid="button-load-draft"
+                    className="flex-1"
+                  >
+                    Load
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <ConfigurationSidebar
+              configuration={configuration}
+              onConfigurationChange={setConfiguration}
+            />
+          </div>
+        </aside>
+
+        {/* Center (fills remaining width) */}
+        <section className="min-w-0 overflow-y-auto px-4 md:px-6 py-6">
+          <div className="space-y-6">
+            {/* Prompt Input */}
+            <Card className="card-elevated gradient-bg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-3">
+                  <Brain className="text-primary" size={20} />
+                  Expert Analysis Request
+                  <div className={`status-indicator ${thinkMutation.isPending ? "status-processing" : results ? "status-complete" : "status-idle"}`} data-testid="status-expert"></div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="debate-title">Analysis Title (Optional)</Label>
+                  <Input
+                    id="debate-title"
+                    value={debateTitle}
+                    onChange={(e) => setDebateTitle(e.target.value)}
+                    placeholder="Brief title for this analysis session..."
+                    data-testid="input-debate-title"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="prompt">Primary Question or Challenge</Label>
+                  <Textarea
+                    id="prompt"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    rows={4}
+                    placeholder="Describe your complex challenge or question for expert AI analysis..."
+                    className="resize-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
+                    data-testid="input-prompt"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="context">Additional Context (Optional)</Label>
+                  <Textarea
+                    id="context"
+                    value={context}
+                    onChange={(e) => setContext(e.target.value)}
+                    rows={3}
+                    placeholder="Provide any relevant background, constraints, or specific requirements..."
+                    className="resize-none"
+                    data-testid="input-context"
+                  />
+                </div>
+                
+                <Button 
+                  onClick={handleSubmit}
+                  disabled={thinkMutation.isPending}
+                  className="btn-primary flex items-center gap-2 w-full"
+                  data-testid="button-start-expert-analysis"
+                >
+                  {thinkMutation.isPending ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                      Processing Expert Analysis...
+                    </>
+                  ) : (
+                    <>
+                      <Play size={16} />
+                      Start Expert Analysis
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Results */}
+            <ResultsArea
+              results={results}
+              isProcessing={thinkMutation.isPending}
+              onExport={handleExport}
+            />
+          </div>
+        </section>
+
+        {/* Right sidebar (288px) */}
+        <aside className="hidden xl:block border-l border-border overflow-y-auto">
+          <div className="w-72 p-4">
             <TelemetryPanel 
               telemetry={results?.telemetry}
               isProcessing={thinkMutation.isPending}
             />
-          </aside>
-        </div>
+          </div>
+        </aside>
       </main>
-      
-      <Footer />
     </div>
   );
 }
