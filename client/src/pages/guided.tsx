@@ -5,7 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Compass, Rocket, Zap, Bot } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Compass, Rocket, Zap, Bot, Users, UserCheck, BookOpen, Briefcase } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TelemetryPanel from "@/components/TelemetryPanel";
@@ -21,6 +24,13 @@ export default function GuidedPage() {
   const [enableFactCheck, setEnableFactCheck] = useState(false);
   const [enableLiveWeb, setEnableLiveWeb] = useState(false);
   const [selectedModel, setSelectedModel] = useState<"openai" | "anthropic">("openai");
+  
+  // Agent Selection State
+  const [selectionMode, setSelectionMode] = useState<"smart" | "manual" | "domain" | "usecase">("smart");
+  const [manualAgents, setManualAgents] = useState<("analyst" | "pragmatist" | "innovator" | "thoughtful" | "critic")[]>([]);
+  const [domainExperts, setDomainExperts] = useState<("legal-analyst" | "legal-advocate" | "medical-diagnostician" | "medical-researcher" | "financial-analyst" | "investment-strategist" | "tech-architect" | "devops-engineer" | "educational-psychologist" | "brand-strategist" | "research-scientist" | "systems-engineer" | "behavioral-analyst" | "sustainability-consultant")[]>([]);
+  const [usecaseType, setUsecaseType] = useState<"business_analysis" | "technical_debate" | "creative_brainstorm" | "research_synthesis" | "ethical_discussion" | "document_analysis" | "general_inquiry" | "">("");
+  
   const [useStreaming, setUseStreaming] = useState(() => {
     console.log("GuidedPage: Initializing useStreaming to FALSE");
     return false;
@@ -65,7 +75,10 @@ export default function GuidedPage() {
       const requestData: ThinkRequest = {
         prompt: prompt.trim(),
         mode: "guided",
-        selection_mode: "smart",
+        selection_mode: selectionMode,
+        manual_agents: selectionMode === "manual" ? manualAgents : undefined,
+        domain_experts: selectionMode === "domain" ? domainExperts : undefined,
+        usecase_type: selectionMode === "usecase" && usecaseType !== "" ? usecaseType as any : undefined,
         response_length: "moderate",
         turns: 3,
         debate_format: "collaborative",
@@ -88,7 +101,10 @@ export default function GuidedPage() {
   const handleStreamingSubmit = () => {
     const settings = {
       mode: "guided",
-      selection_mode: "smart",
+      selection_mode: selectionMode,
+      manual_agents: selectionMode === "manual" ? manualAgents : undefined,
+      domain_experts: selectionMode === "domain" ? domainExperts : undefined,
+      usecase_type: selectionMode === "usecase" && usecaseType !== "" ? usecaseType as any : undefined,
       response_length: "moderate",
       turns: "3",
       debate_format: "collaborative",
@@ -145,7 +161,10 @@ export default function GuidedPage() {
     const requestData: ThinkRequest = {
       prompt: question.trim(),
       mode: "guided",
-      selection_mode: "smart",
+      selection_mode: selectionMode,
+      manual_agents: selectionMode === "manual" ? manualAgents : undefined,
+      domain_experts: selectionMode === "domain" ? domainExperts : undefined,
+      usecase_type: selectionMode === "usecase" && usecaseType !== "" ? usecaseType as any : undefined,
       response_length: "moderate",
       turns: 3,
       debate_format: "collaborative",
@@ -288,6 +307,170 @@ export default function GuidedPage() {
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Agent Selection Section */}
+        <Card className="card-elevated mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3">
+              <Users className="text-primary" size={20} />
+              Agent Selection & Configuration
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Tabs value={selectionMode} onValueChange={(value: string) => setSelectionMode(value as any)}>
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="smart" className="flex items-center gap-2">
+                  <Zap size={16} />
+                  Smart
+                </TabsTrigger>
+                <TabsTrigger value="manual" className="flex items-center gap-2">
+                  <UserCheck size={16} />
+                  Manual
+                </TabsTrigger>
+                <TabsTrigger value="domain" className="flex items-center gap-2">
+                  <Briefcase size={16} />
+                  Domain Expert
+                </TabsTrigger>
+                <TabsTrigger value="usecase" className="flex items-center gap-2">
+                  <BookOpen size={16} />
+                  Use Case
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="smart" className="mt-4">
+                <div className="text-center p-6 border-2 border-dashed border-muted rounded-lg">
+                  <Zap className="mx-auto mb-2 text-muted-foreground" size={24} />
+                  <h3 className="font-medium mb-1">Smart Agent Selection</h3>
+                  <p className="text-sm text-muted-foreground">
+                    AI automatically selects the best agents for your prompt based on content analysis.
+                  </p>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="manual" className="mt-4">
+                <div className="space-y-4">
+                  <h4 className="font-medium">Select AI Personalities</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { id: "analyst", name: "The Analyst", desc: "Data-driven insights and systematic analysis" },
+                      { id: "pragmatist", name: "The Pragmatist", desc: "Implementation-focused and realistic solutions" },
+                      { id: "innovator", name: "The Innovator", desc: "Creative thinking and breakthrough approaches" },
+                      { id: "thoughtful", name: "The Thoughtful One", desc: "Balanced perspectives and ethical considerations" },
+                      { id: "critic", name: "The Critic", desc: "Challenge assumptions and identify weaknesses" }
+                    ].map((agent) => (
+                      <div key={agent.id} className="flex items-start space-x-3 p-3 border rounded-lg">
+                        <Checkbox
+                          id={agent.id}
+                          checked={manualAgents.includes(agent.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setManualAgents([...manualAgents, agent.id as any]);
+                            } else {
+                              setManualAgents(manualAgents.filter(id => id !== agent.id));
+                            }
+                          }}
+                        />
+                        <div className="grid gap-1.5 leading-none">
+                          <label
+                            htmlFor={agent.id}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {agent.name}
+                          </label>
+                          <p className="text-xs text-muted-foreground">
+                            {agent.desc}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="domain" className="mt-4">
+                <div className="space-y-4">
+                  <h4 className="font-medium">Select Domain Experts</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    {[
+                      { id: "legal-analyst", name: "Legal Analyst", desc: "Legal research and case analysis" },
+                      { id: "legal-advocate", name: "Legal Advocate", desc: "Legal argumentation and advocacy" },
+                      { id: "medical-diagnostician", name: "Medical Diagnostician", desc: "Clinical diagnosis and medical analysis" },
+                      { id: "medical-researcher", name: "Medical Researcher", desc: "Medical research and clinical studies" },
+                      { id: "financial-analyst", name: "Financial Analyst", desc: "Financial modeling and market analysis" },
+                      { id: "investment-strategist", name: "Investment Strategist", desc: "Investment planning and portfolio strategy" },
+                      { id: "tech-architect", name: "Tech Architect", desc: "System design and technical architecture" },
+                      { id: "devops-engineer", name: "DevOps Engineer", desc: "Infrastructure and deployment strategies" },
+                      { id: "educational-psychologist", name: "Educational Psychologist", desc: "Learning theory and educational strategies" },
+                      { id: "brand-strategist", name: "Brand Strategist", desc: "Brand positioning and marketing strategy" },
+                      { id: "research-scientist", name: "Research Scientist", desc: "Scientific methodology and research design" },
+                      { id: "systems-engineer", name: "Systems Engineer", desc: "Complex systems analysis and optimization" },
+                      { id: "behavioral-analyst", name: "Behavioral Analyst", desc: "Human behavior and decision-making patterns" },
+                      { id: "sustainability-consultant", name: "Sustainability Consultant", desc: "Environmental impact and sustainable solutions" }
+                    ].map((expert) => (
+                      <div key={expert.id} className="flex items-start space-x-3 p-3 border rounded-lg">
+                        <Checkbox
+                          id={expert.id}
+                          checked={domainExperts.includes(expert.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setDomainExperts([...domainExperts, expert.id as any]);
+                            } else {
+                              setDomainExperts(domainExperts.filter(id => id !== expert.id));
+                            }
+                          }}
+                        />
+                        <div className="grid gap-1.5 leading-none">
+                          <label
+                            htmlFor={expert.id}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                          >
+                            {expert.name}
+                          </label>
+                          <p className="text-xs text-muted-foreground">
+                            {expert.desc}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="usecase" className="mt-4">
+                <div className="space-y-4">
+                  <h4 className="font-medium">Select Use Case Type</h4>
+                  <Select value={usecaseType} onValueChange={setUsecaseType}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a use case type..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="business_analysis">Business Analysis</SelectItem>
+                      <SelectItem value="technical_debate">Technical Debate</SelectItem>
+                      <SelectItem value="creative_brainstorm">Creative Brainstorm</SelectItem>
+                      <SelectItem value="research_synthesis">Research Synthesis</SelectItem>
+                      <SelectItem value="ethical_discussion">Ethical Discussion</SelectItem>
+                      <SelectItem value="document_analysis">Document Analysis</SelectItem>
+                      <SelectItem value="general_inquiry">General Inquiry</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {usecaseType && (
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-sm">
+                        {usecaseType === "business_analysis" && "Agents will focus on market analysis, competitive positioning, and quantitative evaluation."}
+                        {usecaseType === "technical_debate" && "Agents will provide systematic technical analysis, challenge assumptions, and focus on implementation feasibility."}
+                        {usecaseType === "creative_brainstorm" && "Agents will generate creative solutions, evaluate feasibility, and consider stakeholder perspectives."}
+                        {usecaseType === "research_synthesis" && "Agents will systematically review evidence, consider implications, and evaluate methodology."}
+                        {usecaseType === "ethical_discussion" && "Agents will explore ethical frameworks, challenge assumptions, and provide systematic moral reasoning."}
+                        {usecaseType === "document_analysis" && "Agents will systematically analyze content, evaluate claims, and provide structured insights."}
+                        {usecaseType === "general_inquiry" && "Agents will provide comprehensive analysis suitable for general questions and discussions."}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
 
