@@ -6,7 +6,14 @@ import { z } from "zod";
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
+  email: text("email").unique(),
   password: text("password").notNull(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  avatar: text("avatar"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const sessions = pgTable("sessions", {
@@ -16,18 +23,104 @@ export const sessions = pgTable("sessions", {
   settings: jsonb("settings"),
   results: jsonb("results"),
   telemetry: jsonb("telemetry"),
+  userId: varchar("user_id"),
+  workspaceId: varchar("workspace_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Workspaces for team collaboration
+export const workspaces = pgTable("workspaces", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  sessionCode: varchar("session_code", { length: 8 }).unique().notNull(),
+  isPrivate: boolean("is_private").default(false),
+  ownerId: varchar("owner_id").notNull(),
+  settings: jsonb("settings").default({}),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Workspace membership with roles
+export const workspaceMembers = pgTable("workspace_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workspaceId: varchar("workspace_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  role: text("role").notNull().default("member"), // owner, admin, member, viewer
+  joinedAt: timestamp("joined_at").defaultNow(),
+});
+
+// Invitation system for workspace collaboration
+export const workspaceInvites = pgTable("workspace_invites", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workspaceId: varchar("workspace_id").notNull(),
+  invitedByUserId: varchar("invited_by_user_id").notNull(),
+  email: text("email"),
+  inviteCode: varchar("invite_code", { length: 16 }).unique(),
+  role: text("role").notNull().default("member"),
+  status: text("status").notNull().default("pending"), // pending, accepted, expired
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// User sessions for authentication
+export const userSessions = pgTable("user_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Zod schemas for data validation
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
+  email: true,
   password: true,
+  firstName: true,
+  lastName: true,
 });
 
 export const insertSessionSchema = createInsertSchema(sessions).pick({
   prompt: true,
   mode: true,
   settings: true,
+  userId: true,
+  workspaceId: true,
+});
+
+export const insertWorkspaceSchema = createInsertSchema(workspaces).pick({
+  name: true,
+  description: true,
+  isPrivate: true,
+  ownerId: true,
+  settings: true,
+});
+
+export const insertWorkspaceMemberSchema = createInsertSchema(workspaceMembers).pick({
+  workspaceId: true,
+  userId: true,
+  role: true,
+});
+
+export const insertWorkspaceInviteSchema = createInsertSchema(workspaceInvites).pick({
+  workspaceId: true,
+  invitedByUserId: true,
+  email: true,
+  role: true,
+});
+
+export const loginSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1),
+});
+
+export const registerSchema = z.object({
+  username: z.string().min(3).max(50),
+  email: z.string().email().optional(),
+  password: z.string().min(6),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
 });
 
 export const thinkRequestSchema = z.object({
@@ -175,10 +268,20 @@ export const thinkResponseSchema = z.object({
   }).optional(),
 });
 
+// Type definitions
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type InsertSession = z.infer<typeof insertSessionSchema>;
+export type Workspace = typeof workspaces.$inferSelect;
+export type InsertWorkspace = z.infer<typeof insertWorkspaceSchema>;
+export type WorkspaceMember = typeof workspaceMembers.$inferSelect;
+export type InsertWorkspaceMember = z.infer<typeof insertWorkspaceMemberSchema>;
+export type WorkspaceInvite = typeof workspaceInvites.$inferSelect;
+export type InsertWorkspaceInvite = z.infer<typeof insertWorkspaceInviteSchema>;
+export type UserSession = typeof userSessions.$inferSelect;
+export type LoginData = z.infer<typeof loginSchema>;
+export type RegisterData = z.infer<typeof registerSchema>;
 export type ThinkRequest = z.infer<typeof thinkRequestSchema>;
 export type ThinkResponse = z.infer<typeof thinkResponseSchema>;
 export type Citation = {

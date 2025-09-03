@@ -1,16 +1,169 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { thinkRequestSchema, type ThinkResponse } from "@shared/schema";
+import { thinkRequestSchema, type ThinkResponse, insertWorkspaceSchema } from "@shared/schema";
 import { runMultiAgentDebate } from "../client/src/lib/ai-service";
 import { perplexityService } from "./services/perplexity";
 import { registerStreamingRoutes } from "./streaming";
 import type { Citation, FactCheckFinding } from "@shared/schema";
+import { 
+  requireAuth, 
+  optionalAuth, 
+  registerUser, 
+  loginUser, 
+  logoutUser, 
+  getCurrentUser, 
+  validateRegistration, 
+  validateLogin 
+} from "./auth";
 import express from "express";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register SSE streaming routes
   registerStreamingRoutes(app);
+
+  // Authentication routes
+  app.post("/api/auth/register", express.json(), async (req, res) => {
+    try {
+      const userData = validateRegistration(req.body);
+      const result = await registerUser(userData);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/auth/login", express.json(), async (req, res) => {
+    try {
+      const credentials = validateLogin(req.body);
+      const result = await loginUser(credentials);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/auth/logout", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace('Bearer ', '') || req.headers['x-auth-token'] as string;
+      
+      if (token) {
+        await logoutUser(token);
+      }
+      
+      res.json({ message: "Logged out successfully" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/auth/me", requireAuth, async (req: any, res) => {
+    try {
+      const user = await getCurrentUser(req.userId);
+      res.json(user);
+    } catch (error: any) {
+      res.status(404).json({ error: error.message });
+    }
+  });
+
+  // Workspace management routes
+  app.get("/api/workspaces", requireAuth, async (req: any, res) => {
+    try {
+      const workspaces = await storage.getUserWorkspaces(req.userId);
+      res.json(workspaces);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/workspaces", requireAuth, express.json(), async (req: any, res) => {
+    try {
+      const workspaceData = insertWorkspaceSchema.parse({
+        ...req.body,
+        ownerId: req.userId
+      });
+      const workspace = await storage.createWorkspace(workspaceData);
+      
+      // Add owner as admin member
+      await storage.addWorkspaceMember({
+        workspaceId: workspace.id,
+        userId: req.userId,
+        role: "owner"
+      });
+      
+      res.json(workspace);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/workspaces/:id", requireAuth, async (req: any, res) => {
+    try {
+      const workspace = await storage.getWorkspace(req.params.id);
+      if (!workspace) {
+        return res.status(404).json({ error: "Workspace not found" });
+      }
+      
+      // Check if user has access
+      const membership = await storage.getUserWorkspaceMembership(workspace.id, req.userId);
+      if (!membership && workspace.ownerId !== req.userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      res.json(workspace);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/workspaces/join", requireAuth, express.json(), async (req: any, res) => {
+    try {
+      const { sessionCode } = req.body;
+      if (!sessionCode) {
+        return res.status(400).json({ error: "Session code is required" });
+      }
+      
+      const workspace = await storage.getWorkspaceBySessionCode(sessionCode);
+      if (!workspace) {
+        return res.status(404).json({ error: "Invalid session code" });
+      }
+      
+      // Check if user is already a member
+      const existingMembership = await storage.getUserWorkspaceMembership(workspace.id, req.userId);
+      if (existingMembership) {
+        return res.json({ workspace, message: "Already a member" });
+      }
+      
+      // Add user as member
+      await storage.addWorkspaceMember({
+        workspaceId: workspace.id,
+        userId: req.userId,
+        role: "member"
+      });
+      
+      res.json({ workspace, message: "Successfully joined workspace" });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/workspaces/:id/members", requireAuth, async (req: any, res) => {
+    try {
+      // Check access
+      const membership = await storage.getUserWorkspaceMembership(req.params.id, req.userId);
+      const workspace = await storage.getWorkspace(req.params.id);
+      
+      if (!membership && workspace?.ownerId !== req.userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const members = await storage.getWorkspaceMembers(req.params.id);
+      res.json(members);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
   
   // DEV ONLY: mock verifier to keep demos reliable
   app.post("/dev-verify", express.json(), (req, res) => {

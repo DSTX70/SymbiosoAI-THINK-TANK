@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -77,39 +80,109 @@ const sampleWorkspaces: Workspace[] = [
 
 export function WorkspaceManagement() {
   const [sessionCode, setSessionCode] = useState("");
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [workspaceDescription, setWorkspaceDescription] = useState("");
+  const [isPrivateWorkspace, setIsPrivateWorkspace] = useState(false);
   const [realTimeSync, setRealTimeSync] = useState(true);
   const [teamChat, setTeamChat] = useState(false);
   const [preserveOriginal, setPreserveOriginal] = useState(true);
   const [culturalAdaptation, setCulturalAdaptation] = useState(false);
+  
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Fetch user's workspaces
+  const { data: workspaces = [], isLoading, error } = useQuery({
+    queryKey: ['/api/workspaces'],
+    retry: false
+  });
+
+  // Create workspace mutation
+  const createWorkspaceMutation = useMutation({
+    mutationFn: async (data: { name: string; description?: string; isPrivate?: boolean }) => {
+      const response = await apiRequest("POST", "/api/workspaces", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/workspaces'] });
+      setWorkspaceName("");
+      setWorkspaceDescription("");
+      setIsPrivateWorkspace(false);
+      toast({ description: "Workspace created successfully!" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        variant: "destructive",
+        description: error.message || "Failed to create workspace" 
+      });
+    },
+  });
+
+  // Join workspace mutation
+  const joinWorkspaceMutation = useMutation({
+    mutationFn: async (sessionCode: string) => {
+      const response = await apiRequest("POST", "/api/workspaces/join", { sessionCode });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/workspaces'] });
+      setSessionCode("");
+      toast({ description: data.message || "Successfully joined workspace!" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        variant: "destructive",
+        description: error.message || "Failed to join workspace" 
+      });
+    },
+  });
 
   const handleCreateWorkspace = () => {
-    console.log("Creating new workspace");
-    // TODO: Implement workspace creation
+    if (!workspaceName.trim()) {
+      toast({ 
+        variant: "destructive",
+        description: "Workspace name is required" 
+      });
+      return;
+    }
+    
+    createWorkspaceMutation.mutate({
+      name: workspaceName.trim(),
+      description: workspaceDescription.trim() || undefined,
+      isPrivate: isPrivateWorkspace
+    });
   };
 
   const handleJoinWorkspace = () => {
-    console.log("Joining workspace with code:", sessionCode);
-    // TODO: Implement workspace joining
+    if (!sessionCode.trim()) {
+      toast({ 
+        variant: "destructive",
+        description: "Session code is required" 
+      });
+      return;
+    }
+    
+    joinWorkspaceMutation.mutate(sessionCode.trim().toUpperCase());
   };
 
   const handleManagePermissions = (workspaceId: string) => {
-    console.log("Managing permissions for:", workspaceId);
-    // TODO: Implement permission management
+    // For now, show a message that this feature is coming soon
+    toast({ description: "Permission management coming soon!" });
   };
 
   const handleWorkspaceSettings = (workspaceId: string) => {
-    console.log("Opening settings for:", workspaceId);
-    // TODO: Implement workspace settings
+    // For now, show a message that this feature is coming soon
+    toast({ description: "Workspace settings coming soon!" });
   };
 
   const handleInviteMembers = (workspaceId: string) => {
-    console.log("Inviting members to:", workspaceId);
-    // TODO: Implement member invitation
+    // For now, show a message that this feature is coming soon
+    toast({ description: "Member invitation coming soon!" });
   };
 
   const handleArchiveWorkspace = (workspaceId: string) => {
-    console.log("Archiving workspace:", workspaceId);
-    // TODO: Implement workspace archiving
+    // For now, show a message that this feature is coming soon
+    toast({ description: "Workspace archiving coming soon!" });
   };
 
   return (
@@ -123,9 +196,13 @@ export function WorkspaceManagement() {
           </h3>
           <p className="text-sm text-muted-foreground">Collaborate with your team in real-time</p>
         </div>
-        <Button onClick={handleCreateWorkspace} data-testid="create-workspace">
+        <Button 
+          onClick={handleCreateWorkspace} 
+          disabled={createWorkspaceMutation.isPending}
+          data-testid="create-workspace"
+        >
           <Plus size={14} className="mr-1" />
-          Create Workspace
+          {createWorkspaceMutation.isPending ? "Creating..." : "Create Workspace"}
         </Button>
       </div>
 
@@ -137,31 +214,36 @@ export function WorkspaceManagement() {
             <h4 className="text-md font-medium">Your Workspaces</h4>
             <ScrollArea className="h-[400px]">
               <div className="space-y-4">
-                {sampleWorkspaces.map((workspace) => (
-                  <Card key={workspace.id} className="hover:shadow-md transition-shadow">
+                {isLoading ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Loading workspaces...</p>
+                ) : error ? (
+                  <p className="text-sm text-destructive text-center py-8">Unable to load workspaces</p>
+                ) : workspaces.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">No workspaces yet. Create your first one!</p>
+                ) : (
+                  workspaces.map((workspace: any) => (
+                    <Card key={workspace.id} className="hover:shadow-md transition-shadow">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <CardTitle className="text-base">{workspace.name}</CardTitle>
-                            {workspace.isOwner && (
-                              <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100">
-                                OWNER
-                              </Badge>
-                            )}
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100">
+                              OWNER
+                            </Badge>
                             {workspace.isPrivate ? (
                               <Lock size={14} className="text-muted-foreground" />
                             ) : (
                               <Globe size={14} className="text-muted-foreground" />
                             )}
                           </div>
-                          <p className="text-sm text-muted-foreground">{workspace.description}</p>
+                          <p className="text-sm text-muted-foreground">{workspace.description || "No description"}</p>
                         </div>
                         <Badge 
-                          variant={workspace.status === "active" ? "default" : "secondary"}
-                          className={workspace.status === "active" ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100" : ""}
+                          variant="default"
+                          className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
                         >
-                          {workspace.status}
+                          active
                         </Badge>
                       </div>
                     </CardHeader>
@@ -221,8 +303,9 @@ export function WorkspaceManagement() {
                         )}
                       </div>
                     </CardContent>
-                  </Card>
-                ))}
+                    </Card>
+                  ))
+                )}
               </div>
             </ScrollArea>
           </div>
@@ -256,6 +339,53 @@ export function WorkspaceManagement() {
 
         {/* Collaboration Features Sidebar */}
         <div className="space-y-6">
+          {/* Create New Workspace */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Plus className="h-4 w-4 text-green-500" />
+                Create New Workspace
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Workspace Name</Label>
+                <Input
+                  placeholder="Enter workspace name"
+                  value={workspaceName}
+                  onChange={(e) => setWorkspaceName(e.target.value)}
+                  data-testid="workspace-name-input"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Description (Optional)</Label>
+                <Input
+                  placeholder="Describe your workspace"
+                  value={workspaceDescription}
+                  onChange={(e) => setWorkspaceDescription(e.target.value)}
+                  data-testid="workspace-description-input"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="private-workspace"
+                  checked={isPrivateWorkspace}
+                  onCheckedChange={setIsPrivateWorkspace}
+                  data-testid="private-workspace-switch"
+                />
+                <Label htmlFor="private-workspace" className="text-sm">Private Workspace</Label>
+              </div>
+              <Button 
+                onClick={handleCreateWorkspace}
+                className="w-full"
+                disabled={createWorkspaceMutation.isPending || !workspaceName.trim()}
+                data-testid="create-workspace-form"
+              >
+                {createWorkspaceMutation.isPending ? "Creating..." : "Create Workspace"}
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Join Workspace */}
           <Card>
             <CardHeader>
@@ -278,10 +408,10 @@ export function WorkspaceManagement() {
               <Button 
                 onClick={handleJoinWorkspace}
                 className="w-full"
-                disabled={sessionCode.length !== 6}
+                disabled={joinWorkspaceMutation.isPending || !sessionCode.trim()}
                 data-testid="join-workspace"
               >
-                Join
+                {joinWorkspaceMutation.isPending ? "Joining..." : "Join Workspace"}
               </Button>
             </CardContent>
           </Card>
