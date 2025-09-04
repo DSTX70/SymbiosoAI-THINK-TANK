@@ -4,8 +4,17 @@ import {
   type WorkspaceInvite, type InsertWorkspaceInvite, type UserPreferences,
   type SessionCode, type InsertSessionCode, type SessionParticipant, type InsertSessionParticipant,
   type ChatMessage, type InsertChatMessage,
+  // Enterprise types
+  type Organization, type InsertOrganization, type OrganizationMember, type InsertOrganizationMember,
+  type Team, type InsertTeam, type TeamMember, type InsertTeamMember,
+  type AuditLog, type InsertAuditLog, type SecurityEvent, type InsertSecurityEvent,
+  type UsageMetric, type InsertUsageMetric, type RateLimitRule, type InsertRateLimitRule,
+  type PerformanceMetric, type InsertPerformanceMetric, type ErrorLog, type InsertErrorLog,
+  type HealthCheck, type InsertHealthCheck,
   users, analysisSessions, workspaces, workspaceMembers, workspaceInvites,
-  sessionCodes, sessionParticipants, chatMessages
+  sessionCodes, sessionParticipants, chatMessages,
+  organizations, organizationMembers, teams, teamMembers, auditLogs, securityEvents,
+  usageMetrics, rateLimitRules, performanceMetrics, errorLogs, healthChecks
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { Pool, neonConfig } from '@neondatabase/serverless';
@@ -69,7 +78,83 @@ export interface IStorage {
   saveChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
   getChatHistory(sessionCode: string): Promise<ChatMessage[]>;
   deleteChatMessage(messageId: string): Promise<void>;
+
+  // ============================================
+  // ENTERPRISE FEATURES - Organization Management
+  // ============================================
   
+  // Organization operations
+  createOrganization(organization: InsertOrganization): Promise<Organization>;
+  getOrganization(id: string): Promise<Organization | undefined>;
+  getOrganizationBySlug(slug: string): Promise<Organization | undefined>;
+  updateOrganization(id: string, updates: Partial<Organization>): Promise<Organization | undefined>;
+  deleteOrganization(id: string): Promise<boolean>;
+  getUserOrganizations(userId: string): Promise<Organization[]>;
+
+  // Organization membership operations
+  addOrganizationMember(member: InsertOrganizationMember): Promise<OrganizationMember>;
+  removeOrganizationMember(organizationId: string, userId: string): Promise<boolean>;
+  getOrganizationMembers(organizationId: string): Promise<(OrganizationMember & { user: User })[]>;
+  getOrganizationMembership(organizationId: string, userId: string): Promise<OrganizationMember | undefined>;
+  updateOrganizationMemberRole(organizationId: string, userId: string, role: string, permissions?: any): Promise<OrganizationMember | undefined>;
+
+  // Team operations
+  createTeam(team: InsertTeam): Promise<Team>;
+  getTeam(id: string): Promise<Team | undefined>;
+  updateTeam(id: string, updates: Partial<Team>): Promise<Team | undefined>;
+  deleteTeam(id: string): Promise<boolean>;
+  getOrganizationTeams(organizationId: string): Promise<Team[]>;
+  getUserTeams(userId: string): Promise<Team[]>;
+
+  // Team membership operations
+  addTeamMember(member: InsertTeamMember): Promise<TeamMember>;
+  removeTeamMember(teamId: string, userId: string): Promise<boolean>;
+  getTeamMembers(teamId: string): Promise<(TeamMember & { user: User })[]>;
+  getTeamMembership(teamId: string, userId: string): Promise<TeamMember | undefined>;
+  updateTeamMemberRole(teamId: string, userId: string, role: string): Promise<TeamMember | undefined>;
+
+  // ============================================
+  // ENTERPRISE FEATURES - Security & Audit
+  // ============================================
+
+  // Audit logging
+  createAuditLog(log: InsertAuditLog): Promise<AuditLog>;
+  getAuditLogs(organizationId?: string, userId?: string, limit?: number): Promise<AuditLog[]>;
+  getAuditLogsByAction(action: string, organizationId?: string): Promise<AuditLog[]>;
+
+  // Security events
+  createSecurityEvent(event: InsertSecurityEvent): Promise<SecurityEvent>;
+  getSecurityEvents(organizationId?: string, severity?: string): Promise<SecurityEvent[]>;
+  resolveSecurityEvent(id: string, resolvedBy: string): Promise<SecurityEvent | undefined>;
+
+  // ============================================
+  // ENTERPRISE FEATURES - Usage & Monitoring
+  // ============================================
+
+  // Usage tracking
+  recordUsageMetric(metric: InsertUsageMetric): Promise<UsageMetric>;
+  getUsageMetrics(organizationId?: string, userId?: string, period?: string): Promise<UsageMetric[]>;
+  getUsageByType(metricType: string, organizationId?: string): Promise<UsageMetric[]>;
+
+  // Rate limiting
+  createRateLimitRule(rule: InsertRateLimitRule): Promise<RateLimitRule>;
+  getRateLimitRules(organizationId?: string): Promise<RateLimitRule[]>;
+  updateRateLimitRule(id: string, updates: Partial<RateLimitRule>): Promise<RateLimitRule | undefined>;
+  deleteRateLimitRule(id: string): Promise<boolean>;
+
+  // Performance monitoring
+  recordPerformanceMetric(metric: InsertPerformanceMetric): Promise<PerformanceMetric>;
+  getPerformanceMetrics(organizationId?: string, metricName?: string): Promise<PerformanceMetric[]>;
+
+  // Error tracking
+  recordError(error: InsertErrorLog): Promise<ErrorLog>;
+  getErrorLogs(organizationId?: string, severity?: string): Promise<ErrorLog[]>;
+  resolveError(id: string, resolvedBy: string): Promise<ErrorLog | undefined>;
+
+  // Health monitoring
+  recordHealthCheck(check: InsertHealthCheck): Promise<HealthCheck>;
+  getHealthChecks(serviceName?: string): Promise<HealthCheck[]>;
+  getLatestHealthStatus(): Promise<{ [serviceName: string]: HealthCheck }>;
 }
 
 export class MemStorage implements IStorage {

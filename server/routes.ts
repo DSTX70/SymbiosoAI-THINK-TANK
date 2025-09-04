@@ -2,7 +2,10 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { thinkRequestSchema, type ThinkResponse, insertWorkspaceSchema } from "@shared/schema";
+import { 
+  thinkRequestSchema, type ThinkResponse, insertWorkspaceSchema,
+  insertOrganizationSchema, insertOrganizationMemberSchema, insertTeamSchema 
+} from "@shared/schema";
 import { runMultiAgentDebate } from "../client/src/lib/ai-service";
 import { perplexityService } from "./services/perplexity";
 import { registerStreamingRoutes } from "./streaming";
@@ -10,6 +13,9 @@ import type { Citation, FactCheckFinding } from "@shared/schema";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { optionalAuth, getCurrentUser } from "./auth";
 import express from "express";
+import { SecurityMiddleware } from "./middleware/security";
+import { EnterpriseRateLimiter } from "./middleware/rateLimiting";
+import { PerformanceMonitor } from "./middleware/monitoring";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register SSE streaming routes
@@ -18,12 +24,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize Replit OpenID Connect authentication
   await setupAuth(app);
 
-  // Authentication routes
+  // Initialize enterprise security middleware
+  const securityMiddleware = new SecurityMiddleware({
+    enablePiiRedaction: true,
+    enableAuditLogging: true
+  });
+  
+  // Initialize enterprise rate limiting
+  const rateLimiter = new EnterpriseRateLimiter();
+  
+  // Initialize performance monitoring
+  const performanceMonitor = new PerformanceMonitor();
+  
+  // Apply security middleware to all routes
+  app.use(securityMiddleware.securityMiddleware());
+  app.use(securityMiddleware.responseSecurityMiddleware());
+  app.use(securityMiddleware.auditMiddleware());
+  
+  // Apply performance monitoring middleware
+  app.use(performanceMonitor.performanceMiddleware());
+  app.use(performanceMonitor.errorTrackingMiddleware());
+
+  // Authentication routes with organization context
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
-      res.json(user);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Get user's organization memberships for enhanced context
+      const memberships = await storage.getUserOrganizationMemberships(userId);
+      
+      // Get the primary/active organization (first one or most recent)
+      const primaryMembership = memberships.length > 0 ? memberships[0] : null;
+      
+      // Enhanced user object with organization context
+      const enhancedUser = {
+        ...user,
+        organizationMemberships: memberships,
+        primaryOrganization: primaryMembership ? {
+          id: primaryMembership.organizationId,
+          role: primaryMembership.role,
+          organization: primaryMembership.organization
+        } : null,
+        permissions: {
+          canViewAuditLogs: primaryMembership && ['super_admin', 'admin'].includes(primaryMembership.role),
+          canManageOrganizations: primaryMembership && primaryMembership.role === 'super_admin',
+          canManageTeams: primaryMembership && ['super_admin', 'admin', 'manager'].includes(primaryMembership.role),
+          canViewAnalytics: primaryMembership && ['super_admin', 'admin', 'manager'].includes(primaryMembership.role),
+          canAccessEnterpriseFeatures: primaryMembership && ['super_admin', 'admin'].includes(primaryMembership.role),
+          canViewSecurityDashboard: primaryMembership && ['super_admin', 'admin'].includes(primaryMembership.role)
+        }
+      };
+      
+      res.json(enhancedUser);
     } catch (error: any) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -366,6 +423,705 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Save chat message error:", error);
       res.status(500).json({ message: "Failed to save message" });
+    }
+  });
+
+  // ============================================
+  // ENTERPRISE FEATURES - Organization Management APIs
+  // ============================================
+
+  // Organization management routes
+  app.get("/api/organizations", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizations = await storage.getUserOrganizations(userId);
+      res.json(organizations);
+    } catch (error: any) {
+      console.error("Get organizations error:", error);
+      res.status(500).json({ error: "Failed to fetch organizations" });
+    }
+  });
+
+  app.post("/api/organizations", isAuthenticated, express.json(), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      
+      // Generate a URL-friendly slug from name
+      const slug = req.body.name.toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+      
+      const organizationData = insertOrganizationSchema.parse({
+        ...req.body,
+        slug: `${slug}-${Date.now()}` // Ensure uniqueness
+      });
+      
+      const organization = await storage.createOrganization(organizationData);
+      
+      // Add creator as super admin
+      await storage.addOrganizationMember({
+        organizationId: organization.id,
+        userId: userId,
+        role: "super_admin",
+        permissions: {
+          manage_users: true,
+          manage_billing: true,
+          manage_workspaces: true,
+          view_audit_logs: true,
+          manage_security: true,
+          manage_teams: true,
+          view_analytics: true
+        }
+      });
+      
+      res.json(organization);
+    } catch (error: any) {
+      console.error("Create organization error:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/organizations/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organization = await storage.getOrganization(req.params.id);
+      
+      if (!organization) {
+        return res.status(404).json({ error: "Organization not found" });
+      }
+      
+      // Check if user is member of organization
+      const membership = await storage.getOrganizationMembership(organization.id, userId);
+      if (!membership) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      res.json(organization);
+    } catch (error: any) {
+      console.error("Get organization error:", error);
+      res.status(500).json({ error: "Failed to fetch organization" });
+    }
+  });
+
+  app.put("/api/organizations/:id", isAuthenticated, express.json(), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = req.params.id;
+      
+      // Check if user has admin permissions
+      const membership = await storage.getOrganizationMembership(organizationId, userId);
+      if (!membership || !["super_admin", "admin"].includes(membership.role)) {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
+      
+      const updatedOrganization = await storage.updateOrganization(organizationId, req.body);
+      if (!updatedOrganization) {
+        return res.status(404).json({ error: "Organization not found" });
+      }
+      
+      res.json(updatedOrganization);
+    } catch (error: any) {
+      console.error("Update organization error:", error);
+      res.status(500).json({ error: "Failed to update organization" });
+    }
+  });
+
+  // Organization membership management
+  app.get("/api/organizations/:id/members", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = req.params.id;
+      
+      // Check if user is member of organization
+      const membership = await storage.getOrganizationMembership(organizationId, userId);
+      if (!membership) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const members = await storage.getOrganizationMembers(organizationId);
+      res.json(members);
+    } catch (error: any) {
+      console.error("Get organization members error:", error);
+      res.status(500).json({ error: "Failed to fetch members" });
+    }
+  });
+
+  app.post("/api/organizations/:id/members", isAuthenticated, express.json(), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = req.params.id;
+      
+      // Check if user has admin permissions
+      const membership = await storage.getOrganizationMembership(organizationId, userId);
+      if (!membership || !["super_admin", "admin", "manager"].includes(membership.role)) {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
+      
+      const memberData = insertOrganizationMemberSchema.parse({
+        organizationId,
+        ...req.body
+      });
+      
+      const member = await storage.addOrganizationMember(memberData);
+      res.json(member);
+    } catch (error: any) {
+      console.error("Add organization member error:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Team management routes
+  app.get("/api/organizations/:id/teams", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = req.params.id;
+      
+      // Check if user is member of organization
+      const membership = await storage.getOrganizationMembership(organizationId, userId);
+      if (!membership) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const teams = await storage.getOrganizationTeams(organizationId);
+      res.json(teams);
+    } catch (error: any) {
+      console.error("Get teams error:", error);
+      res.status(500).json({ error: "Failed to fetch teams" });
+    }
+  });
+
+  app.post("/api/organizations/:id/teams", isAuthenticated, express.json(), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = req.params.id;
+      
+      // Check if user has team management permissions
+      const membership = await storage.getOrganizationMembership(organizationId, userId);
+      if (!membership || !["super_admin", "admin", "manager"].includes(membership.role)) {
+        return res.status(403).json({ error: "Insufficient permissions" });
+      }
+      
+      const teamData = insertTeamSchema.parse({
+        organizationId,
+        ...req.body
+      });
+      
+      const team = await storage.createTeam(teamData);
+      res.json(team);
+    } catch (error: any) {
+      console.error("Create team error:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // ============================================
+  // ENTERPRISE FEATURES - Audit Logging APIs
+  // ============================================
+
+  // Audit logs management
+  app.get("/api/audit-logs", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationId, action, limit = 50, offset = 0 } = req.query;
+      
+      // Check if user has permission to view audit logs
+      if (organizationId) {
+        const membership = await storage.getOrganizationMembership(organizationId, userId);
+        if (!membership || !["super_admin", "admin"].includes(membership.role)) {
+          return res.status(403).json({ error: "Insufficient permissions" });
+        }
+      }
+      
+      const auditLogs = await storage.getAuditLogs(
+        organizationId || undefined,
+        undefined, // userId filter
+        parseInt(limit.toString())
+      );
+      
+      res.json({
+        logs: auditLogs.slice(parseInt(offset.toString())),
+        total: auditLogs.length,
+        limit: parseInt(limit.toString()),
+        offset: parseInt(offset.toString())
+      });
+    } catch (error: any) {
+      console.error("Get audit logs error:", error);
+      res.status(500).json({ error: "Failed to fetch audit logs" });
+    }
+  });
+
+  // Security events management
+  app.get("/api/security-events", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationId, severity, resolved } = req.query;
+      
+      // Check permissions - only admins can view security events
+      if (organizationId) {
+        const membership = await storage.getOrganizationMembership(organizationId, userId);
+        if (!membership || !["super_admin", "admin"].includes(membership.role)) {
+          return res.status(403).json({ error: "Insufficient permissions" });
+        }
+      }
+      
+      const securityEvents = await storage.getSecurityEvents(
+        organizationId || undefined,
+        severity?.toString()
+      );
+      
+      // Filter by resolved status if provided
+      const filteredEvents = resolved !== undefined 
+        ? securityEvents.filter(event => event.resolved === (resolved === 'true'))
+        : securityEvents;
+      
+      res.json({
+        events: filteredEvents,
+        total: filteredEvents.length,
+        filters: {
+          organizationId,
+          severity,
+          resolved
+        }
+      });
+    } catch (error: any) {
+      console.error("Get security events error:", error);
+      res.status(500).json({ error: "Failed to fetch security events" });
+    }
+  });
+
+  app.patch("/api/security-events/:eventId/resolve", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const eventId = req.params.eventId;
+      const { organizationId } = req.body;
+      
+      // Check permissions - only admins can resolve security events
+      if (organizationId) {
+        const membership = await storage.getOrganizationMembership(organizationId, userId);
+        if (!membership || !["super_admin", "admin"].includes(membership.role)) {
+          return res.status(403).json({ error: "Insufficient permissions" });
+        }
+      }
+      
+      const resolvedEvent = await storage.resolveSecurityEvent(eventId, userId);
+      
+      if (!resolvedEvent) {
+        return res.status(404).json({ error: "Security event not found" });
+      }
+      
+      // Create audit log for security event resolution
+      await storage.createAuditLog({
+        organizationId: organizationId || null,
+        userId: userId,
+        action: "security_event_resolved",
+        resourceType: "security_event",
+        resourceId: eventId,
+        details: {
+          event_type: resolvedEvent.eventType,
+          severity: resolvedEvent.severity,
+          resolved_at: new Date().toISOString()
+        },
+        ipAddress: req.ip || null,
+        userAgent: req.get('User-Agent') || null
+      });
+      
+      res.json({
+        message: "Security event resolved successfully",
+        event: resolvedEvent
+      });
+    } catch (error: any) {
+      console.error("Resolve security event error:", error);
+      res.status(500).json({ error: "Failed to resolve security event" });
+    }
+  });
+
+  // ============================================
+  // ENTERPRISE FEATURES - Rate Limiting & Usage APIs
+  // ============================================
+
+  // Usage analytics and reporting
+  app.get("/api/usage/analytics", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationId, period = 'week' } = req.query;
+      
+      // Check permissions - users can view their own org analytics
+      if (organizationId) {
+        const membership = await storage.getOrganizationMembership(organizationId, userId);
+        if (!membership) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      }
+      
+      const analytics = await rateLimiter.getUsageAnalytics(
+        organizationId || `user_${userId}`, 
+        period.toString()
+      );
+      
+      res.json(analytics);
+    } catch (error: any) {
+      console.error("Get usage analytics error:", error);
+      res.status(500).json({ error: "Failed to fetch usage analytics" });
+    }
+  });
+
+  // Usage quota status
+  app.get("/api/usage/quotas/:organizationId", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const organizationId = req.params.organizationId;
+      
+      // Check permissions
+      const membership = await storage.getOrganizationMembership(organizationId, userId);
+      if (!membership) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Get quota status for different resource types
+      const quotaTypes = ['monthly_analyses', 'concurrent_sessions', 'storage_gb', 'api_calls_per_hour'];
+      const quotaStatus = await Promise.all(
+        quotaTypes.map(async (type) => {
+          const status = await rateLimiter.checkUsageQuota(organizationId, type as any);
+          return { type, ...status };
+        })
+      );
+      
+      res.json({
+        organizationId,
+        quotas: quotaStatus,
+        summary: {
+          totalQuotas: quotaStatus.length,
+          exceeded: quotaStatus.filter(q => !q.withinQuota).length,
+          warnings: quotaStatus.filter(q => q.percentage > 80).length
+        }
+      });
+    } catch (error: any) {
+      console.error("Get quota status error:", error);
+      res.status(500).json({ error: "Failed to fetch quota status" });
+    }
+  });
+
+  // Rate limit rules management
+  app.get("/api/rate-limits/rules", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationId } = req.query;
+      
+      // Check permissions - only admins can manage rate limit rules
+      if (organizationId) {
+        const membership = await storage.getOrganizationMembership(organizationId, userId);
+        if (!membership || !["super_admin", "admin"].includes(membership.role)) {
+          return res.status(403).json({ error: "Insufficient permissions" });
+        }
+      }
+      
+      const rules = await storage.getRateLimitRules(organizationId || undefined);
+      
+      res.json({
+        rules,
+        total: rules.length,
+        active: rules.filter(rule => rule.isActive).length
+      });
+    } catch (error: any) {
+      console.error("Get rate limit rules error:", error);
+      res.status(500).json({ error: "Failed to fetch rate limit rules" });
+    }
+  });
+
+  app.post("/api/rate-limits/rules", isAuthenticated, express.json(), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationId } = req.body;
+      
+      // Check permissions - only admins can create rate limit rules
+      if (organizationId) {
+        const membership = await storage.getOrganizationMembership(organizationId, userId);
+        if (!membership || !["super_admin", "admin"].includes(membership.role)) {
+          return res.status(403).json({ error: "Insufficient permissions" });
+        }
+      }
+      
+      const ruleData = {
+        organizationId: organizationId || null,
+        ruleName: req.body.ruleName,
+        resourceType: req.body.resourceType,
+        limitType: req.body.limitType || 'requests_per_minute',
+        limitValue: parseInt(req.body.limitValue),
+        windowMs: req.body.windowMs || 60000,
+        isActive: req.body.isActive ?? true
+      };
+      
+      const rule = await storage.createRateLimitRule(ruleData);
+      
+      // Create audit log
+      await storage.createAuditLog({
+        organizationId: organizationId || null,
+        userId: userId,
+        action: "rate_limit_rule_created",
+        resourceType: "rate_limit_rule",
+        resourceId: rule.id,
+        details: {
+          rule_name: ruleData.ruleName,
+          resource_type: ruleData.resourceType,
+          limit_value: ruleData.limitValue
+        },
+        ipAddress: req.ip || null,
+        userAgent: req.get('User-Agent') || null
+      });
+      
+      res.json({
+        message: "Rate limit rule created successfully",
+        rule
+      });
+    } catch (error: any) {
+      console.error("Create rate limit rule error:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  app.put("/api/rate-limits/rules/:ruleId", isAuthenticated, express.json(), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const ruleId = req.params.ruleId;
+      const { organizationId } = req.body;
+      
+      // Check permissions
+      if (organizationId) {
+        const membership = await storage.getOrganizationMembership(organizationId, userId);
+        if (!membership || !["super_admin", "admin"].includes(membership.role)) {
+          return res.status(403).json({ error: "Insufficient permissions" });
+        }
+      }
+      
+      const updatedRule = await storage.updateRateLimitRule(ruleId, req.body);
+      
+      if (!updatedRule) {
+        return res.status(404).json({ error: "Rate limit rule not found" });
+      }
+      
+      // Create audit log
+      await storage.createAuditLog({
+        organizationId: organizationId || null,
+        userId: userId,
+        action: "rate_limit_rule_updated",
+        resourceType: "rate_limit_rule",
+        resourceId: ruleId,
+        details: {
+          changes: req.body
+        },
+        ipAddress: req.ip || null,
+        userAgent: req.get('User-Agent') || null
+      });
+      
+      res.json({
+        message: "Rate limit rule updated successfully",
+        rule: updatedRule
+      });
+    } catch (error: any) {
+      console.error("Update rate limit rule error:", error);
+      res.status(500).json({ error: "Failed to update rate limit rule" });
+    }
+  });
+
+  // Apply enhanced rate limiting to specific endpoints
+  app.post("/api/think", 
+    rateLimiter.enterpriseRateLimit('ai_analyses', {
+      enableBurst: true,
+      enableAdaptive: true,
+      customMessage: 'AI analysis rate limit exceeded. Please upgrade your plan for higher limits.'
+    }),
+    isAuthenticated, 
+    express.json(), 
+    async (req: any, res) => {
+      // Original /api/think implementation continues here...
+      try {
+        const result = insertThinkRequestSchema.parse(req.body);
+        const userId = req.user?.claims?.sub;
+
+        // Record usage metric for AI analysis
+        if (userId) {
+          await storage.recordUsageMetric({
+            organizationId: (req as any).organizationId || null,
+            userId: userId,
+            metricType: 'ai_analyses',
+            metricName: 'multi_agent_debate',
+            valueNumeric: 1,
+            period: 'daily'
+          });
+        }
+
+        const response = await runMultiAgentDebate(result);
+        res.json(response);
+      } catch (error: any) {
+        console.error("Think endpoint error:", error);
+        res.status(400).json({ error: error.message });
+      }
+    }
+  );
+
+  // ============================================
+  // ENTERPRISE FEATURES - Performance Monitoring APIs
+  // ============================================
+
+  // System health check
+  app.get("/api/health", async (req: Request, res: Response) => {
+    try {
+      const health = await performanceMonitor.getSystemHealth();
+      
+      // Set appropriate status code based on health
+      const statusCode = health.status === 'healthy' ? 200 : 
+                        health.status === 'warning' ? 200 : 503;
+      
+      res.status(statusCode).json({
+        status: health.status,
+        timestamp: new Date().toISOString(),
+        uptime: health.uptime,
+        version: process.env.npm_package_version || '1.0.0',
+        ...health
+      });
+    } catch (error: any) {
+      console.error("Health check error:", error);
+      res.status(503).json({
+        status: 'critical',
+        message: 'Health check failed',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // Performance analytics
+  app.get("/api/monitoring/performance", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationId, timeRange = '1h' } = req.query;
+      
+      // Check permissions
+      if (organizationId) {
+        const membership = await storage.getOrganizationMembership(organizationId, userId);
+        if (!membership || !["super_admin", "admin", "manager"].includes(membership.role)) {
+          return res.status(403).json({ error: "Insufficient permissions" });
+        }
+      }
+      
+      const analytics = await performanceMonitor.getPerformanceAnalytics(
+        organizationId || undefined, 
+        timeRange.toString()
+      );
+      
+      res.json(analytics);
+    } catch (error: any) {
+      console.error("Get performance analytics error:", error);
+      res.status(500).json({ error: "Failed to fetch performance analytics" });
+    }
+  });
+
+  // Error analytics
+  app.get("/api/monitoring/errors", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationId, timeRange = '24h' } = req.query;
+      
+      // Check permissions
+      if (organizationId) {
+        const membership = await storage.getOrganizationMembership(organizationId, userId);
+        if (!membership || !["super_admin", "admin"].includes(membership.role)) {
+          return res.status(403).json({ error: "Insufficient permissions" });
+        }
+      }
+      
+      const errorAnalytics = await performanceMonitor.getErrorAnalytics(
+        organizationId || undefined, 
+        timeRange.toString()
+      );
+      
+      res.json(errorAnalytics);
+    } catch (error: any) {
+      console.error("Get error analytics error:", error);
+      res.status(500).json({ error: "Failed to fetch error analytics" });
+    }
+  });
+
+  // Real-time system metrics
+  app.get("/api/monitoring/metrics/realtime", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationId } = req.query;
+      
+      // Check permissions - only admins can view real-time metrics
+      if (organizationId) {
+        const membership = await storage.getOrganizationMembership(organizationId, userId);
+        if (!membership || !["super_admin", "admin"].includes(membership.role)) {
+          return res.status(403).json({ error: "Insufficient permissions" });
+        }
+      }
+      
+      const health = await performanceMonitor.getSystemHealth();
+      const currentTime = new Date().toISOString();
+      
+      res.json({
+        timestamp: currentTime,
+        metrics: {
+          system_health: health.status,
+          response_time_avg: health.responseTime.avg,
+          response_time_p95: health.responseTime.p95,
+          response_time_p99: health.responseTime.p99,
+          memory_usage_percent: health.memory.percentage,
+          memory_used_mb: health.memory.used,
+          error_rate: health.errorRate,
+          uptime_seconds: health.uptime,
+          database_health: health.databaseHealth
+        },
+        alerts: health.status !== 'healthy' ? [{
+          type: 'system_health',
+          severity: health.status === 'critical' ? 'high' : 'medium',
+          message: `System health is ${health.status}`,
+          timestamp: currentTime
+        }] : []
+      });
+    } catch (error: any) {
+      console.error("Get real-time metrics error:", error);
+      res.status(500).json({ error: "Failed to fetch real-time metrics" });
+    }
+  });
+
+  // Performance metrics management
+  app.post("/api/monitoring/metrics/cleanup", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { organizationId } = req.body;
+      
+      // Check permissions - only super admins can cleanup metrics
+      if (organizationId) {
+        const membership = await storage.getOrganizationMembership(organizationId, userId);
+        if (!membership || membership.role !== "super_admin") {
+          return res.status(403).json({ error: "Only super administrators can cleanup metrics" });
+        }
+      }
+      
+      await performanceMonitor.cleanupOldMetrics();
+      
+      // Create audit log
+      await storage.createAuditLog({
+        organizationId: organizationId || null,
+        userId: userId,
+        action: "metrics_cleanup_performed",
+        resourceType: "monitoring_system",
+        resourceId: "metrics_cleanup",
+        details: {
+          performed_by: userId,
+          cleanup_time: new Date().toISOString()
+        },
+        ipAddress: req.ip || null,
+        userAgent: req.get('User-Agent') || null
+      });
+      
+      res.json({
+        message: "Metrics cleanup completed successfully",
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error("Metrics cleanup error:", error);
+      res.status(500).json({ error: "Failed to cleanup metrics" });
     }
   });
 

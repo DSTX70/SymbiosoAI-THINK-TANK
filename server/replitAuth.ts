@@ -156,8 +156,8 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   }
 };
 
-// Role-based access control middleware
-export const requireRole = (allowedRoles: string[]): RequestHandler => {
+// Organization-aware role-based access control middleware
+export const requireOrganizationRole = (allowedRoles: string[], organizationId?: string): RequestHandler => {
   return async (req, res, next) => {
     const user = req.user as any;
     
@@ -166,19 +166,46 @@ export const requireRole = (allowedRoles: string[]): RequestHandler => {
     }
 
     try {
-      const dbUser = await storage.getUser(user.claims.sub);
-      if (!dbUser || !allowedRoles.includes(dbUser.role)) {
-        return res.status(403).json({ message: "Insufficient permissions" });
+      const userId = user.claims.sub;
+      const orgId = organizationId || req.params.organizationId || req.query.organizationId || req.body.organizationId;
+      
+      if (orgId) {
+        // Check organization-specific role
+        const membership = await storage.getOrganizationMembership(orgId, userId);
+        if (!membership || !allowedRoles.includes(membership.role)) {
+          return res.status(403).json({ message: "Insufficient organization permissions" });
+        }
+        
+        // Attach organization context to request
+        (req as any).organizationId = orgId;
+        (req as any).organizationMembership = membership;
+      } else {
+        // Check if user has required role in any organization (for super admins)
+        const memberships = await storage.getUserOrganizationMemberships(userId);
+        const hasRequiredRole = memberships.some(m => allowedRoles.includes(m.role));
+        
+        if (!hasRequiredRole) {
+          return res.status(403).json({ message: "Insufficient permissions" });
+        }
+        
+        // Attach primary organization context
+        if (memberships.length > 0) {
+          (req as any).organizationId = memberships[0].organizationId;
+          (req as any).organizationMembership = memberships[0];
+        }
       }
       
-      // Attach user info to request
-      (req as any).currentUser = dbUser;
       next();
     } catch (error) {
-      console.error("Role check error:", error);
+      console.error("Organization role check error:", error);
       return res.status(500).json({ message: "Permission check failed" });
     }
   };
+};
+
+// Legacy role-based access control (deprecated in favor of organization-aware version)
+export const requireRole = (allowedRoles: string[]): RequestHandler => {
+  return requireOrganizationRole(allowedRoles);
 };
 
 // Workspace-level access control

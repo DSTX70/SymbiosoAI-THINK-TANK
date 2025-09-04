@@ -414,3 +414,477 @@ export const insertChatMessageSchema = createInsertSchema(chatMessages).pick({
   content: true,
   messageType: true,
 });
+
+// ============================================
+// ENTERPRISE FEATURES - Organization Hierarchy
+// ============================================
+
+// Organizations - top-level entities for enterprise customers
+export const organizations = pgTable("organizations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  slug: varchar("slug").unique().notNull(), // URL-friendly identifier
+  logo: varchar("logo_url"),
+  plan: varchar("plan").notNull().default("free"), // free, pro, enterprise
+  settings: jsonb("settings").default({
+    default_security_level: "standard",
+    require_2fa: false,
+    allowed_domains: [],
+    max_workspaces: 10,
+    max_users: 50,
+    retention_days: 90
+  }),
+  billingSettings: jsonb("billing_settings").default({
+    billing_email: null,
+    usage_alerts: true,
+    quota_limits: {
+      monthly_analyses: 1000,
+      concurrent_sessions: 10,
+      storage_gb: 5
+    }
+  }),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Organization membership with hierarchical roles
+export const organizationMembers = pgTable("organization_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  role: varchar("role").notNull().default("member"), // super_admin, admin, manager, member, viewer
+  permissions: jsonb("permissions").default({
+    manage_users: false,
+    manage_billing: false,
+    manage_workspaces: false,
+    view_audit_logs: false,
+    manage_security: false
+  }),
+  joinedAt: timestamp("joined_at").defaultNow(),
+  lastActiveAt: timestamp("last_active_at"),
+});
+
+// Teams within organizations for better structure
+export const teams = pgTable("teams", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  parentTeamId: varchar("parent_team_id"), // For hierarchical teams
+  settings: jsonb("settings").default({
+    default_workspace_privacy: "private",
+    auto_join_workspaces: false
+  }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Team membership
+export const teamMembers = pgTable("team_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teamId: varchar("team_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  role: varchar("role").notNull().default("member"), // lead, member
+  joinedAt: timestamp("joined_at").defaultNow(),
+});
+
+// ============================================
+// ENTERPRISE FEATURES - Advanced Security
+// ============================================
+
+// Comprehensive audit logging
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id"),
+  userId: varchar("user_id"),
+  action: varchar("action").notNull(), // login, logout, create_workspace, delete_user, etc.
+  resource: varchar("resource"), // user, workspace, organization, etc.
+  resourceId: varchar("resource_id"), // ID of the affected resource
+  details: jsonb("details"), // Additional context about the action
+  ipAddress: varchar("ip_address"),
+  userAgent: varchar("user_agent"),
+  metadata: jsonb("metadata"), // Request headers, session info, etc.
+  severity: varchar("severity").notNull().default("info"), // info, warning, error, critical
+  timestamp: timestamp("timestamp").defaultNow(),
+}, (table) => [
+  index("audit_logs_org_idx").on(table.organizationId),
+  index("audit_logs_user_idx").on(table.userId),
+  index("audit_logs_action_idx").on(table.action),
+  index("audit_logs_timestamp_idx").on(table.timestamp),
+]);
+
+// PII patterns and redaction rules
+export const piiPatterns = pgTable("pii_patterns", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id"),
+  name: varchar("name").notNull(),
+  pattern: text("pattern").notNull(), // Regex pattern for PII detection
+  category: varchar("category").notNull(), // email, ssn, phone, credit_card, etc.
+  redactionType: varchar("redaction_type").notNull().default("mask"), // mask, remove, hash
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Security events and incidents
+export const securityEvents = pgTable("security_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id"),
+  eventType: varchar("event_type").notNull(), // failed_login, suspicious_activity, rate_limit_exceeded
+  severity: varchar("severity").notNull(), // low, medium, high, critical
+  description: text("description").notNull(),
+  metadata: jsonb("metadata"), // IP, user agent, attempt details, etc.
+  resolved: boolean("resolved").default(false),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: varchar("resolved_by"),
+  timestamp: timestamp("timestamp").defaultNow(),
+}, (table) => [
+  index("security_events_org_idx").on(table.organizationId),
+  index("security_events_type_idx").on(table.eventType),
+  index("security_events_severity_idx").on(table.severity),
+  index("security_events_timestamp_idx").on(table.timestamp),
+]);
+
+// ============================================
+// ENTERPRISE FEATURES - Rate Limiting & Quotas
+// ============================================
+
+// Usage tracking for rate limiting and billing
+export const usageMetrics = pgTable("usage_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id"),
+  userId: varchar("user_id"),
+  metricType: varchar("metric_type").notNull(), // api_calls, analyses, storage, bandwidth
+  value: integer("value").notNull(),
+  unit: varchar("unit").notNull(), // calls, mb, seconds, etc.
+  period: varchar("period").notNull(), // hourly, daily, monthly
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  metadata: jsonb("metadata"), // Additional usage context
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("usage_metrics_org_period_idx").on(table.organizationId, table.period),
+  index("usage_metrics_user_period_idx").on(table.userId, table.period),
+  index("usage_metrics_type_idx").on(table.metricType),
+  index("usage_metrics_period_start_idx").on(table.periodStart),
+]);
+
+// Rate limiting rules and configurations
+export const rateLimitRules = pgTable("rate_limit_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id"),
+  ruleType: varchar("rule_type").notNull(), // user, organization, endpoint, global
+  target: varchar("target"), // user_id, org_id, endpoint_path, or null for global
+  limit: integer("limit").notNull(), // Max requests
+  window: integer("window").notNull(), // Time window in seconds
+  action: varchar("action").notNull().default("throttle"), // throttle, block, alert
+  metadata: jsonb("metadata"), // Custom rule parameters
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Active rate limit states (in-memory cache backup)
+export const rateLimitStates = pgTable("rate_limit_states", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ruleId: varchar("rule_id").notNull(),
+  targetId: varchar("target_id").notNull(), // user_id, org_id, etc.
+  requestCount: integer("request_count").notNull().default(0),
+  windowStart: timestamp("window_start").notNull(),
+  windowEnd: timestamp("window_end").notNull(),
+  isBlocked: boolean("is_blocked").default(false),
+  lastRequest: timestamp("last_request").defaultNow(),
+}, (table) => [
+  index("rate_limit_states_rule_target_idx").on(table.ruleId, table.targetId),
+  index("rate_limit_states_window_end_idx").on(table.windowEnd),
+]);
+
+// ============================================
+// ENTERPRISE FEATURES - Performance & Monitoring
+// ============================================
+
+// System performance metrics
+export const performanceMetrics = pgTable("performance_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id"),
+  metricName: varchar("metric_name").notNull(), // response_time, cpu_usage, memory_usage, etc.
+  value: integer("value").notNull(),
+  unit: varchar("unit").notNull(), // ms, percent, mb, etc.
+  tags: jsonb("tags"), // Additional metric tags for filtering
+  endpoint: varchar("endpoint"), // API endpoint if applicable
+  timestamp: timestamp("timestamp").defaultNow(),
+}, (table) => [
+  index("performance_metrics_name_idx").on(table.metricName),
+  index("performance_metrics_org_idx").on(table.organizationId),
+  index("performance_metrics_timestamp_idx").on(table.timestamp),
+]);
+
+// Error tracking and monitoring
+export const errorLogs = pgTable("error_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id"),
+  userId: varchar("user_id"),
+  errorType: varchar("error_type").notNull(), // application, system, network, etc.
+  errorCode: varchar("error_code"), // HTTP status, custom error codes, etc.
+  message: text("message").notNull(),
+  stackTrace: text("stack_trace"),
+  endpoint: varchar("endpoint"),
+  requestId: varchar("request_id"), // For request tracing
+  severity: varchar("severity").notNull().default("error"), // info, warning, error, fatal
+  metadata: jsonb("metadata"), // Request headers, user context, etc.
+  resolved: boolean("resolved").default(false),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: varchar("resolved_by"),
+  timestamp: timestamp("timestamp").defaultNow(),
+}, (table) => [
+  index("error_logs_org_idx").on(table.organizationId),
+  index("error_logs_type_idx").on(table.errorType),
+  index("error_logs_severity_idx").on(table.severity),
+  index("error_logs_timestamp_idx").on(table.timestamp),
+  index("error_logs_request_id_idx").on(table.requestId),
+]);
+
+// System health checks and status
+export const healthChecks = pgTable("health_checks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  serviceName: varchar("service_name").notNull(), // database, redis, external_api, etc.
+  status: varchar("status").notNull(), // healthy, degraded, unhealthy
+  responseTime: integer("response_time"), // in milliseconds
+  errorMessage: text("error_message"),
+  metadata: jsonb("metadata"), // Service-specific health details
+  timestamp: timestamp("timestamp").defaultNow(),
+}, (table) => [
+  index("health_checks_service_idx").on(table.serviceName),
+  index("health_checks_status_idx").on(table.status),
+  index("health_checks_timestamp_idx").on(table.timestamp),
+]);
+
+// ============================================
+// ENTERPRISE FEATURES - Zod Schemas
+// ============================================
+
+// Organization schemas
+export const insertOrganizationSchema = createInsertSchema(organizations).pick({
+  name: true,
+  slug: true,
+  logo: true,
+  plan: true,
+  settings: true,
+  billingSettings: true,
+});
+
+export const insertOrganizationMemberSchema = createInsertSchema(organizationMembers).pick({
+  organizationId: true,
+  userId: true,
+  role: true,
+  permissions: true,
+});
+
+export const insertTeamSchema = createInsertSchema(teams).pick({
+  organizationId: true,
+  name: true,
+  description: true,
+  parentTeamId: true,
+  settings: true,
+});
+
+export const insertTeamMemberSchema = createInsertSchema(teamMembers).pick({
+  teamId: true,
+  userId: true,
+  role: true,
+});
+
+// Security schemas
+export const insertAuditLogSchema = createInsertSchema(auditLogs).pick({
+  organizationId: true,
+  userId: true,
+  action: true,
+  resource: true,
+  resourceId: true,
+  details: true,
+  ipAddress: true,
+  userAgent: true,
+  metadata: true,
+  severity: true,
+});
+
+export const insertPiiPatternSchema = createInsertSchema(piiPatterns).pick({
+  organizationId: true,
+  name: true,
+  pattern: true,
+  category: true,
+  redactionType: true,
+  isActive: true,
+});
+
+export const insertSecurityEventSchema = createInsertSchema(securityEvents).pick({
+  organizationId: true,
+  eventType: true,
+  severity: true,
+  description: true,
+  metadata: true,
+});
+
+// Usage and rate limiting schemas
+export const insertUsageMetricSchema = createInsertSchema(usageMetrics).pick({
+  organizationId: true,
+  userId: true,
+  metricType: true,
+  value: true,
+  unit: true,
+  period: true,
+  periodStart: true,
+  periodEnd: true,
+  metadata: true,
+});
+
+export const insertRateLimitRuleSchema = createInsertSchema(rateLimitRules).pick({
+  organizationId: true,
+  ruleType: true,
+  target: true,
+  limit: true,
+  window: true,
+  action: true,
+  metadata: true,
+  isActive: true,
+});
+
+export const insertRateLimitStateSchema = createInsertSchema(rateLimitStates).pick({
+  ruleId: true,
+  targetId: true,
+  requestCount: true,
+  windowStart: true,
+  windowEnd: true,
+  isBlocked: true,
+});
+
+// Monitoring schemas
+export const insertPerformanceMetricSchema = createInsertSchema(performanceMetrics).pick({
+  organizationId: true,
+  metricName: true,
+  value: true,
+  unit: true,
+  tags: true,
+  endpoint: true,
+});
+
+export const insertErrorLogSchema = createInsertSchema(errorLogs).pick({
+  organizationId: true,
+  userId: true,
+  errorType: true,
+  errorCode: true,
+  message: true,
+  stackTrace: true,
+  endpoint: true,
+  requestId: true,
+  severity: true,
+  metadata: true,
+});
+
+export const insertHealthCheckSchema = createInsertSchema(healthChecks).pick({
+  serviceName: true,
+  status: true,
+  responseTime: true,
+  errorMessage: true,
+  metadata: true,
+});
+
+// Role and permission validation schemas
+export const organizationRoleSchema = z.enum(["super_admin", "admin", "manager", "member", "viewer"]);
+export const teamRoleSchema = z.enum(["lead", "member"]);
+export const auditLogSeveritySchema = z.enum(["info", "warning", "error", "critical"]);
+export const securityEventSeveritySchema = z.enum(["low", "medium", "high", "critical"]);
+export const piiCategorySchema = z.enum(["email", "ssn", "phone", "credit_card", "address", "name", "custom"]);
+export const redactionTypeSchema = z.enum(["mask", "remove", "hash", "tokenize"]);
+export const rateLimitActionSchema = z.enum(["throttle", "block", "alert"]);
+export const healthStatusSchema = z.enum(["healthy", "degraded", "unhealthy"]);
+
+// Organization settings validation
+export const organizationSettingsSchema = z.object({
+  default_security_level: z.enum(["basic", "standard", "enhanced"]).optional(),
+  require_2fa: z.boolean().optional(),
+  allowed_domains: z.array(z.string()).optional(),
+  max_workspaces: z.number().min(1).optional(),
+  max_users: z.number().min(1).optional(),
+  retention_days: z.number().min(1).max(3650).optional(),
+  custom_branding: z.object({
+    logo: z.string().optional(),
+    primary_color: z.string().optional(),
+    secondary_color: z.string().optional(),
+  }).optional(),
+});
+
+// Billing settings validation
+export const billingSettingsSchema = z.object({
+  billing_email: z.string().email().optional(),
+  usage_alerts: z.boolean().optional(),
+  quota_limits: z.object({
+    monthly_analyses: z.number().min(0).optional(),
+    concurrent_sessions: z.number().min(1).optional(),
+    storage_gb: z.number().min(0).optional(),
+  }).optional(),
+});
+
+// Permission validation schema
+export const permissionsSchema = z.object({
+  manage_users: z.boolean().optional(),
+  manage_billing: z.boolean().optional(),
+  manage_workspaces: z.boolean().optional(),
+  view_audit_logs: z.boolean().optional(),
+  manage_security: z.boolean().optional(),
+  manage_teams: z.boolean().optional(),
+  view_analytics: z.boolean().optional(),
+});
+
+// ============================================
+// ENTERPRISE FEATURES - Type Definitions
+// ============================================
+
+// Organization types
+export type Organization = typeof organizations.$inferSelect;
+export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
+export type OrganizationMember = typeof organizationMembers.$inferSelect;
+export type InsertOrganizationMember = z.infer<typeof insertOrganizationMemberSchema>;
+export type Team = typeof teams.$inferSelect;
+export type InsertTeam = z.infer<typeof insertTeamSchema>;
+export type TeamMember = typeof teamMembers.$inferSelect;
+export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
+
+// Security types
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
+export type PiiPattern = typeof piiPatterns.$inferSelect;
+export type InsertPiiPattern = z.infer<typeof insertPiiPatternSchema>;
+export type SecurityEvent = typeof securityEvents.$inferSelect;
+export type InsertSecurityEvent = z.infer<typeof insertSecurityEventSchema>;
+
+// Usage and rate limiting types
+export type UsageMetric = typeof usageMetrics.$inferSelect;
+export type InsertUsageMetric = z.infer<typeof insertUsageMetricSchema>;
+export type RateLimitRule = typeof rateLimitRules.$inferSelect;
+export type InsertRateLimitRule = z.infer<typeof insertRateLimitRuleSchema>;
+export type RateLimitState = typeof rateLimitStates.$inferSelect;
+export type InsertRateLimitState = z.infer<typeof insertRateLimitStateSchema>;
+
+// Monitoring types
+export type PerformanceMetric = typeof performanceMetrics.$inferSelect;
+export type InsertPerformanceMetric = z.infer<typeof insertPerformanceMetricSchema>;
+export type ErrorLog = typeof errorLogs.$inferSelect;
+export type InsertErrorLog = z.infer<typeof insertErrorLogSchema>;
+export type HealthCheck = typeof healthChecks.$inferSelect;
+export type InsertHealthCheck = z.infer<typeof insertHealthCheckSchema>;
+
+// Enum types
+export type OrganizationRole = z.infer<typeof organizationRoleSchema>;
+export type TeamRole = z.infer<typeof teamRoleSchema>;
+export type AuditLogSeverity = z.infer<typeof auditLogSeveritySchema>;
+export type SecurityEventSeverity = z.infer<typeof securityEventSeveritySchema>;
+export type PiiCategory = z.infer<typeof piiCategorySchema>;
+export type RedactionType = z.infer<typeof redactionTypeSchema>;
+export type RateLimitAction = z.infer<typeof rateLimitActionSchema>;
+export type HealthStatus = z.infer<typeof healthStatusSchema>;
+
+// Settings types
+export type OrganizationSettings = z.infer<typeof organizationSettingsSchema>;
+export type BillingSettings = z.infer<typeof billingSettingsSchema>;
+export type Permissions = z.infer<typeof permissionsSchema>;
