@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Sun, Moon, HelpCircle, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AuthButton } from "@/components/AuthButton";
 // import logoImage from "../assets/symbiosoai-logo.png";
 const logoImage = "/symbiosoai-logo.png";
 
@@ -107,6 +108,7 @@ export default function Header() {
               Sessions
             </Link>
             <span className="rounded bg-white/20 px-2 py-1 text-xs font-medium">BETA</span>
+            <AuthButton />
             <Button variant="ghost" size="icon" onClick={toggleTheme} data-testid="button-toggle-theme" className="text-white hover:bg-white/20">
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>

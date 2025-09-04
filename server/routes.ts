@@ -6,89 +6,76 @@ import { runMultiAgentDebate } from "../client/src/lib/ai-service";
 import { perplexityService } from "./services/perplexity";
 import { registerStreamingRoutes } from "./streaming";
 import type { Citation, FactCheckFinding } from "@shared/schema";
-import { 
-  requireAuth, 
-  optionalAuth, 
-  registerUser, 
-  loginUser, 
-  logoutUser, 
-  getCurrentUser, 
-  validateRegistration, 
-  validateLogin 
-} from "./auth";
+import { setupAuth, isAuthenticated } from "./replitAuth";
+import { optionalAuth, getCurrentUser } from "./auth";
 import express from "express";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register SSE streaming routes
   registerStreamingRoutes(app);
+  
+  // Initialize Replit OpenID Connect authentication
+  await setupAuth(app);
 
   // Authentication routes
-  app.post("/api/auth/register", express.json(), async (req, res) => {
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userData = validateRegistration(req.body);
-      const result = await registerUser(userData);
-      res.json(result);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/auth/login", express.json(), async (req, res) => {
-    try {
-      const credentials = validateLogin(req.body);
-      const result = await loginUser(credentials);
-      res.json(result);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/auth/logout", async (req, res) => {
-    try {
-      const authHeader = req.headers.authorization;
-      const token = authHeader?.replace('Bearer ', '') || req.headers['x-auth-token'] as string;
-      
-      if (token) {
-        await logoutUser(token);
-      }
-      
-      res.json({ message: "Logged out successfully" });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get("/api/auth/me", requireAuth, async (req: any, res) => {
-    try {
-      const user = await getCurrentUser(req.userId);
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
       res.json(user);
     } catch (error: any) {
-      res.status(404).json({ error: error.message });
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+  
+  // User profile and preferences routes
+  app.get('/api/user/profile', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error: any) {
+      console.error("Error fetching user profile:", error);
+      res.status(500).json({ message: "Failed to fetch profile" });
+    }
+  });
+  
+  app.patch('/api/user/preferences', isAuthenticated, express.json(), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const updatedUser = await storage.updateUserPreferences(userId, req.body);
+      res.json(updatedUser);
+    } catch (error: any) {
+      console.error("Error updating preferences:", error);
+      res.status(500).json({ message: "Failed to update preferences" });
     }
   });
 
   // Workspace management routes
-  app.get("/api/workspaces", requireAuth, async (req: any, res) => {
+  app.get("/api/workspaces", isAuthenticated, async (req: any, res) => {
     try {
-      const workspaces = await storage.getUserWorkspaces(req.userId);
+      const userId = req.user.claims.sub;
+      const workspaces = await storage.getUserWorkspaces(userId);
       res.json(workspaces);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.post("/api/workspaces", requireAuth, express.json(), async (req: any, res) => {
+  app.post("/api/workspaces", isAuthenticated, express.json(), async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const workspaceData = insertWorkspaceSchema.parse({
         ...req.body,
-        ownerId: req.userId
+        ownerId: userId
       });
       const workspace = await storage.createWorkspace(workspaceData);
       
       // Add owner as admin member
       await storage.addWorkspaceMember({
         workspaceId: workspace.id,
-        userId: req.userId,
+        userId: userId,
         role: "owner"
       });
       
@@ -98,16 +85,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/workspaces/:id", requireAuth, async (req: any, res) => {
+  app.get("/api/workspaces/:id", isAuthenticated, async (req: any, res) => {
     try {
       const workspace = await storage.getWorkspace(req.params.id);
       if (!workspace) {
         return res.status(404).json({ error: "Workspace not found" });
       }
       
+      const userId = req.user.claims.sub;
       // Check if user has access
-      const membership = await storage.getUserWorkspaceMembership(workspace.id, req.userId);
-      if (!membership && workspace.ownerId !== req.userId) {
+      const membership = await storage.getUserWorkspaceMembership(workspace.id, userId);
+      if (!membership && workspace.ownerId !== userId) {
         return res.status(403).json({ error: "Access denied" });
       }
       
@@ -117,7 +105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/workspaces/join", requireAuth, express.json(), async (req: any, res) => {
+  app.post("/api/workspaces/join", isAuthenticated, express.json(), async (req: any, res) => {
     try {
       const { sessionCode } = req.body;
       if (!sessionCode) {
@@ -129,8 +117,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Invalid session code" });
       }
       
+      const userId = req.user.claims.sub;
       // Check if user is already a member
-      const existingMembership = await storage.getUserWorkspaceMembership(workspace.id, req.userId);
+      const existingMembership = await storage.getUserWorkspaceMembership(workspace.id, userId);
       if (existingMembership) {
         return res.json({ workspace, message: "Already a member" });
       }
@@ -138,7 +127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Add user as member
       await storage.addWorkspaceMember({
         workspaceId: workspace.id,
-        userId: req.userId,
+        userId: userId,
         role: "member"
       });
       
@@ -148,13 +137,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/workspaces/:id/members", requireAuth, async (req: any, res) => {
+  app.get("/api/workspaces/:id/members", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       // Check access
-      const membership = await storage.getUserWorkspaceMembership(req.params.id, req.userId);
+      const membership = await storage.getUserWorkspaceMembership(req.params.id, userId);
       const workspace = await storage.getWorkspace(req.params.id);
       
-      if (!membership && workspace?.ownerId !== req.userId) {
+      if (!membership && workspace?.ownerId !== userId) {
         return res.status(403).json({ error: "Access denied" });
       }
       
