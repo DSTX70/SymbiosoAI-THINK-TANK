@@ -233,7 +233,7 @@ export class MemStorage implements IStorage {
     
     const updated = { 
       ...existing, 
-      preferences: { ...existing.preferences, ...preferences },
+      preferences: existing.preferences ? { ...existing.preferences, ...preferences } : preferences,
       updatedAt: new Date() 
     };
     this.users.set(id, updated);
@@ -246,7 +246,7 @@ export class MemStorage implements IStorage {
     
     const updated = { 
       ...existing, 
-      subscription: { ...existing.subscription, ...subscription },
+      subscription: existing.subscription ? { ...existing.subscription, ...subscription } : subscription,
       updatedAt: new Date() 
     };
     this.users.set(id, updated);
@@ -438,44 +438,115 @@ export class MemStorage implements IStorage {
       .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
   }
 
-  // Authentication session methods
-  async createUserSession(userId: string): Promise<UserSession> {
+  // Session code operations for collaboration
+  async createSessionCode(sessionCode: InsertSessionCode): Promise<SessionCode> {
     const id = randomUUID();
-    const token = randomUUID() + randomUUID(); // More secure token
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-    const userSession: UserSession = {
+    const code: SessionCode = {
+      ...sessionCode,
       id,
-      userId,
-      token,
-      expiresAt,
+      isActive: sessionCode.isActive ?? true,
       createdAt: new Date()
     };
-    this.userSessions.set(token, userSession);
-    return userSession;
+    this.sessionCodes.set(id, code);
+    return code;
   }
 
-  async getUserSession(token: string): Promise<UserSession | undefined> {
-    const session = this.userSessions.get(token);
-    if (!session || session.expiresAt < new Date()) return undefined;
-    return session;
+  async getSessionCode(code: string): Promise<SessionCode | undefined> {
+    return Array.from(this.sessionCodes.values()).find(sc => sc.code === code && sc.isActive);
   }
 
-  async deleteUserSession(token: string): Promise<boolean> {
-    return this.userSessions.delete(token);
+  async addUserToSession(sessionCode: string, userId: string): Promise<void> {
+    const id = randomUUID();
+    const participant: SessionParticipant = {
+      id,
+      sessionCode,
+      userId,
+      role: "participant",
+      joinedAt: new Date()
+    };
+    this.sessionParticipants.set(id, participant);
   }
 
-  async cleanupExpiredSessions(): Promise<number> {
-    const now = new Date();
-    let cleaned = 0;
-    const entries = Array.from(this.userSessions.entries());
-    for (const [token, session] of entries) {
-      if (session.expiresAt < now) {
-        this.userSessions.delete(token);
-        cleaned++;
-      }
+  async getSessionParticipants(sessionCode: string): Promise<SessionParticipant[]> {
+    return Array.from(this.sessionParticipants.values())
+      .filter(p => p.sessionCode === sessionCode);
+  }
+
+  async removeUserFromSession(sessionCode: string, userId: string): Promise<void> {
+    const participant = Array.from(this.sessionParticipants.values())
+      .find(p => p.sessionCode === sessionCode && p.userId === userId);
+    if (participant) {
+      this.sessionParticipants.delete(participant.id);
     }
-    return cleaned;
   }
+
+  // Chat message operations
+  async saveChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
+    const id = randomUUID();
+    const chatMessage: ChatMessage = {
+      ...message,
+      id,
+      messageType: message.messageType || "chat",
+      timestamp: new Date()
+    };
+    this.chatMessages.set(id, chatMessage);
+    return chatMessage;
+  }
+
+  async getChatHistory(sessionCode: string): Promise<ChatMessage[]> {
+    return Array.from(this.chatMessages.values())
+      .filter(m => m.sessionCode === sessionCode)
+      .sort((a, b) => (a.timestamp?.getTime() || 0) - (b.timestamp?.getTime() || 0));
+  }
+
+  async deleteChatMessage(messageId: string): Promise<void> {
+    this.chatMessages.delete(messageId);
+  }
+
+  // Stub implementations for enterprise features (not used in memory storage)
+  async createOrganization(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getOrganization(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getOrganizationBySlug(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateOrganization(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteOrganization(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getUserOrganizations(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async addOrganizationMember(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async removeOrganizationMember(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getOrganizationMembers(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getOrganizationMembership(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateOrganizationMemberRole(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createTeam(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getTeam(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateTeam(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteTeam(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getOrganizationTeams(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getUserTeams(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async addTeamMember(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async removeTeamMember(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getTeamMembers(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getTeamMembership(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateTeamMemberRole(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createAuditLog(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getAuditLogs(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getAuditLogsByAction(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createSecurityEvent(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getSecurityEvents(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async resolveSecurityEvent(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async recordUsageMetric(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getUsageMetrics(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getUsageByType(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createRateLimitRule(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getRateLimitRules(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateRateLimitRule(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteRateLimitRule(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async recordPerformanceMetric(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getPerformanceMetrics(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async recordError(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getErrorLogs(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async resolveError(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async recordHealthCheck(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getHealthChecks(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getLatestHealthStatus(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -485,8 +556,8 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
     return user || undefined;
   }
 
@@ -520,7 +591,6 @@ export class DatabaseStorage implements IStorage {
     } else {
       // Create new user with defaults
       const newUser: InsertUser = {
-        id: upsertData.id!,
         email: upsertData.email || null,
         firstName: upsertData.firstName || null,
         lastName: upsertData.lastName || null,
@@ -550,7 +620,7 @@ export class DatabaseStorage implements IStorage {
     if (!existing) return undefined;
     
     return await this.updateUser(id, { 
-      preferences: { ...existing.preferences, ...preferences }
+      preferences: existing.preferences ? { ...existing.preferences, ...preferences } : preferences
     });
   }
 
@@ -559,40 +629,42 @@ export class DatabaseStorage implements IStorage {
     if (!existing) return undefined;
     
     return await this.updateUser(id, { 
-      subscription: { ...existing.subscription, ...subscription }
+      subscription: existing.subscription ? { ...existing.subscription, ...subscription } : subscription
     });
   }
 
-  async createSession(sessionData: InsertSession & { results?: any; telemetry?: any }): Promise<Session> {
-    const [session] = await db.insert(sessions).values({
+  async createAnalysisSession(sessionData: InsertAnalysisSession & { results?: any; telemetry?: any }): Promise<AnalysisSession> {
+    const [session] = await db.insert(analysisSessions).values({
       prompt: sessionData.prompt,
       mode: sessionData.mode,
       settings: sessionData.settings || null,
       results: sessionData.results || null,
-      telemetry: sessionData.telemetry || null
+      telemetry: sessionData.telemetry || null,
+      userId: sessionData.userId || null,
+      workspaceId: sessionData.workspaceId || null
     }).returning();
     return session;
   }
 
-  async getSession(id: string): Promise<Session | undefined> {
-    const [session] = await db.select().from(sessions).where(eq(sessions.id, id));
+  async getAnalysisSession(id: string): Promise<AnalysisSession | undefined> {
+    const [session] = await db.select().from(analysisSessions).where(eq(analysisSessions.id, id));
     return session || undefined;
   }
 
-  async updateSession(id: string, updates: Partial<Session>): Promise<Session | undefined> {
-    const [session] = await db.update(sessions)
+  async updateAnalysisSession(id: string, updates: Partial<AnalysisSession>): Promise<AnalysisSession | undefined> {
+    const [session] = await db.update(analysisSessions)
       .set(updates)
-      .where(eq(sessions.id, id))
+      .where(eq(analysisSessions.id, id))
       .returning();
     return session || undefined;
   }
 
-  async getUserSessions(userId?: string): Promise<Session[]> {
+  async getUserAnalysisSessions(userId?: string): Promise<AnalysisSession[]> {
     if (userId) {
-      const result = await db.select().from(sessions).where(eq(sessions.userId, userId)).orderBy(sessions.createdAt);
+      const result = await db.select().from(analysisSessions).where(eq(analysisSessions.userId, userId)).orderBy(analysisSessions.createdAt);
       return result.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
     }
-    const result = await db.select().from(sessions).orderBy(sessions.createdAt);
+    const result = await db.select().from(analysisSessions).orderBy(analysisSessions.createdAt);
     return result.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
   }
 
@@ -732,33 +804,6 @@ export class DatabaseStorage implements IStorage {
     return result.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
   }
 
-  // Authentication session methods
-  async createUserSession(userId: string): Promise<UserSession> {
-    const token = randomUUID() + randomUUID();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const [userSession] = await db.insert(userSessions).values({
-      userId,
-      token,
-      expiresAt,
-    }).returning();
-    return userSession;
-  }
-
-  async getUserSession(token: string): Promise<UserSession | undefined> {
-    const [session] = await db.select().from(userSessions)
-      .where(sql`${userSessions.token} = ${token} AND ${userSessions.expiresAt} > NOW()`);
-    return session || undefined;
-  }
-
-  async deleteUserSession(token: string): Promise<boolean> {
-    const result = await db.delete(userSessions).where(eq(userSessions.token, token));
-    return (result.rowCount || 0) > 0;
-  }
-
-  async cleanupExpiredSessions(): Promise<number> {
-    const result = await db.delete(userSessions).where(sql`${userSessions.expiresAt} < NOW()`);
-    return result.rowCount || 0;
-  }
 
   // Session code operations for collaboration
   async createSessionCode(sessionCodeData: InsertSessionCode): Promise<SessionCode> {
@@ -807,41 +852,6 @@ export class DatabaseStorage implements IStorage {
     await db.delete(chatMessages).where(eq(chatMessages.id, messageId));
   }
 
-  // Analysis session methods (updated naming for compatibility)
-  async createAnalysisSession(sessionData: InsertAnalysisSession & { results?: any; telemetry?: any }): Promise<AnalysisSession> {
-    const [session] = await db.insert(analysisSessions).values({
-      prompt: sessionData.prompt,
-      mode: sessionData.mode,
-      settings: sessionData.settings || null,
-      results: sessionData.results || null,
-      telemetry: sessionData.telemetry || null,
-      userId: sessionData.userId || null,
-      workspaceId: sessionData.workspaceId || null
-    }).returning();
-    return session;
-  }
-
-  async getAnalysisSession(id: string): Promise<AnalysisSession | undefined> {
-    const [session] = await db.select().from(analysisSessions).where(eq(analysisSessions.id, id));
-    return session || undefined;
-  }
-
-  async updateAnalysisSession(id: string, updates: Partial<AnalysisSession>): Promise<AnalysisSession | undefined> {
-    const [session] = await db.update(analysisSessions)
-      .set(updates)
-      .where(eq(analysisSessions.id, id))
-      .returning();
-    return session || undefined;
-  }
-
-  async getUserAnalysisSessions(userId?: string): Promise<AnalysisSession[]> {
-    if (userId) {
-      const result = await db.select().from(analysisSessions).where(eq(analysisSessions.userId, userId)).orderBy(analysisSessions.createdAt);
-      return result.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
-    }
-    const result = await db.select().from(analysisSessions).orderBy(analysisSessions.createdAt);
-    return result.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
-  }
 
   // Organization management methods (stubs for now)
   async createOrganization(organization: InsertOrganization): Promise<Organization> {
