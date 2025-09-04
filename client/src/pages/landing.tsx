@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Brain, Users, Lightbulb, ArrowRight, CheckCircle, Star } from "lucide-react";
 import { Link } from "wouter";
-import symbiosoLogo from "@assets/SymbiosoAi White and Blue Horiztonal Logo on transparent background Hi Res_1756949186386.png";
+import symbiosoLogo from "@assets/SymbiosoAi Horizontal Logo_1756949322828.png";
 
 export default function Landing() {
   return (
