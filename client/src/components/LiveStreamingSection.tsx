@@ -61,9 +61,11 @@ export default function LiveStreamingSection({
   }>>([]);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'error' | 'reconnecting'>('disconnected');
   const [retryCount, setRetryCount] = useState(0);
+  const [lastHeartbeat, setLastHeartbeat] = useState<number>(0);
   const currentEventSource = useRef<EventSource | null>(null);
   const maxRetries = 3;
   const retryDelay = 2000;
+  const heartbeatTimeout = 30000; // 30 seconds
 
   const openaiRef = useRef<HTMLDivElement>(null);
   const claudeRef = useRef<HTMLDivElement>(null);
@@ -132,6 +134,7 @@ export default function LiveStreamingSection({
       eventSource.onopen = () => {
         setConnectionStatus('connected');
         setRetryCount(0);
+        setLastHeartbeat(Date.now());
       };
 
     eventSource.addEventListener("ready", (event) => {
@@ -179,6 +182,25 @@ export default function LiveStreamingSection({
       eventSource.close();
       setCurrentStep("Analysis complete!");
       setProgress(100);
+    });
+
+    // Handle heartbeat events
+    eventSource.addEventListener("heartbeat", (event) => {
+      const data = JSON.parse(event.data);
+      setLastHeartbeat(data.timestamp);
+      // Silently maintain connection, no UI updates needed
+    });
+
+    // Handle timeout events
+    eventSource.addEventListener("timeout", (event) => {
+      const data = JSON.parse(event.data);
+      setConnectionStatus('error');
+      setCurrentStep("Connection timed out");
+      toast({
+        variant: "destructive",
+        description: "Connection timed out - please try again"
+      });
+      eventSource.close();
     });
 
     eventSource.onerror = (event) => {
@@ -230,6 +252,24 @@ export default function LiveStreamingSection({
     };
   }, [disconnectStream]);
 
+  // Monitor heartbeat health
+  useEffect(() => {
+    if (connectionStatus === 'connected' && lastHeartbeat > 0) {
+      const checkHeartbeat = setInterval(() => {
+        const now = Date.now();
+        if (now - lastHeartbeat > heartbeatTimeout) {
+          setConnectionStatus('error');
+          setCurrentStep("Connection health check failed");
+          if (currentEventSource.current) {
+            currentEventSource.current.close();
+          }
+        }
+      }, 5000); // Check every 5 seconds
+
+      return () => clearInterval(checkHeartbeat);
+    }
+  }, [connectionStatus, lastHeartbeat, heartbeatTimeout]);
+
   // Connection status indicator helpers
   const getStatusIcon = () => {
     switch (connectionStatus) {
@@ -245,9 +285,10 @@ export default function LiveStreamingSection({
   };
   
   const getStatusText = () => {
+    const timeSinceHeartbeat = lastHeartbeat > 0 ? Date.now() - lastHeartbeat : 0;
     switch (connectionStatus) {
       case 'connected':
-        return 'Connected';
+        return timeSinceHeartbeat > 20000 ? 'Connected (checking...)' : 'Connected';
       case 'reconnecting':
         return `Reconnecting... (${retryCount}/${maxRetries})`;
       case 'error':
@@ -323,20 +364,43 @@ export default function LiveStreamingSection({
                 }`}>
                   {getStatusText()}
                 </span>
+                {connectionStatus === 'connected' && lastHeartbeat > 0 && (
+                  <span className="text-xs text-gray-400">
+                    Last sync: {Math.round((Date.now() - lastHeartbeat) / 1000)}s ago
+                  </span>
+                )}
               </div>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex justify-between text-sm">
-                <span>{currentStep}</span>
-                <span className="text-primary font-medium">{progress}%</span>
+                <div className="flex items-center gap-2">
+                  {isStreaming && progress > 0 && progress < 100 && (
+                    <div className="flex gap-1">
+                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:0ms]" />
+                      <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce [animation-delay:150ms]" />
+                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-bounce [animation-delay:300ms]" />
+                    </div>
+                  )}
+                  <span className="text-gray-700 dark:text-gray-300">{currentStep}</span>
+                </div>
+                <span className="text-primary font-mono font-semibold">{progress.toFixed(0)}%</span>
               </div>
-              <div className="w-full bg-secondary rounded-full h-2">
+              <div className="w-full bg-secondary rounded-full h-3 relative overflow-hidden">
                 <div 
-                  className="bg-primary h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
+                  className="bg-gradient-to-r from-blue-500 via-purple-500 to-green-500 h-3 rounded-full transition-all duration-700 ease-out relative"
+                  style={{ width: `${Math.min(100, progress)}%` }}
+                >
+                  {isStreaming && progress > 0 && progress < 100 && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse" />
+                  )}
+                </div>
+                {progress > 0 && progress < 100 && (
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-2">
+                    <div className="w-1 h-1 bg-white/80 rounded-full animate-pulse" />
+                  </div>
+                )}
               </div>
             </div>
 

@@ -34,8 +34,14 @@ function setupSSE(res: Response) {
     'Cache-Control': 'no-cache',
     'Connection': 'keep-alive',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Cache-Control'
+    'Access-Control-Allow-Headers': 'Cache-Control',
+    'X-Accel-Buffering': 'no', // Disable nginx buffering
+    'Transfer-Encoding': 'chunked'
   });
+  
+  // Send initial heartbeat to establish connection
+  res.write(`event: heartbeat\n`);
+  res.write(`data: ${JSON.stringify({ timestamp: Date.now(), status: 'connected' })}\n\n`);
 }
 
 // Extract key claims from text for fact-checking
@@ -795,6 +801,38 @@ export function registerStreamingRoutes(app: Express) {
       return;
     }
 
+    // Enhanced connection management
+    let heartbeatInterval: NodeJS.Timeout;
+    let connectionClosed = false;
+    const connectionTimeout = 30000; // 30 seconds
+
+    // Set up heartbeat to maintain connection
+    heartbeatInterval = setInterval(() => {
+      if (!connectionClosed && !res.destroyed) {
+        res.write(`event: heartbeat\n`);
+        res.write(`data: ${JSON.stringify({ timestamp: Date.now(), status: 'alive' })}\n\n`);
+      }
+    }, 15000); // Send heartbeat every 15 seconds
+
+    // Handle client disconnect
+    const cleanup = () => {
+      connectionClosed = true;
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+    };
+
+    req.on('close', cleanup);
+    req.on('aborted', cleanup);
+    res.on('close', cleanup);
+
+    // Connection timeout handler
+    const timeoutId = setTimeout(() => {
+      if (!connectionClosed) {
+        sendSSE(res, "timeout", { message: "Connection timeout" });
+        cleanup();
+        res.end();
+      }
+    }, connectionTimeout);
+
     const ctx: StreamingContext = {
       res,
       sessionId,
@@ -804,11 +842,18 @@ export function registerStreamingRoutes(app: Express) {
 
     try {
       await runStreamingDebate(ctx);
+      clearTimeout(timeoutId);
     } catch (error) {
       console.error("Streaming error:", error);
-      sendSSE(res, "error", { message: "Failed to process streaming request" });
+      if (!connectionClosed) {
+        sendSSE(res, "error", { message: "Failed to process streaming request" });
+      }
+      clearTimeout(timeoutId);
+    } finally {
+      cleanup();
+      if (!res.destroyed) {
+        res.end();
+      }
     }
-    
-    res.end();
   });
 }
