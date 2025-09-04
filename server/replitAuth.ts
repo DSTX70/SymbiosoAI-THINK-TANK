@@ -182,7 +182,7 @@ export const requireOrganizationRole = (allowedRoles: string[], organizationId?:
       } else {
         // Check if user has required role in any organization (for super admins)
         const memberships = await storage.getUserOrganizationMemberships(userId);
-        const hasRequiredRole = memberships.some(m => allowedRoles.includes(m.role));
+        const hasRequiredRole = memberships.some((m: any) => allowedRoles.includes(m.role));
         
         if (!hasRequiredRole) {
           return res.status(403).json({ message: "Insufficient permissions" });

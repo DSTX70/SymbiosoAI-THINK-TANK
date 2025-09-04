@@ -503,6 +503,66 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
+  async upsertUser(upsertData: UpsertUser): Promise<User> {
+    const existing = await this.getUser(upsertData.id!);
+    const now = new Date();
+    
+    if (existing) {
+      // Update existing user
+      const updated = await this.updateUser(upsertData.id!, {
+        email: upsertData.email,
+        firstName: upsertData.firstName,
+        lastName: upsertData.lastName,
+        profileImageUrl: upsertData.profileImageUrl,
+        updatedAt: now
+      });
+      return updated!;
+    } else {
+      // Create new user with defaults
+      const newUser: InsertUser = {
+        id: upsertData.id!,
+        email: upsertData.email || null,
+        firstName: upsertData.firstName || null,
+        lastName: upsertData.lastName || null,
+        profileImageUrl: upsertData.profileImageUrl || null,
+        role: "user",
+        preferences: {
+          theme: "light",
+          language: "en", 
+          notifications: true,
+          default_model: "gpt-5",
+          default_temperature: 0.7,
+          auto_save: true
+        },
+        subscription: {
+          plan: "free",
+          usage_count: 0,
+          monthly_limit: 10,
+          reset_date: null
+        }
+      };
+      return await this.createUser(newUser);
+    }
+  }
+
+  async updateUserPreferences(id: string, preferences: UserPreferences): Promise<User | undefined> {
+    const existing = await this.getUser(id);
+    if (!existing) return undefined;
+    
+    return await this.updateUser(id, { 
+      preferences: { ...existing.preferences, ...preferences }
+    });
+  }
+
+  async updateUserSubscription(id: string, subscription: any): Promise<User | undefined> {
+    const existing = await this.getUser(id);
+    if (!existing) return undefined;
+    
+    return await this.updateUser(id, { 
+      subscription: { ...existing.subscription, ...subscription }
+    });
+  }
+
   async createSession(sessionData: InsertSession & { results?: any; telemetry?: any }): Promise<Session> {
     const [session] = await db.insert(sessions).values({
       prompt: sessionData.prompt,
@@ -616,6 +676,10 @@ export class DatabaseStorage implements IStorage {
     const [member] = await db.select().from(workspaceMembers)
       .where(sql`${workspaceMembers.workspaceId} = ${workspaceId} AND ${workspaceMembers.userId} = ${userId}`);
     return member || undefined;
+  }
+
+  async getWorkspaceMembership(workspaceId: string, userId: string): Promise<WorkspaceMember | undefined> {
+    return this.getUserWorkspaceMembership(workspaceId, userId);
   }
 
   async updateMemberRole(workspaceId: string, userId: string, role: string): Promise<WorkspaceMember | undefined> {
@@ -741,6 +805,390 @@ export class DatabaseStorage implements IStorage {
 
   async deleteChatMessage(messageId: string): Promise<void> {
     await db.delete(chatMessages).where(eq(chatMessages.id, messageId));
+  }
+
+  // Analysis session methods (updated naming for compatibility)
+  async createAnalysisSession(sessionData: InsertAnalysisSession & { results?: any; telemetry?: any }): Promise<AnalysisSession> {
+    const [session] = await db.insert(analysisSessions).values({
+      prompt: sessionData.prompt,
+      mode: sessionData.mode,
+      settings: sessionData.settings || null,
+      results: sessionData.results || null,
+      telemetry: sessionData.telemetry || null,
+      userId: sessionData.userId || null,
+      workspaceId: sessionData.workspaceId || null
+    }).returning();
+    return session;
+  }
+
+  async getAnalysisSession(id: string): Promise<AnalysisSession | undefined> {
+    const [session] = await db.select().from(analysisSessions).where(eq(analysisSessions.id, id));
+    return session || undefined;
+  }
+
+  async updateAnalysisSession(id: string, updates: Partial<AnalysisSession>): Promise<AnalysisSession | undefined> {
+    const [session] = await db.update(analysisSessions)
+      .set(updates)
+      .where(eq(analysisSessions.id, id))
+      .returning();
+    return session || undefined;
+  }
+
+  async getUserAnalysisSessions(userId?: string): Promise<AnalysisSession[]> {
+    if (userId) {
+      const result = await db.select().from(analysisSessions).where(eq(analysisSessions.userId, userId)).orderBy(analysisSessions.createdAt);
+      return result.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+    }
+    const result = await db.select().from(analysisSessions).orderBy(analysisSessions.createdAt);
+    return result.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  // Organization management methods (stubs for now)
+  async createOrganization(organization: InsertOrganization): Promise<Organization> {
+    const [org] = await db.insert(organizations).values(organization).returning();
+    return org;
+  }
+
+  async getOrganization(id: string): Promise<Organization | undefined> {
+    const [org] = await db.select().from(organizations).where(eq(organizations.id, id));
+    return org || undefined;
+  }
+
+  async getOrganizationBySlug(slug: string): Promise<Organization | undefined> {
+    const [org] = await db.select().from(organizations).where(eq(organizations.slug, slug));
+    return org || undefined;
+  }
+
+  async updateOrganization(id: string, updates: Partial<Organization>): Promise<Organization | undefined> {
+    const [org] = await db.update(organizations)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(organizations.id, id))
+      .returning();
+    return org || undefined;
+  }
+
+  async deleteOrganization(id: string): Promise<boolean> {
+    const result = await db.delete(organizations).where(eq(organizations.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getUserOrganizations(userId: string): Promise<Organization[]> {
+    const result = await db
+      .select({ organization: organizations })
+      .from(organizations)
+      .innerJoin(organizationMembers, eq(organizations.id, organizationMembers.organizationId))
+      .where(eq(organizationMembers.userId, userId));
+    
+    return result.map(r => r.organization);
+  }
+
+  async addOrganizationMember(member: InsertOrganizationMember): Promise<OrganizationMember> {
+    const [orgMember] = await db.insert(organizationMembers).values(member).returning();
+    return orgMember;
+  }
+
+  async removeOrganizationMember(organizationId: string, userId: string): Promise<boolean> {
+    const result = await db.delete(organizationMembers)
+      .where(sql`${organizationMembers.organizationId} = ${organizationId} AND ${organizationMembers.userId} = ${userId}`);
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getOrganizationMembers(organizationId: string): Promise<(OrganizationMember & { user: User })[]> {
+    const result = await db
+      .select()
+      .from(organizationMembers)
+      .innerJoin(users, eq(organizationMembers.userId, users.id))
+      .where(eq(organizationMembers.organizationId, organizationId));
+    
+    return result.map(row => ({
+      ...row.organization_members,
+      user: row.users
+    }));
+  }
+
+  async getOrganizationMembership(organizationId: string, userId: string): Promise<OrganizationMember | undefined> {
+    const [member] = await db.select().from(organizationMembers)
+      .where(sql`${organizationMembers.organizationId} = ${organizationId} AND ${organizationMembers.userId} = ${userId}`);
+    return member || undefined;
+  }
+
+  async updateOrganizationMemberRole(organizationId: string, userId: string, role: string, permissions?: any): Promise<OrganizationMember | undefined> {
+    const [member] = await db.update(organizationMembers)
+      .set({ role, permissions })
+      .where(sql`${organizationMembers.organizationId} = ${organizationId} AND ${organizationMembers.userId} = ${userId}`)
+      .returning();
+    return member || undefined;
+  }
+
+  async getUserOrganizationMemberships(userId: string): Promise<OrganizationMember[]> {
+    return await db.select().from(organizationMembers)
+      .where(eq(organizationMembers.userId, userId));
+  }
+
+  // Stub implementations for other enterprise features
+  async createTeam(team: InsertTeam): Promise<Team> {
+    const [newTeam] = await db.insert(teams).values(team).returning();
+    return newTeam;
+  }
+
+  async getTeam(id: string): Promise<Team | undefined> {
+    const [team] = await db.select().from(teams).where(eq(teams.id, id));
+    return team || undefined;
+  }
+
+  async updateTeam(id: string, updates: Partial<Team>): Promise<Team | undefined> {
+    const [team] = await db.update(teams)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(teams.id, id))
+      .returning();
+    return team || undefined;
+  }
+
+  async deleteTeam(id: string): Promise<boolean> {
+    const result = await db.delete(teams).where(eq(teams.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getOrganizationTeams(organizationId: string): Promise<Team[]> {
+    return await db.select().from(teams).where(eq(teams.organizationId, organizationId));
+  }
+
+  async getUserTeams(userId: string): Promise<Team[]> {
+    const result = await db
+      .select({ team: teams })
+      .from(teams)
+      .innerJoin(teamMembers, eq(teams.id, teamMembers.teamId))
+      .where(eq(teamMembers.userId, userId));
+    
+    return result.map(r => r.team);
+  }
+
+  async addTeamMember(member: InsertTeamMember): Promise<TeamMember> {
+    const [teamMember] = await db.insert(teamMembers).values(member).returning();
+    return teamMember;
+  }
+
+  async removeTeamMember(teamId: string, userId: string): Promise<boolean> {
+    const result = await db.delete(teamMembers)
+      .where(sql`${teamMembers.teamId} = ${teamId} AND ${teamMembers.userId} = ${userId}`);
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getTeamMembers(teamId: string): Promise<(TeamMember & { user: User })[]> {
+    const result = await db
+      .select()
+      .from(teamMembers)
+      .innerJoin(users, eq(teamMembers.userId, users.id))
+      .where(eq(teamMembers.teamId, teamId));
+    
+    return result.map(row => ({
+      ...row.team_members,
+      user: row.users
+    }));
+  }
+
+  async getTeamMembership(teamId: string, userId: string): Promise<TeamMember | undefined> {
+    const [member] = await db.select().from(teamMembers)
+      .where(sql`${teamMembers.teamId} = ${teamId} AND ${teamMembers.userId} = ${userId}`);
+    return member || undefined;
+  }
+
+  async updateTeamMemberRole(teamId: string, userId: string, role: string): Promise<TeamMember | undefined> {
+    const [member] = await db.update(teamMembers)
+      .set({ role })
+      .where(sql`${teamMembers.teamId} = ${teamId} AND ${teamMembers.userId} = ${userId}`)
+      .returning();
+    return member || undefined;
+  }
+
+  // Audit and Security stubs
+  async createAuditLog(log: InsertAuditLog): Promise<AuditLog> {
+    const [auditLog] = await db.insert(auditLogs).values(log).returning();
+    return auditLog;
+  }
+
+  async getAuditLogs(organizationId?: string, userId?: string, limit?: number): Promise<AuditLog[]> {
+    let query = db.select().from(auditLogs);
+    
+    if (organizationId) {
+      query = query.where(eq(auditLogs.organizationId, organizationId));
+    }
+    if (userId) {
+      query = query.where(eq(auditLogs.userId, userId));
+    }
+    if (limit) {
+      query = query.limit(limit);
+    }
+    
+    return await query.orderBy(auditLogs.createdAt);
+  }
+
+  async getAuditLogsByAction(action: string, organizationId?: string): Promise<AuditLog[]> {
+    let query = db.select().from(auditLogs).where(eq(auditLogs.action, action));
+    
+    if (organizationId) {
+      query = query.where(eq(auditLogs.organizationId, organizationId));
+    }
+    
+    return await query.orderBy(auditLogs.createdAt);
+  }
+
+  async createSecurityEvent(event: InsertSecurityEvent): Promise<SecurityEvent> {
+    const [securityEvent] = await db.insert(securityEvents).values(event).returning();
+    return securityEvent;
+  }
+
+  async getSecurityEvents(organizationId?: string, severity?: string): Promise<SecurityEvent[]> {
+    let query = db.select().from(securityEvents);
+    
+    if (organizationId) {
+      query = query.where(eq(securityEvents.organizationId, organizationId));
+    }
+    if (severity) {
+      query = query.where(eq(securityEvents.severity, severity));
+    }
+    
+    return await query.orderBy(securityEvents.timestamp);
+  }
+
+  async resolveSecurityEvent(id: string, resolvedBy: string): Promise<SecurityEvent | undefined> {
+    const [event] = await db.update(securityEvents)
+      .set({ status: 'resolved', resolvedBy, resolvedAt: new Date() })
+      .where(eq(securityEvents.id, id))
+      .returning();
+    return event || undefined;
+  }
+
+  // Usage and Performance stubs
+  async recordUsageMetric(metric: InsertUsageMetric): Promise<UsageMetric> {
+    const [usageMetric] = await db.insert(usageMetrics).values(metric).returning();
+    return usageMetric;
+  }
+
+  async getUsageMetrics(organizationId?: string, userId?: string, period?: string): Promise<UsageMetric[]> {
+    let query = db.select().from(usageMetrics);
+    
+    if (organizationId) {
+      query = query.where(eq(usageMetrics.organizationId, organizationId));
+    }
+    if (userId) {
+      query = query.where(eq(usageMetrics.userId, userId));
+    }
+    if (period) {
+      query = query.where(eq(usageMetrics.period, period));
+    }
+    
+    return await query.orderBy(usageMetrics.timestamp);
+  }
+
+  async getUsageByType(metricType: string, organizationId?: string): Promise<UsageMetric[]> {
+    let query = db.select().from(usageMetrics).where(eq(usageMetrics.metricType, metricType));
+    
+    if (organizationId) {
+      query = query.where(eq(usageMetrics.organizationId, organizationId));
+    }
+    
+    return await query.orderBy(usageMetrics.timestamp);
+  }
+
+  async createRateLimitRule(rule: InsertRateLimitRule): Promise<RateLimitRule> {
+    const [rateLimitRule] = await db.insert(rateLimitRules).values(rule).returning();
+    return rateLimitRule;
+  }
+
+  async getRateLimitRules(organizationId?: string): Promise<RateLimitRule[]> {
+    let query = db.select().from(rateLimitRules);
+    
+    if (organizationId) {
+      query = query.where(eq(rateLimitRules.organizationId, organizationId));
+    }
+    
+    return await query;
+  }
+
+  async updateRateLimitRule(id: string, updates: Partial<RateLimitRule>): Promise<RateLimitRule | undefined> {
+    const [rule] = await db.update(rateLimitRules)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(rateLimitRules.id, id))
+      .returning();
+    return rule || undefined;
+  }
+
+  async deleteRateLimitRule(id: string): Promise<boolean> {
+    const result = await db.delete(rateLimitRules).where(eq(rateLimitRules.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async recordPerformanceMetric(metric: InsertPerformanceMetric): Promise<PerformanceMetric> {
+    const [performanceMetric] = await db.insert(performanceMetrics).values(metric).returning();
+    return performanceMetric;
+  }
+
+  async getPerformanceMetrics(organizationId?: string, metricName?: string): Promise<PerformanceMetric[]> {
+    let query = db.select().from(performanceMetrics);
+    
+    if (organizationId) {
+      query = query.where(eq(performanceMetrics.organizationId, organizationId));
+    }
+    if (metricName) {
+      query = query.where(eq(performanceMetrics.metricName, metricName));
+    }
+    
+    return await query.orderBy(performanceMetrics.timestamp);
+  }
+
+  async recordError(error: InsertErrorLog): Promise<ErrorLog> {
+    const [errorLog] = await db.insert(errorLogs).values(error).returning();
+    return errorLog;
+  }
+
+  async getErrorLogs(organizationId?: string, severity?: string): Promise<ErrorLog[]> {
+    let query = db.select().from(errorLogs);
+    
+    if (organizationId) {
+      query = query.where(eq(errorLogs.organizationId, organizationId));
+    }
+    if (severity) {
+      query = query.where(eq(errorLogs.severity, severity));
+    }
+    
+    return await query.orderBy(errorLogs.timestamp);
+  }
+
+  async resolveError(id: string, resolvedBy: string): Promise<ErrorLog | undefined> {
+    const [error] = await db.update(errorLogs)
+      .set({ status: 'resolved', resolvedBy, resolvedAt: new Date() })
+      .where(eq(errorLogs.id, id))
+      .returning();
+    return error || undefined;
+  }
+
+  async recordHealthCheck(check: InsertHealthCheck): Promise<HealthCheck> {
+    const [healthCheck] = await db.insert(healthChecks).values(check).returning();
+    return healthCheck;
+  }
+
+  async getHealthChecks(serviceName?: string): Promise<HealthCheck[]> {
+    let query = db.select().from(healthChecks);
+    
+    if (serviceName) {
+      query = query.where(eq(healthChecks.serviceName, serviceName));
+    }
+    
+    return await query.orderBy(healthChecks.timestamp);
+  }
+
+  async getLatestHealthStatus(): Promise<{ [serviceName: string]: HealthCheck }> {
+    const checks = await db.select().from(healthChecks).orderBy(healthChecks.timestamp);
+    const latest: { [serviceName: string]: HealthCheck } = {};
+    
+    for (const check of checks) {
+      if (!latest[check.serviceName] || check.timestamp > latest[check.serviceName].timestamp) {
+        latest[check.serviceName] = check;
+      }
+    }
+    
+    return latest;
   }
 }
 
