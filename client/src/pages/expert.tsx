@@ -15,7 +15,8 @@ import { ResultsArea } from "@/components/ResultsArea";
 import ThinkToast from "@/components/ThinkToast";
 import { TemplateLibrary } from "@/components/TemplateLibrary";
 import { WorkspaceManagement } from "@/components/WorkspaceManagement";
-import LiveStreamingSection, { createStreamUrl } from "@/components/LiveStreamingSection";
+import LiveStreamingSection from "@/components/LiveStreamingSection";
+import { createStreamUrl } from "@/lib/streamUtils";
 import { LiveChat } from "@/components/LiveChat";
 import { SessionSharing } from "@/components/SessionSharing";
 import { WorkspaceSync } from "@/components/WorkspaceSync";
@@ -444,14 +445,8 @@ export default function ExpertPage() {
                   onStartStream={(streamControls) => {
                     setUseStreaming(true);
                   }}
-                  isActive={isStreaming}
+                  isStreaming={isStreaming}
                   streamingResult={streamingResult}
-                  config={{
-                    showJourney: true,
-                    showFactCheck: true,
-                    autoReconnect: true,
-                    maxRetries: 3
-                  }}
                 />
               )}
 
