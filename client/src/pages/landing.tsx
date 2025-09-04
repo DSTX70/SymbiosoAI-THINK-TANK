@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Brain, Users, Lightbulb, ArrowRight, CheckCircle, Star } from "lucide-react";
 import { Link } from "wouter";
+import symbiosoLogo from "@assets/SymbiosoAi Horizontal Logo_1756948838046.png";
 
 export default function Landing() {
   return (
@@ -10,9 +11,14 @@ export default function Landing() {
       <div className="container mx-auto px-6 py-12">
         <div className="text-center space-y-8 mb-16">
           <div className="space-y-4">
-            <h1 className="text-4xl md:text-6xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent" data-testid="heading-hero">
-              SymbiosoAi ThinkTank
-            </h1>
+            <div className="flex justify-center mb-6">
+              <img 
+                src={symbiosoLogo} 
+                alt="SymbiosoAi" 
+                className="h-16 md:h-24 w-auto" 
+                data-testid="logo-hero"
+              />
+            </div>
             <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto" data-testid="text-hero-subtitle">
               Enterprise-grade collaborative intelligence platform that leverages multiple AI agents to conduct structured debates and generate consensus-driven insights.
             </p>
