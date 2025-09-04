@@ -1,5 +1,5 @@
 // Helper function to create stream URL with parameters
-export function createStreamUrl(prompt: string, settings: any): string {
+export const createStreamUrl = (prompt: string, settings: any): string => {
   const params = new URLSearchParams({
     prompt: prompt.trim(),
     mode: settings.mode || "simple",
@@ -11,4 +11,7 @@ export function createStreamUrl(prompt: string, settings: any): string {
   });
   
   return `/api/think/stream?${params.toString()}`;
-}
+};
+
+// Re-export as default to ensure consistent module signature
+export default createStreamUrl;
