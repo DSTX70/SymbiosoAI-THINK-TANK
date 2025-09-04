@@ -15,7 +15,7 @@ export default function Landing() {
               <img 
                 src={symbiosoLogo} 
                 alt="SymbiosoAi" 
-                className="h-16 md:h-24 w-auto" 
+                className="h-64 md:h-96 w-auto" 
                 data-testid="logo-hero"
               />
             </div>
