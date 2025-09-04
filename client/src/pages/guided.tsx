@@ -17,6 +17,7 @@ import LiveStreamingSection from "@/components/LiveStreamingSection";
 import { createStreamUrl } from "@/lib/streamUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { isUnauthorizedError } from "@/lib/authUtils";
 import type { ThinkRequest, ThinkResponse } from "@shared/schema";
 
 export default function GuidedPage() {
@@ -54,6 +55,17 @@ export default function GuidedPage() {
       toast({ description: "Collaborative analysis completed successfully!" });
     },
     onError: (error: any) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Sign in required",
+          description: "Please sign in to start collaborative thinking",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 2000);
+        return;
+      }
       toast({ 
         variant: "destructive",
         description: error.message || "Failed to process collaborative analysis" 
