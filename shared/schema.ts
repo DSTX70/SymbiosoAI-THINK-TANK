@@ -1,22 +1,47 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, jsonb, timestamp, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, jsonb, timestamp, integer, boolean, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// User table compatible with Replit OpenID Connect
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  email: text("email").unique(),
-  password: text("password").notNull(),
-  firstName: text("first_name"),
-  lastName: text("last_name"),
-  avatar: text("avatar"),
-  isActive: boolean("is_active").default(true),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  role: varchar("role").notNull().default("user"), // admin, premium_user, user
+  preferences: jsonb("preferences").default({
+    theme: "light",
+    language: "en", 
+    notifications: true,
+    default_model: "gpt-5",
+    default_temperature: 0.7,
+    auto_save: true
+  }),
+  subscription: jsonb("subscription").default({
+    plan: "free",
+    usage_count: 0,
+    monthly_limit: 10,
+    reset_date: null
+  }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const sessions = pgTable("sessions", {
+// Session storage table for Replit OpenID Connect
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
+// Analysis sessions for storing debate results  
+export const analysisSessions = pgTable("analysis_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   prompt: text("prompt").notNull(),
   mode: text("mode").notNull(),
@@ -63,25 +88,27 @@ export const workspaceInvites = pgTable("workspace_invites", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// User sessions for authentication
-export const userSessions = pgTable("user_sessions", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull(),
-  token: text("token").notNull().unique(),
-  expiresAt: timestamp("expires_at").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-});
 
 // Zod schemas for data validation
 export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
   email: true,
-  password: true,
   firstName: true,
   lastName: true,
+  profileImageUrl: true,
+  role: true,
+  preferences: true,
+  subscription: true,
 });
 
-export const insertSessionSchema = createInsertSchema(sessions).pick({
+export const upsertUserSchema = createInsertSchema(users).pick({
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  profileImageUrl: true,
+});
+
+export const insertAnalysisSessionSchema = createInsertSchema(analysisSessions).pick({
   prompt: true,
   mode: true,
   settings: true,
@@ -110,18 +137,18 @@ export const insertWorkspaceInviteSchema = createInsertSchema(workspaceInvites).
   role: true,
 });
 
-export const loginSchema = z.object({
-  username: z.string().min(1),
-  password: z.string().min(1),
+// User preferences schema
+export const userPreferencesSchema = z.object({
+  theme: z.enum(["light", "dark"]).optional(),
+  language: z.string().optional(),
+  notifications: z.boolean().optional(),
+  default_model: z.string().optional(),
+  default_temperature: z.number().min(0).max(2).optional(),
+  auto_save: z.boolean().optional(),
 });
 
-export const registerSchema = z.object({
-  username: z.string().min(3).max(50),
-  email: z.string().email().optional(),
-  password: z.string().min(6),
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-});
+// Workspace role validation
+export const workspaceRoleSchema = z.enum(["owner", "admin", "member", "viewer"]);
 
 export const thinkRequestSchema = z.object({
   prompt: z.string().min(1),
@@ -270,18 +297,18 @@ export const thinkResponseSchema = z.object({
 
 // Type definitions
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
-export type Session = typeof sessions.$inferSelect;
-export type InsertSession = z.infer<typeof insertSessionSchema>;
+export type AnalysisSession = typeof analysisSessions.$inferSelect;
+export type InsertAnalysisSession = z.infer<typeof insertAnalysisSessionSchema>;
 export type Workspace = typeof workspaces.$inferSelect;
 export type InsertWorkspace = z.infer<typeof insertWorkspaceSchema>;
 export type WorkspaceMember = typeof workspaceMembers.$inferSelect;
 export type InsertWorkspaceMember = z.infer<typeof insertWorkspaceMemberSchema>;
 export type WorkspaceInvite = typeof workspaceInvites.$inferSelect;
 export type InsertWorkspaceInvite = z.infer<typeof insertWorkspaceInviteSchema>;
-export type UserSession = typeof userSessions.$inferSelect;
-export type LoginData = z.infer<typeof loginSchema>;
-export type RegisterData = z.infer<typeof registerSchema>;
+export type UserPreferences = z.infer<typeof userPreferencesSchema>;
+export type WorkspaceRole = z.infer<typeof workspaceRoleSchema>;
 export type ThinkRequest = z.infer<typeof thinkRequestSchema>;
 export type ThinkResponse = z.infer<typeof thinkResponseSchema>;
 export type Citation = {

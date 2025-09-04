@@ -1,8 +1,8 @@
 import { 
-  type User, type InsertUser, type Session, type InsertSession,
+  type User, type InsertUser, type UpsertUser, type AnalysisSession, type InsertAnalysisSession,
   type Workspace, type InsertWorkspace, type WorkspaceMember, type InsertWorkspaceMember,
-  type WorkspaceInvite, type InsertWorkspaceInvite, type UserSession,
-  users, sessions, workspaces, workspaceMembers, workspaceInvites, userSessions
+  type WorkspaceInvite, type InsertWorkspaceInvite, type UserPreferences,
+  users, analysisSessions, workspaces, workspaceMembers, workspaceInvites
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { Pool, neonConfig } from '@neondatabase/serverless';
@@ -20,17 +20,17 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const db = drizzle(pool);
 
 export interface IStorage {
-  // User management
+  // User management (Replit OpenID Connect compatible)
   getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-  updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  updateUserPreferences(id: string, preferences: UserPreferences): Promise<User | undefined>;
+  updateUserSubscription(id: string, subscription: any): Promise<User | undefined>;
   
-  // Session management
-  createSession(session: InsertSession & { results?: any; telemetry?: any }): Promise<Session>;
-  getSession(id: string): Promise<Session | undefined>;
-  updateSession(id: string, updates: Partial<Session>): Promise<Session | undefined>;
-  getUserSessions(userId?: string): Promise<Session[]>;
+  // Analysis session management
+  createAnalysisSession(session: InsertAnalysisSession & { results?: any; telemetry?: any }): Promise<AnalysisSession>;
+  getAnalysisSession(id: string): Promise<AnalysisSession | undefined>;
+  updateAnalysisSession(id: string, updates: Partial<AnalysisSession>): Promise<AnalysisSession | undefined>;
+  getUserAnalysisSessions(userId?: string): Promise<AnalysisSession[]>;
   
   // Workspace management
   createWorkspace(workspace: InsertWorkspace): Promise<Workspace>;
@@ -46,6 +46,7 @@ export interface IStorage {
   removeWorkspaceMember(workspaceId: string, userId: string): Promise<boolean>;
   getWorkspaceMembers(workspaceId: string): Promise<(WorkspaceMember & { user: User })[]>;
   getUserWorkspaceMembership(workspaceId: string, userId: string): Promise<WorkspaceMember | undefined>;
+  getWorkspaceMembership(workspaceId: string, userId: string): Promise<WorkspaceMember | undefined>;
   updateMemberRole(workspaceId: string, userId: string, role: string): Promise<WorkspaceMember | undefined>;
   
   // Workspace invitations  
@@ -54,70 +55,101 @@ export interface IStorage {
   acceptWorkspaceInvite(inviteCode: string, userId: string): Promise<WorkspaceMember | undefined>;
   getWorkspaceInvites(workspaceId: string): Promise<WorkspaceInvite[]>;
   
-  // Authentication sessions
-  createUserSession(userId: string): Promise<UserSession>;
-  getUserSession(token: string): Promise<UserSession | undefined>;
-  deleteUserSession(token: string): Promise<boolean>;
-  cleanupExpiredSessions(): Promise<number>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
-  private sessions: Map<string, Session>;
+  private analysisSessions: Map<string, AnalysisSession>;
   private workspaces: Map<string, Workspace>;
   private workspaceMembers: Map<string, WorkspaceMember>;
   private workspaceInvites: Map<string, WorkspaceInvite>;
-  private userSessions: Map<string, UserSession>;
 
   constructor() {
     this.users = new Map();
-    this.sessions = new Map();
+    this.analysisSessions = new Map();
     this.workspaces = new Map();
     this.workspaceMembers = new Map();
     this.workspaceInvites = new Map();
-    this.userSessions = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
     return this.users.get(id);
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
+  async upsertUser(upsertData: UpsertUser): Promise<User> {
+    const existing = this.users.get(upsertData.id!);
     const now = new Date();
-    const user: User = { 
-      ...insertUser, 
-      id,
-      email: insertUser.email || null,
-      firstName: insertUser.firstName || null,
-      lastName: insertUser.lastName || null,
-      avatar: null,
-      isActive: true,
-      createdAt: now,
-      updatedAt: now
-    };
-    this.users.set(id, user);
-    return user;
+    
+    if (existing) {
+      // Update existing user
+      const updated: User = {
+        ...existing,
+        ...upsertData,
+        updatedAt: now
+      };
+      this.users.set(upsertData.id!, updated);
+      return updated;
+    } else {
+      // Create new user with defaults
+      const user: User = {
+        id: upsertData.id!,
+        email: upsertData.email || null,
+        firstName: upsertData.firstName || null,
+        lastName: upsertData.lastName || null,
+        profileImageUrl: upsertData.profileImageUrl || null,
+        role: "user",
+        preferences: {
+          theme: "light",
+          language: "en", 
+          notifications: true,
+          default_model: "gpt-5",
+          default_temperature: 0.7,
+          auto_save: true
+        },
+        subscription: {
+          plan: "free",
+          usage_count: 0,
+          monthly_limit: 10,
+          reset_date: null
+        },
+        createdAt: now,
+        updatedAt: now
+      };
+      this.users.set(user.id, user);
+      return user;
+    }
   }
   
-  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
+  async updateUserPreferences(id: string, preferences: UserPreferences): Promise<User | undefined> {
     const existing = this.users.get(id);
     if (!existing) return undefined;
     
-    const updated = { ...existing, ...updates, updatedAt: new Date() };
+    const updated = { 
+      ...existing, 
+      preferences: { ...existing.preferences, ...preferences },
+      updatedAt: new Date() 
+    };
     this.users.set(id, updated);
     return updated;
   }
 
-  async createSession(sessionData: InsertSession & { results?: any; telemetry?: any }): Promise<Session> {
+  async updateUserSubscription(id: string, subscription: any): Promise<User | undefined> {
+    const existing = this.users.get(id);
+    if (!existing) return undefined;
+    
+    const updated = { 
+      ...existing, 
+      subscription: { ...existing.subscription, ...subscription },
+      updatedAt: new Date() 
+    };
+    this.users.set(id, updated);
+    return updated;
+  }
+
+  async createAnalysisSession(sessionData: InsertAnalysisSession & { results?: any; telemetry?: any }): Promise<AnalysisSession> {
     const id = randomUUID();
-    const session: Session = {
+    const session: AnalysisSession = {
       id,
       prompt: sessionData.prompt,
       mode: sessionData.mode,
@@ -128,25 +160,25 @@ export class MemStorage implements IStorage {
       workspaceId: sessionData.workspaceId || null,
       createdAt: new Date(),
     };
-    this.sessions.set(id, session);
+    this.analysisSessions.set(id, session);
     return session;
   }
 
-  async getSession(id: string): Promise<Session | undefined> {
-    return this.sessions.get(id);
+  async getAnalysisSession(id: string): Promise<AnalysisSession | undefined> {
+    return this.analysisSessions.get(id);
   }
 
-  async updateSession(id: string, updates: Partial<Session>): Promise<Session | undefined> {
-    const existing = this.sessions.get(id);
+  async updateAnalysisSession(id: string, updates: Partial<AnalysisSession>): Promise<AnalysisSession | undefined> {
+    const existing = this.analysisSessions.get(id);
     if (!existing) return undefined;
     
     const updated = { ...existing, ...updates };
-    this.sessions.set(id, updated);
+    this.analysisSessions.set(id, updated);
     return updated;
   }
 
-  async getUserSessions(userId?: string): Promise<Session[]> {
-    const allSessions = Array.from(this.sessions.values());
+  async getUserAnalysisSessions(userId?: string): Promise<AnalysisSession[]> {
+    const allSessions = Array.from(this.analysisSessions.values());
     const filtered = userId ? allSessions.filter(s => s.userId === userId) : allSessions;
     return filtered.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
   }
@@ -236,6 +268,11 @@ export class MemStorage implements IStorage {
   }
 
   async getUserWorkspaceMembership(workspaceId: string, userId: string): Promise<WorkspaceMember | undefined> {
+    return Array.from(this.workspaceMembers.values())
+      .find(m => m.workspaceId === workspaceId && m.userId === userId);
+  }
+  
+  async getWorkspaceMembership(workspaceId: string, userId: string): Promise<WorkspaceMember | undefined> {
     return Array.from(this.workspaceMembers.values())
       .find(m => m.workspaceId === workspaceId && m.userId === userId);
   }
