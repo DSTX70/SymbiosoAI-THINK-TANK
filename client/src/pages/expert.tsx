@@ -16,6 +16,10 @@ import ThinkToast from "@/components/ThinkToast";
 import { TemplateLibrary } from "@/components/TemplateLibrary";
 import { WorkspaceManagement } from "@/components/WorkspaceManagement";
 import LiveStreamingSection, { createStreamUrl } from "@/components/LiveStreamingSection";
+import { LiveChat } from "@/components/LiveChat";
+import { SessionSharing } from "@/components/SessionSharing";
+import { WorkspaceSync } from "@/components/WorkspaceSync";
+import { useCollaboration } from "@/hooks/useCollaboration";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { ThinkRequest, ThinkResponse } from "@shared/schema";
@@ -30,6 +34,11 @@ export default function ExpertPage() {
   const [streamingResult, setStreamingResult] = useState<any>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const { toast } = useToast();
+
+  // Collaboration state
+  const [currentSessionCode, setCurrentSessionCode] = useState<string>("");
+  const [showLiveChat, setShowLiveChat] = useState(false);
+  const { isConnected: isCollaborating, participantCount } = useCollaboration(currentSessionCode);
 
   // Expert Mode Configuration State
   const [configuration, setConfiguration] = useState({
@@ -476,11 +485,37 @@ export default function ExpertPage() {
             </TabsContent>
 
             <TabsContent value="workspace" className="space-y-6">
-              <Card className="card-elevated">
-                <CardContent className="p-6">
-                  <WorkspaceManagement />
-                </CardContent>
-              </Card>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-6">
+                  <Card className="card-elevated">
+                    <CardContent className="p-6">
+                      <WorkspaceManagement />
+                    </CardContent>
+                  </Card>
+
+                  <Card className="card-elevated">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Settings className="h-5 w-5" />
+                        Team Collaboration
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <SessionSharing 
+                        currentSessionCode={currentSessionCode}
+                        onSessionJoined={setCurrentSessionCode}
+                      />
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="space-y-6">
+                  <WorkspaceSync 
+                    sessionCode={currentSessionCode}
+                    className="w-full"
+                  />
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </section>
@@ -495,6 +530,16 @@ export default function ExpertPage() {
           </div>
         </aside>
       </main>
+      
+      {/* Live Chat Component */}
+      {currentSessionCode && (
+        <LiveChat
+          sessionCode={currentSessionCode}
+          isVisible={showLiveChat}
+          onToggle={() => setShowLiveChat(!showLiveChat)}
+          participantCount={participantCount}
+        />
+      )}
       
       <Footer />
     </div>

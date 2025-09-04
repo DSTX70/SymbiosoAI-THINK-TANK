@@ -2,7 +2,10 @@ import {
   type User, type InsertUser, type UpsertUser, type AnalysisSession, type InsertAnalysisSession,
   type Workspace, type InsertWorkspace, type WorkspaceMember, type InsertWorkspaceMember,
   type WorkspaceInvite, type InsertWorkspaceInvite, type UserPreferences,
-  users, analysisSessions, workspaces, workspaceMembers, workspaceInvites
+  type SessionCode, type InsertSessionCode, type SessionParticipant, type InsertSessionParticipant,
+  type ChatMessage, type InsertChatMessage,
+  users, analysisSessions, workspaces, workspaceMembers, workspaceInvites,
+  sessionCodes, sessionParticipants, chatMessages
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { Pool, neonConfig } from '@neondatabase/serverless';
@@ -54,6 +57,18 @@ export interface IStorage {
   getWorkspaceInvite(inviteCode: string): Promise<WorkspaceInvite | undefined>;
   acceptWorkspaceInvite(inviteCode: string, userId: string): Promise<WorkspaceMember | undefined>;
   getWorkspaceInvites(workspaceId: string): Promise<WorkspaceInvite[]>;
+
+  // Session code operations for collaboration
+  createSessionCode(sessionCode: InsertSessionCode): Promise<SessionCode>;
+  getSessionCode(code: string): Promise<SessionCode | undefined>;
+  addUserToSession(sessionCode: string, userId: string): Promise<void>;
+  getSessionParticipants(sessionCode: string): Promise<SessionParticipant[]>;
+  removeUserFromSession(sessionCode: string, userId: string): Promise<void>;
+
+  // Chat message operations for team communication
+  saveChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
+  getChatHistory(sessionCode: string): Promise<ChatMessage[]>;
+  deleteChatMessage(messageId: string): Promise<void>;
   
 }
 
@@ -63,6 +78,9 @@ export class MemStorage implements IStorage {
   private workspaces: Map<string, Workspace>;
   private workspaceMembers: Map<string, WorkspaceMember>;
   private workspaceInvites: Map<string, WorkspaceInvite>;
+  private sessionCodes: Map<string, SessionCode>;
+  private sessionParticipants: Map<string, SessionParticipant>;
+  private chatMessages: Map<string, ChatMessage>;
 
   constructor() {
     this.users = new Map();
@@ -70,6 +88,9 @@ export class MemStorage implements IStorage {
     this.workspaces = new Map();
     this.workspaceMembers = new Map();
     this.workspaceInvites = new Map();
+    this.sessionCodes = new Map();
+    this.sessionParticipants = new Map();
+    this.chatMessages = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -588,6 +609,53 @@ export class DatabaseStorage implements IStorage {
   async cleanupExpiredSessions(): Promise<number> {
     const result = await db.delete(userSessions).where(sql`${userSessions.expiresAt} < NOW()`);
     return result.rowCount || 0;
+  }
+
+  // Session code operations for collaboration
+  async createSessionCode(sessionCodeData: InsertSessionCode): Promise<SessionCode> {
+    const [sessionCode] = await db.insert(sessionCodes).values(sessionCodeData).returning();
+    return sessionCode;
+  }
+
+  async getSessionCode(code: string): Promise<SessionCode | undefined> {
+    const [sessionCode] = await db.select().from(sessionCodes)
+      .where(sql`${sessionCodes.code} = ${code} AND ${sessionCodes.isActive} = true AND ${sessionCodes.expiresAt} > NOW()`);
+    return sessionCode || undefined;
+  }
+
+  async addUserToSession(sessionCode: string, userId: string): Promise<void> {
+    await db.insert(sessionParticipants).values({
+      sessionCode,
+      userId,
+      role: "participant"
+    });
+  }
+
+  async getSessionParticipants(sessionCode: string): Promise<SessionParticipant[]> {
+    return await db.select().from(sessionParticipants)
+      .where(eq(sessionParticipants.sessionCode, sessionCode))
+      .orderBy(sessionParticipants.joinedAt);
+  }
+
+  async removeUserFromSession(sessionCode: string, userId: string): Promise<void> {
+    await db.delete(sessionParticipants)
+      .where(sql`${sessionParticipants.sessionCode} = ${sessionCode} AND ${sessionParticipants.userId} = ${userId}`);
+  }
+
+  // Chat message operations for team communication
+  async saveChatMessage(messageData: InsertChatMessage): Promise<ChatMessage> {
+    const [message] = await db.insert(chatMessages).values(messageData).returning();
+    return message;
+  }
+
+  async getChatHistory(sessionCode: string): Promise<ChatMessage[]> {
+    return await db.select().from(chatMessages)
+      .where(eq(chatMessages.sessionCode, sessionCode))
+      .orderBy(chatMessages.timestamp);
+  }
+
+  async deleteChatMessage(messageId: string): Promise<void> {
+    await db.delete(chatMessages).where(eq(chatMessages.id, messageId));
   }
 }
 

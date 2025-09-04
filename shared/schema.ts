@@ -355,3 +355,62 @@ export type AgentSelection = {
   domain_expert_type?: string;
   usecase_type?: string;
 };
+
+// Session codes for real-time collaboration
+export const sessionCodes = pgTable("session_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code", { length: 8 }).unique().notNull(),
+  createdBy: varchar("created_by").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type InsertSessionCode = typeof sessionCodes.$inferInsert;
+export type SessionCode = typeof sessionCodes.$inferSelect;
+
+// Session participants for tracking who's in each collaborative session
+export const sessionParticipants = pgTable("session_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionCode: varchar("session_code").notNull(),
+  userId: varchar("user_id").notNull(),
+  joinedAt: timestamp("joined_at").defaultNow(),
+  role: varchar("role", { enum: ["viewer", "participant", "moderator"] }).default("participant").notNull(),
+});
+
+export type InsertSessionParticipant = typeof sessionParticipants.$inferInsert;
+export type SessionParticipant = typeof sessionParticipants.$inferSelect;
+
+// Chat messages for live team communication during debates
+export const chatMessages = pgTable("chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionCode: varchar("session_code").notNull(),
+  userId: varchar("user_id").notNull(),
+  content: text("content").notNull(),
+  timestamp: timestamp("timestamp").defaultNow(),
+  messageType: varchar("message_type", { enum: ["chat", "system", "debate_update"] }).default("chat").notNull(),
+});
+
+export type InsertChatMessage = typeof chatMessages.$inferInsert;
+export type ChatMessage = typeof chatMessages.$inferSelect;
+
+// Zod schemas for collaboration features
+export const insertSessionCodeSchema = createInsertSchema(sessionCodes).pick({
+  code: true,
+  createdBy: true,
+  expiresAt: true,
+  isActive: true,
+});
+
+export const insertSessionParticipantSchema = createInsertSchema(sessionParticipants).pick({
+  sessionCode: true,
+  userId: true,
+  role: true,
+});
+
+export const insertChatMessageSchema = createInsertSchema(chatMessages).pick({
+  sessionCode: true,
+  userId: true,
+  content: true,
+  messageType: true,
+});

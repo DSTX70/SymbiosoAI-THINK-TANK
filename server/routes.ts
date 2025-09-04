@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { thinkRequestSchema, type ThinkResponse, insertWorkspaceSchema } from "@shared/schema";
 import { runMultiAgentDebate } from "../client/src/lib/ai-service";
@@ -279,7 +280,198 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Session code management for collaboration
+  app.post("/api/sessions/generate-code", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const sessionCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      
+      await storage.createSessionCode({
+        code: sessionCode,
+        createdBy: userId,
+        expiresAt,
+        isActive: true
+      });
+      
+      res.json({ sessionCode, expiresAt });
+    } catch (error: any) {
+      console.error("Generate session code error:", error);
+      res.status(500).json({ message: "Failed to generate session code" });
+    }
+  });
+
+  app.post("/api/sessions/join/:code", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const sessionCode = req.params.code.toUpperCase();
+      
+      const sessionInfo = await storage.getSessionCode(sessionCode);
+      if (!sessionInfo || !sessionInfo.isActive || sessionInfo.expiresAt < new Date()) {
+        return res.status(404).json({ message: "Invalid or expired session code" });
+      }
+      
+      // Add user to session
+      await storage.addUserToSession(sessionCode, userId);
+      
+      res.json({ 
+        success: true, 
+        sessionCode,
+        createdBy: sessionInfo.createdBy,
+        participants: await storage.getSessionParticipants(sessionCode)
+      });
+    } catch (error: any) {
+      console.error("Join session error:", error);
+      res.status(500).json({ message: "Failed to join session" });
+    }
+  });
+
+  app.get("/api/sessions/code/:code/participants", isAuthenticated, async (req, res) => {
+    try {
+      const sessionCode = req.params.code.toUpperCase();
+      const participants = await storage.getSessionParticipants(sessionCode);
+      res.json(participants);
+    } catch (error: any) {
+      console.error("Get participants error:", error);
+      res.status(500).json({ message: "Failed to fetch participants" });
+    }
+  });
+
+  // Chat message routes
+  app.get("/api/sessions/code/:code/chat", isAuthenticated, async (req, res) => {
+    try {
+      const sessionCode = req.params.code.toUpperCase();
+      const messages = await storage.getChatHistory(sessionCode);
+      res.json(messages);
+    } catch (error: any) {
+      console.error("Get chat history error:", error);
+      res.status(500).json({ message: "Failed to fetch chat history" });
+    }
+  });
+
+  app.post("/api/sessions/code/:code/chat", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const sessionCode = req.params.code.toUpperCase();
+      const { content, messageType = "chat" } = req.body;
+      
+      const message = await storage.saveChatMessage({
+        sessionCode,
+        userId,
+        content,
+        messageType
+      });
+      
+      res.json(message);
+    } catch (error: any) {
+      console.error("Save chat message error:", error);
+      res.status(500).json({ message: "Failed to save message" });
+    }
+  });
+
   const httpServer = createServer(app);
+  
+  // WebSocket server for real-time collaboration
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  // Store active sessions and their participants
+  const activeSessions = new Map<string, Set<WebSocket>>();
+  const userSessions = new Map<WebSocket, { userId: string, sessionCode?: string }>();
+  
+  wss.on('connection', (ws: WebSocket, req) => {
+    console.log('New WebSocket connection established');
+    
+    ws.on('message', async (data) => {
+      try {
+        const message = JSON.parse(data.toString());
+        
+        switch (message.type) {
+          case 'join_session':
+            const { sessionCode, userId } = message;
+            userSessions.set(ws, { userId, sessionCode });
+            
+            if (!activeSessions.has(sessionCode)) {
+              activeSessions.set(sessionCode, new Set());
+            }
+            activeSessions.get(sessionCode)!.add(ws);
+            
+            // Notify other participants
+            broadcastToSession(sessionCode, {
+              type: 'user_joined',
+              userId,
+              timestamp: new Date().toISOString()
+            }, ws);
+            break;
+            
+          case 'chat_message':
+            const sessionInfo = userSessions.get(ws);
+            if (sessionInfo?.sessionCode) {
+              broadcastToSession(sessionInfo.sessionCode, {
+                type: 'chat_message',
+                message: message.content,
+                userId: sessionInfo.userId,
+                timestamp: new Date().toISOString()
+              });
+            }
+            break;
+            
+          case 'workspace_update':
+            const userSession = userSessions.get(ws);
+            if (userSession?.sessionCode) {
+              broadcastToSession(userSession.sessionCode, {
+                type: 'workspace_update',
+                data: message.data,
+                userId: userSession.userId,
+                timestamp: new Date().toISOString()
+              }, ws);
+            }
+            break;
+        }
+      } catch (error) {
+        console.error('WebSocket message error:', error);
+        ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
+      }
+    });
+    
+    ws.on('close', () => {
+      const sessionInfo = userSessions.get(ws);
+      if (sessionInfo?.sessionCode) {
+        const sessionParticipants = activeSessions.get(sessionInfo.sessionCode);
+        if (sessionParticipants) {
+          sessionParticipants.delete(ws);
+          
+          // Notify other participants
+          broadcastToSession(sessionInfo.sessionCode, {
+            type: 'user_left',
+            userId: sessionInfo.userId,
+            timestamp: new Date().toISOString()
+          });
+          
+          // Clean up empty sessions
+          if (sessionParticipants.size === 0) {
+            activeSessions.delete(sessionInfo.sessionCode);
+          }
+        }
+      }
+      userSessions.delete(ws);
+    });
+    
+    // Send connection confirmation
+    ws.send(JSON.stringify({ type: 'connected', timestamp: new Date().toISOString() }));
+  });
+  
+  function broadcastToSession(sessionCode: string, message: any, exclude?: WebSocket) {
+    const participants = activeSessions.get(sessionCode);
+    if (participants) {
+      const messageStr = JSON.stringify(message);
+      participants.forEach(ws => {
+        if (ws !== exclude && ws.readyState === WebSocket.OPEN) {
+          ws.send(messageStr);
+        }
+      });
+    }
+  }
+  
   return httpServer;
 }
 
