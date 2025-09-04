@@ -59,7 +59,7 @@ export async function runMultiAgentDebate(
         : '';
       
       const response = await openai.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
         messages: [
           {
             role: "system",
@@ -71,7 +71,7 @@ export async function runMultiAgentDebate(
           }
         ],
         max_completion_tokens: settings.response_length === "detailed" ? 800 : settings.response_length === "brief" ? 300 : 500,
-        // temperature: settings.temperature || 0.7 // Using default temperature
+        temperature: settings.temperature || 0.7
       });
 
       const content = response.choices[0].message.content || "";
@@ -95,7 +95,7 @@ ${debate_history.map(h => `${h.agent}: ${h.response}`).join('\n\n')}
 Respond only with valid JSON.`;
 
   const synthesis = await openai.chat.completions.create({
-    model: "gpt-4o",
+    model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
     messages: [
       {
         role: "system",
@@ -108,7 +108,7 @@ Respond only with valid JSON.`;
     ],
     response_format: { type: "json_object" },
     max_completion_tokens: 1000,
-    // temperature: 0.3 // Using default temperature
+    temperature: 0.3
   });
 
   try {
