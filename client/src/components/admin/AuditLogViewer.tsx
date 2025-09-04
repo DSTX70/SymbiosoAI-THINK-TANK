@@ -34,7 +34,9 @@ export function AuditLogViewer({ organizationId, userRole }: AuditLogViewerProps
   // Fetch audit logs with filters
   const { data: auditLogs, isLoading, refetch } = useQuery({
     queryKey: ['/api/audit-logs', organizationId, actionFilter === 'all' ? undefined : actionFilter],
-    enabled: ['super_admin', 'admin'].includes(userRole)
+    enabled: ['super_admin', 'admin'].includes(userRole),
+    throwOnError: false,
+    retry: false
   });
 
   // Common actions for filtering

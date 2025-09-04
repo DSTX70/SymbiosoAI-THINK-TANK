@@ -30,13 +30,17 @@ export function SecurityOverview({ organizationId, userRole, detailed = false }:
   // Fetch security events
   const { data: securityEvents, isLoading: eventsLoading } = useQuery({
     queryKey: ['/api/security-events', organizationId, severityFilter, resolvedFilter],
-    enabled: ['super_admin', 'admin'].includes(userRole)
+    enabled: ['super_admin', 'admin'].includes(userRole),
+    throwOnError: false,
+    retry: false
   });
 
   // Fetch recent audit logs for security context
   const { data: auditLogs } = useQuery({
     queryKey: ['/api/audit-logs', organizationId, undefined, 20],
-    enabled: ['super_admin', 'admin'].includes(userRole)
+    enabled: ['super_admin', 'admin'].includes(userRole),
+    throwOnError: false,
+    retry: false
   });
 
   const getSeverityColor = (severity: string) => {

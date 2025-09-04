@@ -28,19 +28,25 @@ export function UsageAnalytics({ organizationId, userRole }: UsageAnalyticsProps
   // Fetch usage analytics data
   const { data: usageAnalytics, isLoading } = useQuery({
     queryKey: ['/api/usage/analytics', selectedOrganization === 'all' ? undefined : selectedOrganization, timePeriod],
-    enabled: ['super_admin', 'admin', 'manager'].includes(userRole)
+    enabled: ['super_admin', 'admin', 'manager'].includes(userRole),
+    throwOnError: false,
+    retry: false
   });
 
   // Fetch quota status
   const { data: quotaStatus } = useQuery({
     queryKey: ['/api/usage/quotas', selectedOrganization],
-    enabled: selectedOrganization !== 'all' && ['super_admin', 'admin', 'manager'].includes(userRole)
+    enabled: selectedOrganization !== 'all' && ['super_admin', 'admin', 'manager'].includes(userRole),
+    throwOnError: false,
+    retry: false
   });
 
   // Fetch organization list for super admins
   const { data: organizations } = useQuery({
     queryKey: ['/api/organizations'],
-    enabled: userRole === 'super_admin'
+    enabled: userRole === 'super_admin',
+    throwOnError: false,
+    retry: false
   });
 
   const getQuotaStatusColor = (percentage: number) => {

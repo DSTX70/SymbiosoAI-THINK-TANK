@@ -36,13 +36,17 @@ export function OrganizationManager({ userRole }: OrganizationManagerProps) {
   // Fetch organizations
   const { data: organizations, isLoading } = useQuery({
     queryKey: ['/api/organizations'],
-    enabled: userRole === 'super_admin'
+    enabled: userRole === 'super_admin',
+    throwOnError: false,
+    retry: false
   });
 
   // Fetch organization members for selected organization
   const { data: members } = useQuery({
     queryKey: ['/api/organizations', selectedOrganization, 'members'],
-    enabled: !!selectedOrganization && userRole === 'super_admin'
+    enabled: !!selectedOrganization && userRole === 'super_admin',
+    throwOnError: false,
+    retry: false
   });
 
   // Create organization form

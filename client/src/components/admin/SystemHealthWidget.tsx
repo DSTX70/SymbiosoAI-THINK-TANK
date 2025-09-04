@@ -43,7 +43,9 @@ export function SystemHealthWidget({ systemHealth, refreshInterval = 30000 }: Sy
   const { data: realtimeMetrics, refetch } = useQuery({
     queryKey: ['/api/monitoring/metrics/realtime'],
     refetchInterval: refreshInterval,
-    enabled: !!systemHealth
+    enabled: !!systemHealth,
+    throwOnError: false,
+    retry: false
   });
 
   const handleManualRefresh = async () => {

@@ -29,20 +29,26 @@ export function PerformanceMonitoring({ organizationId, userRole }: PerformanceM
   const { data: performanceData, isLoading, refetch } = useQuery({
     queryKey: ['/api/monitoring/performance', organizationId, timeRange],
     enabled: ['super_admin', 'admin', 'manager'].includes(userRole),
-    refetchInterval: 30000 // 30 seconds
+    refetchInterval: 30000, // 30 seconds
+    throwOnError: false,
+    retry: false
   });
 
   // Fetch error analytics
   const { data: errorData } = useQuery({
     queryKey: ['/api/monitoring/errors', organizationId, '24h'],
-    enabled: ['super_admin', 'admin'].includes(userRole)
+    enabled: ['super_admin', 'admin'].includes(userRole),
+    throwOnError: false,
+    retry: false
   });
 
   // Fetch real-time system metrics
   const { data: realtimeMetrics } = useQuery({
     queryKey: ['/api/monitoring/metrics/realtime', organizationId],
     enabled: ['super_admin', 'admin'].includes(userRole),
-    refetchInterval: 10000 // 10 seconds
+    refetchInterval: 10000, // 10 seconds
+    throwOnError: false,
+    retry: false
   });
 
   const handleManualRefresh = async () => {
