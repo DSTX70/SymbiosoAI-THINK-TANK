@@ -6,7 +6,7 @@ import {
   thinkRequestSchema, type ThinkResponse, insertWorkspaceSchema,
   insertOrganizationSchema, insertOrganizationMemberSchema, insertTeamSchema 
 } from "@shared/schema";
-import { runMultiAgentDebate } from "../client/src/lib/ai-service";
+import { runMultiAgentDebate } from "./ai-service";
 import { perplexityService } from "./services/perplexity";
 import { registerStreamingRoutes } from "./streaming";
 import type { Citation, FactCheckFinding } from "@shared/schema";
@@ -873,7 +873,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        const response = await runMultiAgentDebate(result);
+        const response = await runMultiAgentDebate(result.prompt, result);
         res.json(response);
       } catch (error: any) {
         console.error("Think endpoint error:", error);
