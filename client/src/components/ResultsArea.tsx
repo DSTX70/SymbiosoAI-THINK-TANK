@@ -21,15 +21,26 @@ import {
   Target,
   TrendingUp
 } from "lucide-react";
-import type { ThinkResponse, Citation, FactCheckFinding, FollowUpQuestion, FocusAreas } from "@shared/schema";
+import type { ThinkResponse, Citation, FactCheckFinding, FollowUpQuestion, FocusAreas, BrainstormResponse } from "@shared/schema";
+import { BrainstormSection } from "@/components/BrainstormSection";
 
 interface ResultsAreaProps {
   results: ThinkResponse | null;
   isProcessing?: boolean;
   onExport?: (format: string) => void;
+  sessionId?: string;
+  brainstormResults?: BrainstormResponse;
+  onBrainstormComplete?: (results: BrainstormResponse) => void;
 }
 
-export function ResultsArea({ results, isProcessing, onExport }: ResultsAreaProps) {
+export function ResultsArea({ 
+  results, 
+  isProcessing, 
+  onExport, 
+  sessionId, 
+  brainstormResults, 
+  onBrainstormComplete 
+}: ResultsAreaProps) {
   const [activeTab, setActiveTab] = useState("consensus");
 
   if (isProcessing) {
@@ -140,7 +151,7 @@ export function ResultsArea({ results, isProcessing, onExport }: ResultsAreaProp
       
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="consensus" data-testid="tab-consensus">
               Consensus
             </TabsTrigger>
@@ -149,6 +160,9 @@ export function ResultsArea({ results, isProcessing, onExport }: ResultsAreaProp
             </TabsTrigger>
             <TabsTrigger value="unresolved" data-testid="tab-unresolved">
               Unresolved ({results.unresolved?.length || 0})
+            </TabsTrigger>
+            <TabsTrigger value="brainstorm" data-testid="tab-brainstorm">
+              Brainstorm
             </TabsTrigger>
             <TabsTrigger value="sources" data-testid="tab-sources">
               Sources ({results.citations?.length || 0})
@@ -222,6 +236,17 @@ export function ResultsArea({ results, isProcessing, onExport }: ResultsAreaProp
                 </div>
               )}
             </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value="brainstorm" className="mt-4">
+            <BrainstormSection
+              sessionId={sessionId}
+              brainstormResults={brainstormResults}
+              onBrainstormStart={() => {
+                // Optional: Add loading state handling if needed
+              }}
+              onBrainstormComplete={onBrainstormComplete}
+            />
           </TabsContent>
 
           <TabsContent value="sources" className="mt-4">
