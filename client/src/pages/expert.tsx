@@ -333,13 +333,13 @@ export default function ExpertPage() {
       <main
         className="
           min-h-0 flex-1 grid
-          grid-cols-[minmax(0,1fr)]                 /* < lg: center only */
-          lg:grid-cols-[16rem_minmax(0,1fr)]        /* lg..xl: left + center */
+          grid-cols-[minmax(0,1fr)]                 /* < md: center only */
+          md:grid-cols-[16rem_minmax(0,1fr)]        /* md..xl: left + center */
           xl:grid-cols-[16rem_minmax(0,1fr)_18rem]  /* xl+: left + center + right */
         "
       >
         {/* Left sidebar (256px) */}
-        <aside className="hidden lg:block border-r border-border overflow-y-auto">
+        <aside className="hidden md:block border-r border-border overflow-y-auto">
           <div className="w-64 p-4 space-y-6">
             <Card className="card-elevated">
               <CardHeader>
