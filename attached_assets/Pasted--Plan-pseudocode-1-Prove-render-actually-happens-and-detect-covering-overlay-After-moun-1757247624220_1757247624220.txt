@@ -1,0 +1,240 @@
+# Plan (pseudocode)
+# 1) Prove render actually happens and detect covering overlay
+#    - After mount, inspect DOM for any fullscreen node above #root (fixed/absolute with large z-index or size).
+#    - If found and it matches a Replit placeholder (by text or known classes), remove it (dev-only).
+# 2) Ensure layout cannot collapse
+#    - Guarantee html, body, #root take full height; ensure #root is positioned (stacking context) so it isn’t under overlays accidentally.
+# 3) Kill stale caches / SW
+#    - Send Cache-Control: no-store for index.html (in setupVite middleware).
+#    - Add defensive client code to unregister any existing Service Workers in dev.
+# 4) Verify Vite template actually served
+#    - Log the resolved template path; add no-store headers; keep cache-busted entry.
+# 5) Make auth loader non-blocking in dev (already mostly done), but also render routes behind a Suspense-less fallback.
+
+
+# ---- File: /src/main.tsx (or /src/main.ts) ----
+# Adds: robust root check, overlay detector/remover (dev-only), SW unregister (dev-only), post-mount z-index sanity.
+
+/* eslint-disable no-console */
+import { createRoot } from "react-dom/client";
+import App from "./App";
+import "./index.css";
+
+function devOnly(fn: () => void) {
+  if (import.meta.env.DEV) fn();
+}
+
+function removeCoveringOverlays() {
+  // Why: On Replit/Mobile Safari, a placeholder or injected banner may cover the app.
+  const viewportW = window.innerWidth;
+  const viewportH = window.innerHeight;
+  const candidates = Array.from(document.body.children) as HTMLElement[];
+
+  for (const el of candidates) {
+    const style = window.getComputedStyle(el);
+    const rect = el.getBoundingClientRect();
+    const isFullscreenSize = rect.width >= viewportW * 0.98 && rect.height >= viewportH * 0.98;
+    const isOnTop = ["fixed", "absolute"].includes(style.position) && (parseInt(style.zIndex || "0", 10) || 0) >= 1;
+    const looksLikePlaceholder = /run this app|replit|placeholder/i.test(el.textContent || "");
+
+    if (isFullscreenSize && isOnTop && looksLikePlaceholder) {
+      console.warn("[Dev] Removing covering placeholder element:", el);
+      el.remove();
+    }
+  }
+}
+
+function ensureZIndexForRoot(rootEl: HTMLElement) {
+  const style = window.getComputedStyle(rootEl);
+  if (style.position === "static") {
+    // Why: create a stacking context so overlays without insane z-index can’t sit above by accident.
+    rootEl.style.position = "relative";
+  }
+}
+
+function unregisterServiceWorkersDev() {
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.getRegistrations?.().then((regs) => {
+    for (const reg of regs) {
+      console.warn("[Dev] Unregistering SW:", reg.scope);
+      reg.unregister();
+    }
+  }).catch((e) => console.warn("[Dev] SW unregister failed:", e));
+}
+
+window.addEventListener("unhandledrejection", (event) => {
+  console.warn("Unhandled promise rejection:", event.reason);
+  event.preventDefault();
+});
+
+window.addEventListener("error", (event) => {
+  console.warn("Uncaught error:", event.error);
+});
+
+const rootEl = document.getElementById("root");
+if (!rootEl) {
+  console.error("❌ #root element not found – check index.html");
+} else {
+  devOnly(() => {
+    unregisterServiceWorkersDev();
+    ensureZIndexForRoot(rootEl);
+    // Attempt removal twice: once now, once after first paint.
+    removeCoveringOverlays();
+    requestAnimationFrame(removeCoveringOverlays);
+  });
+
+  console.log("🎨 Creating React root and rendering App...");
+  createRoot(rootEl).render(<App />);
+}
+
+
+# ---- File: /src/index.css ----
+# Adds: full-height layout + safe stacking context for root; minimal reset to avoid being visually hidden.
+
+html, body, #root {
+  height: 100%;
+}
+
+/* Avoid accidental collapse on Mobile Safari */
+body { min-height: 100vh; }
+
+/* Ensure app content participates in stacking properly */
+#root { isolation: isolate; }
+
+
+# ---- File: /server/vite.ts (setupVite) ----
+# Adds: no-store headers for index.html; template path logging (dev), safer replacement.
+
+import fs from "node:fs";
+import path from "node:path";
+import { nanoid } from "nanoid";
+import type { Express } from "express";
+import type { Server } from "http";
+import { createServer as createViteServer } from "vite";
+import { viteConfig, viteLogger } from "./config";
+
+export async function setupVite(app: Express, server: Server) {
+  const serverOptions = { middlewareMode: true as const, hmr: { server }, allowedHosts: true as const };
+
+  const vite = await createViteServer({
+    ...viteConfig,
+    configFile: false,
+    customLogger: {
+      ...viteLogger,
+      error: (msg, options) => {
+        viteLogger.error(msg, options);
+        // Why: don’t crash the whole Express in dev; log but keep running.
+        if (!process.env.CI) return;
+        process.exit(1);
+      },
+    },
+    server: serverOptions,
+    appType: "custom",
+  });
+
+  app.use(vite.middlewares);
+
+  app.use("*", async (req, res, next) => {
+    const url = req.originalUrl;
+    try {
+      const clientTemplate = path.resolve(import.meta.dirname, "..", "client", "index.html");
+      if (process.env.DEBUG?.includes("vite")) {
+        console.log("[vite] using template:", clientTemplate);
+      }
+
+      let template = await fs.promises.readFile(clientTemplate, "utf-8");
+      // Replace only if the attribute exists, otherwise inject one cleanly
+      if (template.includes('src="/src/main.tsx"')) {
+        template = template.replace('src="/src/main.tsx"', `src="/src/main.tsx?v=${nanoid()}"`);
+      }
+
+      const page = await vite.transformIndexHtml(url, template);
+      res
+        .status(200)
+        .set({ "Content-Type": "text/html", "Cache-Control": "no-store, max-age=0" })
+        .end(page);
+    } catch (e) {
+      vite.ssrFixStacktrace(e as Error);
+      next(e);
+    }
+  });
+}
+
+
+# ---- File: /client/index.html ----
+# Ensure there’s no third-party banner; keep a clean body; keep the script last.
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SymbiosoAi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+    <style>
+      /* Safety: ensure the placeholder from any host doesn't cover the app */
+      [data-replit-placeholder], .replit-dev-tools, .replit-iframe, .replit-banner { display: none !important; }
+      html, body, #root { height: 100%; margin: 0; }
+      body { min-height: 100vh; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
+
+# ---- File: /src/App.tsx (optional small guard) ----
+# Render Router immediately; keep a minimal safe visual to prove we’re not blocked by auth.
+
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "./lib/queryClient";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/toaster";
+import Router from "./Router";
+
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Router />
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
+
+
+# ---- File: /src/Router.tsx (unchanged logic + tiny dev log) ----
+import { Switch, Route } from "wouter";
+import Landing from "@/pages/landing";
+import SimplePage from "@/pages/simple";
+import GuidedPage from "@/pages/guided";
+import ExpertPage from "@/pages/expert";
+import { useAuth } from "@/hooks/useAuth";
+
+export default function Router() {
+  const { isAuthenticated, isLoading, user } = useAuth();
+  if (import.meta.env.DEV) console.log("Router:", { isAuthenticated, isLoading, user });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <Switch>
+      <Route path="/" component={Landing} />
+      <Route path="/simple" component={SimplePage} />
+      <Route path="/guided" component={GuidedPage} />
+      <Route path="/expert" component={ExpertPage} />
+      <Route component={() => <div>Page not found</div>} />
+    </Switch>
+  );
+}

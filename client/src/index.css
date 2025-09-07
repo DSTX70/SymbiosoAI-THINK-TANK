@@ -4,6 +4,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Ensure full-height layout and prevent overlay issues */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+/* Avoid accidental collapse on Mobile Safari */
+body { 
+  min-height: 100vh; 
+}
+
+/* Ensure app content participates in stacking properly */
+#root { 
+  isolation: isolate; 
+  position: relative;
+}
+
 :root {
   /* Shadcn compatibility using SymbiosoAi tokens */
   --background: var(--surface-bg);
