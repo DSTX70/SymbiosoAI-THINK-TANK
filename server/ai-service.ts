@@ -41,7 +41,7 @@ export const AI_AGENTS: AIAgent[] = [
   {
     role: "Domain Expert",
     perspective: "Specialized knowledge and best practices",
-    systemPrompt: "You are a domain expert AI that provides specialized knowledge, industry best practices, and contextual understanding relevant to the topic."
+    systemPrompt: "You are a domain expert AI that provides specialized knowledge, industry best practices, and contextual understanding relevant to the topic. When participating in debates, always ground your expertise in the specific context being discussed, reference concrete examples, and directly engage with points raised by other participants to provide maximum value to the collaborative analysis."
   }
 ];
 
@@ -67,13 +67,36 @@ export async function runMultiAgentDebate(
         ? `\n\nPrevious discussion:\n${debate_history.map(h => `${h.agent}: ${h.response}`).join('\n\n')}`
         : '';
       
+      // Enhanced contextual instructions for Domain Expert
+      let roleSpecificInstructions = "";
+      if (agent.role === "Domain Expert" && debate_history.length > 0) {
+        // Extract key themes and unresolved points from debate history
+        const debatePoints = debate_history.map(h => h.response).join(' ');
+        
+        roleSpecificInstructions = `\n\nAs a Domain Expert responding to the ongoing debate, you should:
+1. DIRECTLY address specific points, claims, or questions raised by other agents
+2. Provide domain-specific expertise that validates, contradicts, or expands on previous arguments
+3. Cite relevant examples, case studies, or technical details that others may have missed
+4. Fill knowledge gaps identified in the discussion
+5. Build upon the strongest points while correcting any misconceptions
+6. Reference specific agent statements when agreeing or disagreeing (e.g., "Building on the Analyst's point about...")
+7. Offer practical, actionable insights based on real-world domain experience`;
+      } else if (round > 0) {
+        // For later rounds, all agents should be more responsive to the ongoing discussion
+        roleSpecificInstructions = `\n\nSince this is round ${round + 1}, focus on:
+1. Building upon or challenging specific points made by other agents
+2. Addressing any gaps or questions raised in previous discussions
+3. Avoiding repetition of already-covered ground
+4. Moving the discussion forward with new insights`;
+      }
+      
       console.log(`🤖 ${agent.role} generating response for: "${prompt}"`);
       const response = await openai.chat.completions.create({
         model: "gpt-4", // Using gpt-4 instead of gpt-5 which doesn't exist
         messages: [
           {
             role: "system",
-            content: `${agent.systemPrompt}\n\nYou are participating in a collaborative AI debate about: "${prompt}"\n\nProvide a thoughtful response that contributes to the discussion.${context}`
+            content: `${agent.systemPrompt}\n\nYou are participating in a collaborative AI debate about: "${prompt}"\n\nProvide a thoughtful response that contributes to the discussion.${context}${roleSpecificInstructions}`
           },
           {
             role: "user",
