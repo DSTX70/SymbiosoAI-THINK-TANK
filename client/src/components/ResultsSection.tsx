@@ -248,10 +248,10 @@ export default function ResultsSection({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Button 
               variant="outline" 
-              className="btn-secondary" 
+              className="btn-secondary w-full" 
               onClick={handleShare}
               data-testid="button-share"
             >
@@ -260,7 +260,7 @@ export default function ResultsSection({
             </Button>
             <Button 
               variant="outline" 
-              className="btn-secondary" 
+              className="btn-secondary w-full" 
               onClick={handleSave}
               data-testid="button-save"
             >
@@ -269,7 +269,7 @@ export default function ResultsSection({
             </Button>
             <Button 
               variant="outline" 
-              className="btn-secondary" 
+              className="btn-secondary w-full" 
               onClick={handlePrint}
               data-testid="button-print"
             >
@@ -277,7 +277,7 @@ export default function ResultsSection({
               Print
             </Button>
             <Button 
-              className="btn-primary" 
+              className="btn-primary w-full" 
               onClick={handleExportPDF}
               data-testid="button-export-pdf"
             >
