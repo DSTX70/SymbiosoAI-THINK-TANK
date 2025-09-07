@@ -6,7 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, Save, Play, Lightbulb, Settings } from "lucide-react";
+import { Brain, Save, Play, Lightbulb, Settings, Users, UserCheck, BookOpen, Briefcase, Zap } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TelemetryPanel from "@/components/TelemetryPanel";
@@ -36,6 +37,12 @@ export default function ExpertPage() {
   const [streamingResult, setStreamingResult] = useState<any>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const { toast } = useToast();
+
+  // Agent Selection State (for UI display)
+  const [selectionMode, setSelectionMode] = useState<"smart" | "manual" | "domain" | "usecase">("smart");
+  const [manualAgents, setManualAgents] = useState<("analyst" | "pragmatist" | "innovator" | "thoughtful" | "critic")[]>([]);
+  const [domainExperts, setDomainExperts] = useState<("legal-analyst" | "legal-advocate" | "medical-diagnostician" | "medical-researcher" | "financial-analyst" | "investment-strategist" | "tech-architect" | "devops-engineer" | "educational-psychologist" | "brand-strategist" | "research-scientist" | "systems-engineer" | "behavioral-analyst" | "sustainability-consultant")[]>([]);
+  const [usecaseType, setUsecaseType] = useState<"business_analysis" | "technical_debate" | "creative_brainstorm" | "research_synthesis" | "ethical_discussion" | "document_analysis" | "general_inquiry" | "">("");
 
   // Collaboration state
   const [currentSessionCode, setCurrentSessionCode] = useState<string>("");
@@ -383,6 +390,206 @@ export default function ExpertPage() {
             </TabsList>
 
             <TabsContent value="analysis" className="space-y-6">
+              {/* Agent Selection Section */}
+              <Card className="card-elevated mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-3">
+                    <Users className="text-primary" size={20} />
+                    Agent Selection & Configuration
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-3">Experts</h3>
+                  <Tabs value={selectionMode} onValueChange={(value: string) => {
+                    const mode = value as "smart" | "manual" | "domain" | "usecase";
+                    setSelectionMode(mode);
+                    setConfiguration(prev => ({
+                      ...prev,
+                      selection_mode: mode,
+                      manual_agents: mode === "manual" ? manualAgents : [],
+                      domain_experts: mode === "domain" ? domainExperts : [],
+                      usecase_type: mode === "usecase" ? usecaseType : ""
+                    }));
+                  }}>
+                    <TabsList className="grid w-full grid-cols-4 h-12 mb-4">
+                      <TabsTrigger value="smart" className="flex items-center gap-2 flex-1">
+                        <Zap size={16} />
+                        Smart
+                      </TabsTrigger>
+                      <TabsTrigger value="manual" className="flex items-center gap-2 flex-1">
+                        <UserCheck size={16} />
+                        Manual
+                      </TabsTrigger>
+                      <TabsTrigger value="domain" className="flex items-center gap-2 flex-1">
+                        <Briefcase size={16} />
+                        Domain
+                      </TabsTrigger>
+                      <TabsTrigger value="usecase" className="flex items-center gap-2 flex-1">
+                        <BookOpen size={16} />
+                        Use Case
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="smart" className="mt-4">
+                      <div className="text-center p-6 border-2 border-dashed border-muted rounded-lg">
+                        <Zap className="mx-auto mb-2 text-muted-foreground" size={24} />
+                        <h3 className="font-medium mb-1">Smart Agent Selection</h3>
+                        <p className="text-sm text-muted-foreground">
+                          AI automatically selects the best agents for your prompt based on content analysis.
+                        </p>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="manual" className="mt-4">
+                      <div className="space-y-4">
+                        <h4 className="font-medium">Select AI Personalities</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          {[
+                            { id: "analyst", name: "The Analyst", desc: "Data-driven insights and systematic analysis" },
+                            { id: "pragmatist", name: "The Pragmatist", desc: "Implementation-focused and realistic solutions" },
+                            { id: "innovator", name: "The Innovator", desc: "Creative thinking and breakthrough approaches" },
+                            { id: "thoughtful", name: "The Thoughtful One", desc: "Balanced perspectives and ethical considerations" },
+                            { id: "critic", name: "The Critic", desc: "Challenge assumptions and identify weaknesses" }
+                          ].map((agent) => (
+                            <div key={agent.id} className="flex items-start space-x-3 p-3 border rounded-lg">
+                              <Checkbox
+                                id={agent.id}
+                                checked={manualAgents.includes(agent.id as any)}
+                                onCheckedChange={(checked) => {
+                                  let newAgents;
+                                  if (checked) {
+                                    newAgents = [...manualAgents, agent.id as any];
+                                  } else {
+                                    newAgents = manualAgents.filter(id => id !== agent.id);
+                                  }
+                                  setManualAgents(newAgents);
+                                  setConfiguration(prev => ({
+                                    ...prev,
+                                    manual_agents: newAgents
+                                  }));
+                                }}
+                              />
+                              <div className="grid gap-1.5 leading-none">
+                                <label
+                                  htmlFor={agent.id}
+                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                >
+                                  {agent.name}
+                                </label>
+                                <p className="text-xs text-muted-foreground">
+                                  {agent.desc}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="domain" className="mt-4">
+                      <div className="space-y-4">
+                        <h4 className="font-medium">Select Domain Experts</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          {[
+                            { id: "legal-analyst", name: "Legal Analyst", desc: "Legal research and case analysis" },
+                            { id: "legal-advocate", name: "Legal Advocate", desc: "Legal argumentation and advocacy" },
+                            { id: "medical-diagnostician", name: "Medical Diagnostician", desc: "Clinical diagnosis and medical analysis" },
+                            { id: "medical-researcher", name: "Medical Researcher", desc: "Medical research and clinical studies" },
+                            { id: "financial-analyst", name: "Financial Analyst", desc: "Financial modeling and market analysis" },
+                            { id: "investment-strategist", name: "Investment Strategist", desc: "Investment planning and portfolio strategy" },
+                            { id: "tech-architect", name: "Tech Architect", desc: "System design and technical architecture" },
+                            { id: "devops-engineer", name: "DevOps Engineer", desc: "Infrastructure and deployment strategies" },
+                            { id: "educational-psychologist", name: "Educational Psychologist", desc: "Learning theory and educational strategies" },
+                            { id: "brand-strategist", name: "Brand Strategist", desc: "Brand positioning and marketing strategy" },
+                            { id: "research-scientist", name: "Research Scientist", desc: "Scientific methodology and research design" },
+                            { id: "systems-engineer", name: "Systems Engineer", desc: "Complex systems analysis and optimization" },
+                            { id: "behavioral-analyst", name: "Behavioral Analyst", desc: "Human behavior and decision-making patterns" },
+                            { id: "sustainability-consultant", name: "Sustainability Consultant", desc: "Environmental impact and sustainable solutions" }
+                          ].map((expert) => (
+                            <div key={expert.id} className="flex items-start space-x-3 p-3 border rounded-lg">
+                              <Checkbox
+                                id={expert.id}
+                                checked={domainExperts.includes(expert.id as any)}
+                                onCheckedChange={(checked) => {
+                                  let newExperts;
+                                  if (checked) {
+                                    newExperts = [...domainExperts, expert.id as any];
+                                  } else {
+                                    newExperts = domainExperts.filter(id => id !== expert.id);
+                                  }
+                                  setDomainExperts(newExperts);
+                                  setConfiguration(prev => ({
+                                    ...prev,
+                                    domain_experts: newExperts
+                                  }));
+                                }}
+                              />
+                              <div className="grid gap-1.5 leading-none">
+                                <label
+                                  htmlFor={expert.id}
+                                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                >
+                                  {expert.name}
+                                </label>
+                                <p className="text-xs text-muted-foreground">
+                                  {expert.desc}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="usecase" className="mt-4">
+                      <div className="space-y-4">
+                        <h4 className="font-medium">Select Use Case Type</h4>
+                        <div className="grid gap-3">
+                          {[
+                            { id: "business_analysis", name: "Business Analysis", desc: "Market analysis, competitive positioning, and quantitative evaluation" },
+                            { id: "technical_debate", name: "Technical Debate", desc: "Systematic technical analysis, challenge assumptions, and implementation feasibility" },
+                            { id: "creative_brainstorm", name: "Creative Brainstorm", desc: "Generate creative solutions, evaluate feasibility, and consider stakeholder perspectives" },
+                            { id: "research_synthesis", name: "Research Synthesis", desc: "Systematically review evidence, consider implications, and evaluate methodology" },
+                            { id: "ethical_discussion", name: "Ethical Discussion", desc: "Explore ethical frameworks, challenge assumptions, and provide systematic moral reasoning" },
+                            { id: "document_analysis", name: "Document Analysis", desc: "Systematically analyze content, evaluate claims, and provide structured insights" },
+                            { id: "general_inquiry", name: "General Inquiry", desc: "Comprehensive analysis suitable for general questions and discussions" }
+                          ].map((usecase) => (
+                            <div 
+                              key={usecase.id} 
+                              className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                                usecaseType === usecase.id 
+                                  ? "border-primary bg-primary/10" 
+                                  : "border-muted hover:border-primary/50"
+                              }`}
+                              onClick={() => {
+                                const newType = usecase.id as any;
+                                setUsecaseType(newType);
+                                setConfiguration(prev => ({
+                                  ...prev,
+                                  usecase_type: newType
+                                }));
+                              }}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className={`w-4 h-4 rounded-full border-2 ${
+                                  usecaseType === usecase.id 
+                                    ? "border-primary bg-primary" 
+                                    : "border-muted"
+                                }`} />
+                                <div>
+                                  <h3 className="font-medium">{usecase.name}</h3>
+                                  <p className="text-sm text-muted-foreground">{usecase.desc}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+
               {/* Prompt Input */}
               <Card className="card-elevated gradient-bg">
                 <CardHeader>
