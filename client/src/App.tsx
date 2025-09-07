@@ -40,11 +40,19 @@ function Router() {
 }
 
 function App() {
+  console.log("🎭 SymbiosoAi App component mounting...");
+  
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <Router />
+        <div style={{ minHeight: "100vh", backgroundColor: "#f0f0f0" }}>
+          <div style={{ padding: "20px", textAlign: "center", backgroundColor: "#2563eb", color: "white" }}>
+            <h1>✅ SymbiosoAi v3 - React App Loaded Successfully!</h1>
+            <p>If you can see this, the React application is working properly.</p>
+          </div>
+          <Router />
+        </div>
       </TooltipProvider>
     </QueryClientProvider>
   );
