@@ -272,6 +272,7 @@ export async function runMultiAgentDebate(
   unresolved: string[];
   citations?: Citation[];
   fact_check?: { findings: FactCheckFinding[] };
+  debateHistory?: Array<{ agent: string; response: string }>;
 }> {
   const agents = settings.mode === "guided" ? AI_AGENTS : AI_AGENTS.slice(0, 3);
   const rounds = settings.turns || 1;
