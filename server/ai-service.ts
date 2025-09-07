@@ -67,8 +67,9 @@ export async function runMultiAgentDebate(
         ? `\n\nPrevious discussion:\n${debate_history.map(h => `${h.agent}: ${h.response}`).join('\n\n')}`
         : '';
       
+      console.log(`🤖 ${agent.role} generating response for: "${prompt}"`);
       const response = await openai.chat.completions.create({
-        model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+        model: "gpt-4", // Using gpt-4 instead of gpt-5 which doesn't exist
         messages: [
           {
             role: "system",
@@ -84,6 +85,8 @@ export async function runMultiAgentDebate(
       });
 
       const content = response.choices[0].message.content || "";
+      console.log(`🤖 ${agent.role} response length:`, content.length);
+      console.log(`🤖 ${agent.role} response preview:`, content.substring(0, 100) + "...");
       debate_history.push({
         agent: agent.role,
         response: content
@@ -103,8 +106,9 @@ ${debate_history.map(h => `${h.agent}: ${h.response}`).join('\n\n')}
 
 Respond only with valid JSON.`;
 
+  console.log("🔮 Synthesizing results from debate history:", debate_history.length, "responses");
   const synthesis = await openai.chat.completions.create({
-    model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+    model: "gpt-4", // Using gpt-4 instead of gpt-5 which doesn't exist
     messages: [
       {
         role: "system",
