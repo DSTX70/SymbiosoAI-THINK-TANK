@@ -113,9 +113,25 @@ export async function setupAuth(app: Express) {
   app.get("/api/callback", (req, res, next) => {
     // Use the first configured domain instead of req.hostname for consistency
     const domain = process.env.REPLIT_DOMAINS!.split(",")[0];
-    passport.authenticate(`replitauth:${domain}`, {
-      successReturnToOrRedirect: "/",
-      failureRedirect: "/api/login",
+    passport.authenticate(`replitauth:${domain}`, (err, user, info) => {
+      if (err) {
+        console.error("OAuth authentication error:", err);
+        return res.redirect("/api/login");
+      }
+      if (!user) {
+        console.error("OAuth authentication failed:", info);
+        return res.redirect("/api/login");
+      }
+      
+      req.logIn(user, (err) => {
+        if (err) {
+          console.error("Session login error:", err);
+          return res.redirect("/api/login");
+        }
+        
+        console.log("OAuth authentication successful, redirecting to /");
+        return res.redirect("/");
+      });
     })(req, res, next);
   });
 
