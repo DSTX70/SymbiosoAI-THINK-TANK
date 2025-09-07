@@ -51,28 +51,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
       
-      // Get user's organization memberships for enhanced context
-      const memberships = await storage.getUserOrganizationMemberships(userId);
-      
-      // Get the primary/active organization (first one or most recent)
-      const primaryMembership = memberships.length > 0 ? memberships[0] : null;
-      
-      // Enhanced user object with organization context
+      // Return basic user object for now - organization features can be added later
       const enhancedUser = {
         ...user,
-        organizationMemberships: memberships,
-        primaryOrganization: primaryMembership ? {
-          id: primaryMembership.organizationId,
-          role: primaryMembership.role,
-          organization: primaryMembership.organization
-        } : null,
         permissions: {
-          canViewAuditLogs: primaryMembership && ['super_admin', 'admin'].includes(primaryMembership.role),
-          canManageOrganizations: primaryMembership && primaryMembership.role === 'super_admin',
-          canManageTeams: primaryMembership && ['super_admin', 'admin', 'manager'].includes(primaryMembership.role),
-          canViewAnalytics: primaryMembership && ['super_admin', 'admin', 'manager'].includes(primaryMembership.role),
-          canAccessEnterpriseFeatures: primaryMembership && ['super_admin', 'admin'].includes(primaryMembership.role),
-          canViewSecurityDashboard: primaryMembership && ['super_admin', 'admin'].includes(primaryMembership.role)
+          canViewAuditLogs: user.role === 'admin',
+          canManageOrganizations: user.role === 'admin',
+          canManageTeams: user.role === 'admin',
+          canViewAnalytics: user.role === 'admin',
+          canAccessEnterpriseFeatures: user.role === 'admin',
+          canViewSecurityDashboard: user.role === 'admin'
         }
       };
       
