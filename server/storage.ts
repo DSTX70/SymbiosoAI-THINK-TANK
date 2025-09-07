@@ -39,10 +39,14 @@ export interface IStorage {
   updateUserSubscription(id: string, subscription: any): Promise<User | undefined>;
   
   // Analysis session management
-  createAnalysisSession(session: InsertAnalysisSession & { results?: any; telemetry?: any }): Promise<AnalysisSession>;
+  createAnalysisSession(session: InsertAnalysisSession & { results?: any; telemetry?: any; debateHistory?: any }): Promise<AnalysisSession>;
   getAnalysisSession(id: string): Promise<AnalysisSession | undefined>;
   updateAnalysisSession(id: string, updates: Partial<AnalysisSession>): Promise<AnalysisSession | undefined>;
   getUserAnalysisSessions(userId?: string): Promise<AnalysisSession[]>;
+  
+  // Session transfer methods for cross-mode debate continuation
+  getTransferableSessions(userId?: string, excludeMode?: string): Promise<AnalysisSession[]>;
+  getSessionForTransfer(sessionId: string): Promise<AnalysisSession | undefined>;
   
   // Workspace management
   createWorkspace(workspace: InsertWorkspace): Promise<Workspace>;
@@ -253,7 +257,7 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
-  async createAnalysisSession(sessionData: InsertAnalysisSession & { results?: any; telemetry?: any }): Promise<AnalysisSession> {
+  async createAnalysisSession(sessionData: InsertAnalysisSession & { results?: any; telemetry?: any; debateHistory?: any }): Promise<AnalysisSession> {
     const id = randomUUID();
     const session: AnalysisSession = {
       id,
@@ -262,6 +266,10 @@ export class MemStorage implements IStorage {
       settings: sessionData.settings || null,
       results: sessionData.results || null,
       telemetry: sessionData.telemetry || null,
+      debateHistory: sessionData.debateHistory || null,
+      title: sessionData.title || null,
+      sourceSessionId: sessionData.sourceSessionId || null,
+      transferCount: sessionData.transferCount || 0,
       userId: sessionData.userId || null,
       workspaceId: sessionData.workspaceId || null,
       createdAt: new Date(),
@@ -287,6 +295,27 @@ export class MemStorage implements IStorage {
     const allSessions = Array.from(this.analysisSessions.values());
     const filtered = userId ? allSessions.filter(s => s.userId === userId) : allSessions;
     return filtered.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  async getTransferableSessions(userId?: string, excludeMode?: string): Promise<AnalysisSession[]> {
+    const allSessions = Array.from(this.analysisSessions.values());
+    let filtered = userId ? allSessions.filter(s => s.userId === userId) : allSessions;
+    
+    // Only return sessions that have results (completed debates)
+    filtered = filtered.filter(s => s.results && s.results.consensus);
+    
+    // Exclude sessions from the specified mode (e.g., don't show Expert sessions when in Expert mode)
+    if (excludeMode) {
+      filtered = filtered.filter(s => s.mode !== excludeMode);
+    }
+    
+    return filtered
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0))
+      .slice(0, 20); // Limit to recent 20 sessions
+  }
+
+  async getSessionForTransfer(sessionId: string): Promise<AnalysisSession | undefined> {
+    return this.analysisSessions.get(sessionId);
   }
 
   // Workspace management methods

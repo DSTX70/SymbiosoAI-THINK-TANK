@@ -232,6 +232,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get transferable sessions for cross-mode debate continuation
+  app.get("/api/sessions/transferable", optionalAuth, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const excludeMode = req.query.exclude_mode as string;
+      
+      const sessions = await storage.getTransferableSessions(userId, excludeMode);
+      
+      // Transform sessions into transfer format
+      const transferable = sessions.map(session => ({
+        sessionId: session.id,
+        title: session.title || `${session.mode} debate: ${session.prompt.substring(0, 50)}...`,
+        prompt: session.prompt,
+        mode: session.mode,
+        consensus: session.results?.consensus || '',
+        dissents: session.results?.dissents || [],
+        unresolved: session.results?.unresolved || [],
+        debateHistory: session.debateHistory || [],
+        createdAt: session.createdAt || new Date()
+      }));
+      
+      res.json(transferable);
+    } catch (error: any) {
+      console.error("Error fetching transferable sessions:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get specific session for transfer
+  app.get("/api/sessions/:id/transfer", optionalAuth, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const session = await storage.getSessionForTransfer(req.params.id);
+      
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      // Only allow users to transfer their own sessions (or all if no auth)
+      if (userId && session.userId && session.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Return session in transfer format
+      const transferData = {
+        sessionId: session.id,
+        title: session.title || `${session.mode} debate: ${session.prompt.substring(0, 50)}...`,
+        prompt: session.prompt,
+        mode: session.mode,
+        consensus: session.results?.consensus || '',
+        dissents: session.results?.dissents || [],
+        unresolved: session.results?.unresolved || [],
+        debateHistory: session.debateHistory || [],
+        createdAt: session.createdAt || new Date()
+      };
+      
+      res.json(transferData);
+    } catch (error: any) {
+      console.error("Error fetching session for transfer:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get specific session
   app.get("/api/sessions/:id", async (req, res) => {
     try {
@@ -850,6 +913,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const result = thinkRequestSchema.parse(req.body);
         const userId = req.user?.claims?.sub;
 
+        // Handle cross-mode session transfer
+        let transferredContext = {};
+        let sourceSession = null;
+        if (result.transfer_from_session_id) {
+          sourceSession = await storage.getSessionForTransfer(result.transfer_from_session_id);
+          if (sourceSession) {
+            // Build context from previous session
+            transferredContext = {
+              previousConsensus: sourceSession.results?.consensus || '',
+              previousDissents: sourceSession.results?.dissents || [],
+              previousUnresolved: sourceSession.results?.unresolved || [],
+              previousDebateHistory: sourceSession.debateHistory || [],
+              originalPrompt: sourceSession.prompt,
+              sourceMode: sourceSession.mode,
+              transferPrompt: `CONTINUING FROM PREVIOUS ${sourceSession.mode.toUpperCase()} MODE DEBATE:
+Original Question: "${sourceSession.prompt}"
+
+Previous Consensus: ${sourceSession.results?.consensus || 'None reached'}
+
+Previous Dissenting Views: ${(sourceSession.results?.dissents || []).map((d: any) => `• ${d.position}: ${d.reasoning || ''}`).join('\n')}
+
+Unresolved Questions: ${(sourceSession.results?.unresolved || []).map((q: string) => `• ${q}`).join('\n')}
+
+NOW CONTINUING WITH: "${result.prompt}"
+
+Please build upon the previous discussion while addressing the new question.`
+            };
+          }
+        }
+
         // Record usage metric for AI analysis - temporarily disabled for debugging
         // if (userId) {
         //   await storage.recordUsageMetric({
@@ -864,7 +957,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         //   });
         // }
 
-        const response = await runMultiAgentDebate(result.prompt, result);
+        const response = await runMultiAgentDebate(
+          transferredContext.transferPrompt || result.prompt, 
+          { ...result, ...transferredContext }
+        );
+
+        // Save session with transfer information
+        const sessionData = {
+          prompt: result.prompt,
+          mode: result.mode,
+          settings: result,
+          results: response,
+          telemetry: response.telemetry,
+          debateHistory: response.debateHistory,
+          title: result.transfer_from_session_id ? 
+            `Continued from ${sourceSession?.mode || 'previous'}: ${result.prompt.substring(0, 50)}...` :
+            null,
+          sourceSessionId: result.transfer_from_session_id || null,
+          transferCount: sourceSession?.transferCount ? (sourceSession.transferCount + 1) : 0,
+          userId: userId,
+          workspaceId: null
+        };
+
+        await storage.createAnalysisSession(sessionData);
+        
         res.json(response);
       } catch (error: any) {
         console.error("Think endpoint error:", error);

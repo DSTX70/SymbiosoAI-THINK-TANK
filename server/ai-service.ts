@@ -60,6 +60,12 @@ export async function runMultiAgentDebate(
   
   let debate_history: Array<{ agent: string; response: string }> = [];
   
+  // Initialize with previous debate history if transferring from another session
+  if (settings.previousDebateHistory && Array.isArray(settings.previousDebateHistory)) {
+    debate_history = [...settings.previousDebateHistory];
+    console.log(`🔄 Initializing with ${debate_history.length} previous debate entries from transfer`);
+  }
+  
   // Run debate rounds
   for (let round = 0; round < rounds; round++) {
     for (const agent of agents) {
