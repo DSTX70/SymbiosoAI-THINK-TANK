@@ -14,6 +14,7 @@ import Footer from "@/components/Footer";
 import TelemetryPanel from "@/components/TelemetryPanel";
 import ResultsSection from "@/components/ResultsSection";
 import LiveStreamingSection from "@/components/LiveStreamingSection";
+import { SessionTransfer } from "@/components/SessionTransfer";
 import { createStreamUrl } from "@/lib/streamUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -43,16 +44,27 @@ export default function GuidedPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [isProcessingQuestion, setIsProcessingQuestion] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
+  const [transferSessionId, setTransferSessionId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const thinkMutation = useMutation({
     mutationFn: async (data: ThinkRequest) => {
-      const response = await apiRequest("POST", "/api/think", data);
+      // Add transfer session ID if present
+      const requestData = transferSessionId 
+        ? { ...data, transfer_from_session_id: transferSessionId }
+        : data;
+      
+      const response = await apiRequest("POST", "/api/think", requestData);
       return response.json();
     },
     onSuccess: (data: ThinkResponse) => {
       setResults(data);
-      toast({ description: "Collaborative analysis completed successfully!" });
+      setTransferSessionId(null); // Clear transfer after successful completion
+      toast({ 
+        description: transferSessionId 
+          ? "Debate continued successfully with enhanced capabilities!" 
+          : "Collaborative analysis completed successfully!" 
+      });
     },
     onError: (error: any) => {
       if (isUnauthorizedError(error)) {
@@ -263,6 +275,35 @@ export default function GuidedPage() {
               className="resize-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
               data-testid="input-collaborative-prompt"
             />
+          </CardContent>
+        </Card>
+
+        {/* Session Transfer Option */}
+        <Card className="card-elevated mb-6">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">Continue Previous Debate</h3>
+                <p className="text-sm text-muted-foreground">
+                  Build upon insights from your previous discussions with enhanced Guided mode features
+                </p>
+              </div>
+              <SessionTransfer 
+                currentMode="guided"
+                onTransfer={(sessionId) => {
+                  setTransferSessionId(sessionId);
+                  toast({ description: "Previous debate loaded! Ready to continue with new insights." });
+                }}
+                disabled={thinkMutation.isPending || isStreaming}
+              />
+            </div>
+            {transferSessionId && (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  ✓ Previous debate session loaded. Your new analysis will continue the discussion with enhanced capabilities.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -188,7 +188,8 @@ ${debate_history.map(h => `${h.agent}: ${h.response}`).join('\n\n')}`;
       dissents: Array.isArray(result.dissents) ? result.dissents : [],
       unresolved: Array.isArray(result.unresolved) ? result.unresolved : [],
       citations: await generateCitations(prompt, settings),
-      fact_check: settings.enable_fact_check ? await generateFactCheck(consensus, settings) : undefined
+      fact_check: settings.enable_fact_check ? await generateFactCheck(consensus, settings) : undefined,
+      debateHistory: debate_history
     };
   } catch (error) {
     console.error("Failed to parse synthesis:", error);
@@ -197,6 +198,7 @@ ${debate_history.map(h => `${h.agent}: ${h.response}`).join('\n\n')}`;
       consensus: "Error synthesizing debate results.",
       dissents: [],
       unresolved: ["Failed to process debate synthesis"],
+      debateHistory: debate_history
     };
   }
 }
