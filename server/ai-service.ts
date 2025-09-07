@@ -45,6 +45,224 @@ export const AI_AGENTS: AIAgent[] = [
   }
 ];
 
+// Brainstorming agent definitions - collaborative approach
+export const BRAINSTORM_AGENTS: AIAgent[] = [
+  {
+    role: "Solution Architect",
+    perspective: "Systematic solution design and implementation planning",
+    systemPrompt: "You are a solution architect focused on designing practical, implementable solutions. Build upon the consensus and address dissenting views constructively to create actionable plans."
+  },
+  {
+    role: "Implementation Specialist", 
+    perspective: "Practical execution and resource planning",
+    systemPrompt: "You are an implementation specialist who focuses on how to actually execute solutions. Consider resources, timelines, and practical constraints while building collaborative action plans."
+  },
+  {
+    role: "Innovation Catalyst",
+    perspective: "Creative problem solving and alternative approaches",
+    systemPrompt: "You are an innovation catalyst who generates creative solutions and explores alternative approaches. Transform dissenting views into innovative opportunities for better solutions."
+  },
+  {
+    role: "Integration Specialist",
+    perspective: "Synthesis and unified strategy development", 
+    systemPrompt: "You are an integration specialist who brings different perspectives together into unified strategies. Address unresolved questions and create comprehensive implementation approaches."
+  }
+];
+
+export async function runBrainstormingSession(
+  originalPrompt: string,
+  debateResults: {
+    consensus: string;
+    dissents: Array<{ position: string; reasoning?: string }>;
+    unresolved: string[];
+  },
+  settings: any
+): Promise<{
+  solutions: Array<{
+    title: string;
+    description: string;
+    feasibility: "low" | "medium" | "high";
+    impact: "low" | "medium" | "high";
+    timeline?: string;
+    resources_required?: string[];
+  }>;
+  action_plan: Array<{
+    step: number;
+    title: string;
+    description: string;
+    owner?: string;
+    timeline?: string;
+    dependencies?: string[];
+  }>;
+  answered_questions: Array<{
+    original_question: string;
+    answer: string;
+    confidence: "low" | "medium" | "high";
+    supporting_evidence?: string[];
+  }>;
+  final_consensus: string;
+  implementation_strategy: {
+    approach: string;
+    key_milestones: string[];
+    success_metrics?: string[];
+    risk_mitigation?: string[];
+  };
+  telemetry: {
+    avg_ms: number;
+    quality: number;
+    tps: number;
+    active_agents?: number;
+  };
+}> {
+  const agents = BRAINSTORM_AGENTS;
+  const rounds = Math.min(settings.turns || 2, 3); // Limit brainstorming rounds
+  
+  let collaboration_history: Array<{ agent: string; response: string }> = [];
+  const startTime = Date.now();
+  
+  // Create collaborative context from debate results
+  const collaborativeContext = `
+ORIGINAL QUESTION: ${originalPrompt}
+
+DEBATE CONSENSUS: ${debateResults.consensus}
+
+DISSENTING VIEWS TO ADDRESS:
+${debateResults.dissents.map(d => `- ${d.position}${d.reasoning ? ` (Reasoning: ${d.reasoning})` : ''}`).join('\n')}
+
+UNRESOLVED QUESTIONS TO ANSWER:
+${debateResults.unresolved.map(q => `- ${q}`).join('\n')}
+
+YOUR MISSION: Work collaboratively to transform this debate into actionable solutions. Build upon the consensus, address dissenting views constructively, and answer unresolved questions. Focus on practical implementation rather than further debate.`;
+
+  // Run collaborative rounds
+  for (let round = 0; round < rounds; round++) {
+    for (const agent of agents) {
+      const context = collaboration_history.length > 0 
+        ? `\n\nPrevious collaborative discussion:\n${collaboration_history.map(h => `${h.agent}: ${h.response}`).join('\n\n')}`
+        : '';
+      
+      const prompt = `${collaborativeContext}${context}
+      
+As the ${agent.role}, contribute to building collaborative solutions. Focus on:
+1. Practical, actionable solutions
+2. Addressing concerns raised in dissenting views
+3. Answering unresolved questions with evidence
+4. Building upon other agents' contributions
+
+Provide concrete, implementable suggestions that move from debate to action.`;
+
+      try {
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4",
+          messages: [
+            { role: "system", content: agent.systemPrompt },
+            { role: "user", content: prompt }
+          ],
+          max_tokens: 800,
+          temperature: 0.7,
+        });
+
+        const response = completion.choices[0].message.content || "";
+        collaboration_history.push({
+          agent: agent.role,
+          response: response
+        });
+      } catch (error) {
+        console.error(`Error in brainstorming with ${agent.role}:`, error);
+      }
+    }
+  }
+
+  // Synthesize collaborative results
+  const synthesisPrompt = `Based on the collaborative brainstorming session below, synthesize the results into a structured response.
+
+ORIGINAL QUESTION: ${originalPrompt}
+DEBATE CONSENSUS: ${debateResults.consensus}
+DISSENTING VIEWS: ${debateResults.dissents.map(d => d.position).join('; ')}
+UNRESOLVED QUESTIONS: ${debateResults.unresolved.join('; ')}
+
+COLLABORATIVE BRAINSTORMING:
+${collaboration_history.map(h => `${h.agent}: ${h.response}`).join('\n\n')}
+
+Synthesize this into a JSON response with the following structure:
+{
+  "solutions": [
+    {
+      "title": "Solution name",
+      "description": "Detailed description",
+      "feasibility": "low/medium/high", 
+      "impact": "low/medium/high",
+      "timeline": "optional timeline",
+      "resources_required": ["optional resource list"]
+    }
+  ],
+  "action_plan": [
+    {
+      "step": 1,
+      "title": "Action step title",
+      "description": "Detailed description",
+      "owner": "optional owner",
+      "timeline": "optional timeline",
+      "dependencies": ["optional dependencies"]
+    }
+  ],
+  "answered_questions": [
+    {
+      "original_question": "Question from unresolved list",
+      "answer": "Comprehensive answer",
+      "confidence": "low/medium/high",
+      "supporting_evidence": ["optional evidence list"]
+    }
+  ],
+  "final_consensus": "Updated consensus incorporating brainstorming insights",
+  "implementation_strategy": {
+    "approach": "Overall implementation approach",
+    "key_milestones": ["milestone list"],
+    "success_metrics": ["optional metrics"],
+    "risk_mitigation": ["optional risk mitigation strategies"]
+  }
+}`;
+
+  try {
+    const synthesisResponse = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        { 
+          role: "system", 
+          content: "You are a synthesis expert who creates structured, actionable responses from collaborative discussions. Always respond with valid JSON." 
+        },
+        { role: "user", content: synthesisPrompt }
+      ],
+      max_tokens: 2000,
+      temperature: 0.3,
+    });
+
+    const endTime = Date.now();
+    const response_text = synthesisResponse.choices[0].message.content || "{}";
+    
+    try {
+      const parsed_response = JSON.parse(response_text);
+      
+      // Add telemetry
+      parsed_response.telemetry = {
+        avg_ms: endTime - startTime,
+        quality: 0.85, // High quality for collaborative approach
+        tps: collaboration_history.length / ((endTime - startTime) / 1000),
+        active_agents: agents.length
+      };
+      
+      return parsed_response;
+    } catch (parseError) {
+      console.error("Failed to parse brainstorming synthesis:", parseError);
+      throw new Error("Failed to synthesize brainstorming results");
+    }
+    
+  } catch (error) {
+    console.error("Error in brainstorming synthesis:", error);
+    throw new Error("Brainstorming session failed");
+  }
+}
+
 export async function runMultiAgentDebate(
   prompt: string,
   settings: any

@@ -303,6 +303,45 @@ export const thinkResponseSchema = z.object({
   }).optional(),
 });
 
+// Brainstorming phase response schema
+export const brainstormResponseSchema = z.object({
+  solutions: z.array(z.object({
+    title: z.string(),
+    description: z.string(),
+    feasibility: z.enum(["low", "medium", "high"]),
+    impact: z.enum(["low", "medium", "high"]),
+    timeline: z.string().optional(),
+    resources_required: z.array(z.string()).optional(),
+  })),
+  action_plan: z.array(z.object({
+    step: z.number(),
+    title: z.string(),
+    description: z.string(),
+    owner: z.string().optional(),
+    timeline: z.string().optional(),
+    dependencies: z.array(z.string()).optional(),
+  })),
+  answered_questions: z.array(z.object({
+    original_question: z.string(),
+    answer: z.string(),
+    confidence: z.enum(["low", "medium", "high"]),
+    supporting_evidence: z.array(z.string()).optional(),
+  })),
+  final_consensus: z.string(),
+  implementation_strategy: z.object({
+    approach: z.string(),
+    key_milestones: z.array(z.string()),
+    success_metrics: z.array(z.string()).optional(),
+    risk_mitigation: z.array(z.string()).optional(),
+  }),
+  telemetry: z.object({
+    avg_ms: z.number(),
+    quality: z.number(),
+    tps: z.number(),
+    active_agents: z.number().optional(),
+  }),
+});
+
 // Type definitions
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
@@ -319,6 +358,7 @@ export type UserPreferences = z.infer<typeof userPreferencesSchema>;
 export type WorkspaceRole = z.infer<typeof workspaceRoleSchema>;
 export type ThinkRequest = z.infer<typeof thinkRequestSchema>;
 export type ThinkResponse = z.infer<typeof thinkResponseSchema>;
+export type BrainstormResponse = z.infer<typeof brainstormResponseSchema>;
 export type Citation = {
   title?: string;
   url?: string;
