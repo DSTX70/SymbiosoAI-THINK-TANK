@@ -5,9 +5,10 @@ import { storage } from "./storage";
 import { 
   thinkRequestSchema, type ThinkResponse, insertWorkspaceSchema,
   insertOrganizationSchema, insertOrganizationMemberSchema, insertTeamSchema,
-  brainstormResponseSchema, type BrainstormResponse
+  brainstormResponseSchema, type BrainstormResponse,
+  reportRequestSchema, type ReportRequest, type ReportResponse
 } from "@shared/schema";
-import { runMultiAgentDebate, runBrainstormingSession } from "./ai-service";
+import { runMultiAgentDebate, runBrainstormingSession, runReportGeneration } from "./ai-service";
 import { perplexityService } from "./services/perplexity";
 import { registerStreamingRoutes } from "./streaming";
 import type { Citation, FactCheckFinding } from "@shared/schema";
@@ -1042,6 +1043,91 @@ Please build upon the previous discussion while addressing the new question.`
       res.json(brainstormResults);
     } catch (error: any) {
       console.error("Brainstorming endpoint error:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Report generation endpoint - transform debate and brainstorming results into professional reports
+  app.post("/api/report", optionalAuth, async (req, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const requestBody = reportRequestSchema.parse(req.body);
+      const { session_id, report_type, include_citations = true, include_expert_summary = true, format = "markdown" } = requestBody;
+
+      console.log(`📊 Generating ${report_type} report for session: ${session_id}`);
+
+      // Get the session and validate access
+      const session = await storage.getSessionForTransfer(session_id);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      // Check if user owns the session (or allow if no auth)
+      if (userId && session.userId && session.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Validate that session has debate results
+      if (!session.results?.consensus) {
+        return res.status(400).json({ error: "Session must have completed debate results to generate report" });
+      }
+
+      // Extract debate results
+      const debateResults = {
+        consensus: session.results.consensus,
+        dissents: session.results.dissents || [],
+        unresolved: session.results.unresolved || [],
+        citations: session.results.citations,
+        fact_check: session.results.fact_check,
+        debateHistory: session.debateHistory
+      };
+
+      // Extract brainstorming results if available
+      const brainstormResults = session.brainstormResults ? {
+        solutions: session.brainstormResults.solutions || [],
+        action_plan: session.brainstormResults.action_plan || [],
+        answered_questions: session.brainstormResults.answered_questions || [],
+        final_consensus: session.brainstormResults.final_consensus || '',
+        implementation_strategy: session.brainstormResults.implementation_strategy || {
+          approach: '',
+          key_milestones: []
+        }
+      } : undefined;
+
+      // Prepare session data for report generation
+      const sessionData = {
+        prompt: session.prompt,
+        mode: session.mode,
+        settings: session.settings || {},
+        debateResults,
+        brainstormResults
+      };
+
+      // Generate the report using AI
+      const report = await runReportGeneration(
+        sessionData,
+        report_type,
+        {
+          include_citations,
+          include_expert_summary,
+          format
+        }
+      );
+
+      // Update metadata with correct session ID
+      report.metadata.session_id = session_id;
+
+      // Store report generation in session for future reference
+      await storage.updateAnalysisSession(session_id, {
+        lastReportGeneratedAt: new Date(),
+        lastReportType: report_type
+      });
+
+      console.log(`📊 ${report_type} report generated successfully for session: ${session_id}`);
+      res.json(report);
+
+    } catch (error: any) {
+      console.error("Report generation endpoint error:", error);
       res.status(400).json({ error: error.message });
     }
   });
