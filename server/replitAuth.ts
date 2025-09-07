@@ -31,6 +31,10 @@ export function getSession() {
     ttl: sessionTtl,
     tableName: "sessions",
   });
+  
+  // Fix cookie settings for Replit development environment
+  const isProduction = process.env.NODE_ENV === "production";
+  
   return session({
     secret: process.env.SESSION_SECRET!,
     store: sessionStore,
@@ -38,7 +42,8 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: isProduction, // Only require HTTPS in production
+      sameSite: isProduction ? "strict" : "lax", // More permissive in development
       maxAge: sessionTtl,
     },
   });
@@ -104,6 +109,10 @@ export async function setupAuth(app: Express) {
   app.get("/api/login", (req, res, next) => {
     // Use the first configured domain instead of req.hostname for consistency
     const domain = process.env.REPLIT_DOMAINS!.split(",")[0];
+    console.log("🔐 Login request - Request hostname:", req.hostname);
+    console.log("🔐 Login request - Using domain:", domain);
+    console.log("🔐 Login request - Available domains:", process.env.REPLIT_DOMAINS);
+    
     passport.authenticate(`replitauth:${domain}`, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
