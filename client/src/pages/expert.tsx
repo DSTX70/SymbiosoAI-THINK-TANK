@@ -77,8 +77,8 @@ export default function ExpertPage() {
     max_steps: 5,
     // AI Agent Selection
     selection_mode: "smart",
-    manual_agents: [],
-    domain_experts: [],
+    manual_agents: [] as ("analyst" | "pragmatist" | "innovator" | "thoughtful" | "critic")[],
+    domain_experts: [] as ("legal-analyst" | "legal-advocate" | "medical-diagnostician" | "medical-researcher" | "financial-analyst" | "investment-strategist" | "tech-architect" | "devops-engineer" | "educational-psychologist" | "brand-strategist" | "research-scientist" | "systems-engineer" | "behavioral-analyst" | "sustainability-consultant")[],
     usecase_type: "",
     // Advanced AI Capabilities
     thinking_patterns: [],
@@ -456,7 +456,7 @@ export default function ExpertPage() {
                                 id={agent.id}
                                 checked={manualAgents.includes(agent.id as any)}
                                 onCheckedChange={(checked) => {
-                                  let newAgents;
+                                  let newAgents: ("analyst" | "pragmatist" | "innovator" | "thoughtful" | "critic")[];
                                   if (checked) {
                                     newAgents = [...manualAgents, agent.id as any];
                                   } else {
@@ -511,7 +511,7 @@ export default function ExpertPage() {
                                 id={expert.id}
                                 checked={domainExperts.includes(expert.id as any)}
                                 onCheckedChange={(checked) => {
-                                  let newExperts;
+                                  let newExperts: ("legal-analyst" | "legal-advocate" | "medical-diagnostician" | "medical-researcher" | "financial-analyst" | "investment-strategist" | "tech-architect" | "devops-engineer" | "educational-psychologist" | "brand-strategist" | "research-scientist" | "systems-engineer" | "behavioral-analyst" | "sustainability-consultant")[];
                                   if (checked) {
                                     newExperts = [...domainExperts, expert.id as any];
                                   } else {
