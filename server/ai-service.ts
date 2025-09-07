@@ -95,16 +95,24 @@ export async function runMultiAgentDebate(
   }
 
   // Synthesize final results
-  const synthesis_prompt = `
-Based on the following multi-agent AI debate, provide a structured analysis in JSON format with these exact keys:
-- "consensus": A comprehensive summary of points where agents agree
-- "dissents": An array of objects with "position" and "reasoning" for major disagreements
-- "unresolved": An array of strings listing questions or issues that remain unresolved
+  const synthesis_prompt = `Based on the following multi-agent AI debate, respond ONLY with valid JSON in this EXACT format:
+
+{
+  "consensus": "A comprehensive string summary of points where agents agree",
+  "dissents": [
+    {"position": "Dissenting view", "reasoning": "Why this view differs"}
+  ],
+  "unresolved": ["Question 1", "Question 2"]
+}
+
+CRITICAL: 
+- Return ONLY the JSON object, no other text
+- "consensus" must be a STRING, not an object
+- Do not include markdown formatting or code blocks
+- Ensure proper JSON syntax with quotes and commas
 
 Debate history:
-${debate_history.map(h => `${h.agent}: ${h.response}`).join('\n\n')}
-
-Respond only with valid JSON.`;
+${debate_history.map(h => `${h.agent}: ${h.response}`).join('\n\n')}`;
 
   console.log("🔮 Synthesizing results from debate history:", debate_history.length, "responses");
   const synthesis = await openai.chat.completions.create({
@@ -125,16 +133,37 @@ Respond only with valid JSON.`;
   });
 
   try {
-    const result = JSON.parse(synthesis.choices[0].message.content || "{}");
+    const rawResponse = synthesis.choices[0].message.content || "{}";
+    console.log("🔮 Raw synthesis response:", rawResponse.substring(0, 200) + "...");
+    
+    // Clean response in case it has markdown formatting
+    let cleanResponse = rawResponse.trim();
+    if (cleanResponse.startsWith('```json')) {
+      cleanResponse = cleanResponse.replace(/```json\s*/g, '').replace(/```\s*$/g, '');
+    } else if (cleanResponse.startsWith('```')) {
+      cleanResponse = cleanResponse.replace(/```\s*/g, '').replace(/```\s*$/g, '');
+    }
+    
+    const result = JSON.parse(cleanResponse);
+    console.log("🔮 Parsed synthesis result:", JSON.stringify(result, null, 2));
+    
+    // Ensure consensus is a string
+    const consensus = typeof result.consensus === 'string' 
+      ? result.consensus 
+      : typeof result.consensus === 'object' 
+      ? JSON.stringify(result.consensus) 
+      : "No clear consensus reached.";
+    
     return {
-      consensus: result.consensus || "No clear consensus reached.",
-      dissents: result.dissents || [],
-      unresolved: result.unresolved || [],
+      consensus,
+      dissents: Array.isArray(result.dissents) ? result.dissents : [],
+      unresolved: Array.isArray(result.unresolved) ? result.unresolved : [],
       citations: await generateCitations(prompt, settings),
-      fact_check: settings.enable_fact_check ? await generateFactCheck(result.consensus || "", settings) : undefined
+      fact_check: settings.enable_fact_check ? await generateFactCheck(consensus, settings) : undefined
     };
   } catch (error) {
     console.error("Failed to parse synthesis:", error);
+    console.error("Raw response was:", synthesis.choices[0].message.content);
     return {
       consensus: "Error synthesizing debate results.",
       dissents: [],
