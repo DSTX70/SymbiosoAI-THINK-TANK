@@ -21,6 +21,9 @@ import { createStreamUrl } from "@/lib/streamUtils";
 import { LiveChat } from "@/components/LiveChat";
 import { SessionSharing } from "@/components/SessionSharing";
 import { WorkspaceSync } from "@/components/WorkspaceSync";
+import { VisualJourneyTimeline } from "@/components/VisualJourneyTimeline";
+import { AdvancedFactCheckConfig } from "@/components/AdvancedFactCheckConfig";
+import { CoverageAnalysis } from "@/components/CoverageAnalysis";
 import { useCollaboration } from "@/hooks/useCollaboration";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -87,6 +90,13 @@ export default function ExpertPage() {
     deep_analysis_mode: false,
     // Real-time Streaming
     use_streaming: false,
+    // Advanced Analytics Configuration
+    advanced_fact_check: {
+      verificationDepth: "comprehensive" as const,
+      minimumSources: 3,
+      confidenceThreshold: 75,
+      enableRealTimeValidation: true
+    },
   });
 
 
@@ -383,8 +393,9 @@ export default function ExpertPage() {
         {/* Center (fills remaining width) */}
         <section className="min-w-0 overflow-y-auto px-4 md:px-6 py-6">
           <Tabs defaultValue="analysis" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="analysis" data-testid="tab-analysis">Expert Analysis</TabsTrigger>
+              <TabsTrigger value="analytics" data-testid="tab-analytics">Advanced Analytics</TabsTrigger>
               <TabsTrigger value="templates" data-testid="tab-templates">Template Library</TabsTrigger>
               <TabsTrigger value="workspace" data-testid="tab-workspace">Workspace</TabsTrigger>
             </TabsList>
@@ -688,6 +699,27 @@ export default function ExpertPage() {
                   <WorkspaceManagement />
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="analytics" className="space-y-6">
+              <VisualJourneyTimeline
+                isActive={thinkMutation.isPending || isStreaming}
+                overallProgress={processingProgress}
+              />
+              
+              <AdvancedFactCheckConfig
+                config={configuration.advanced_fact_check}
+                onChange={(factCheckConfig) => 
+                  setConfiguration(prev => ({
+                    ...prev,
+                    advanced_fact_check: factCheckConfig
+                  }))
+                }
+              />
+              
+              {results && (
+                <CoverageAnalysis />
+              )}
             </TabsContent>
 
             <TabsContent value="templates" className="space-y-6">
