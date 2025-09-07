@@ -35,12 +35,12 @@ export default function Header() {
     <header className="sticky top-0 z-50 header-gradient text-white">
       <div className="max-w-7xl mx-auto px-6 py-1">
         {/* Logo Row */}
-        <div className="flex justify-center mb-0">
+        <div className="flex justify-start mb-0">
           <Link href="/" className="flex items-center" data-testid="link-home">
             <img 
               src={logoImage} 
               alt="SymbiosoAi - Collaborative Intelligence, redefined"
-              className="h-16 w-auto max-w-lg"
+              className="h-32 w-auto max-w-lg"
               data-testid="logo-symbiosoai"
               onError={(e) => {
                 console.error('Logo failed to load:', e);
@@ -87,26 +87,17 @@ export default function Header() {
             >
               Expert
             </Link>
-            {/* Sessions button - hidden on mobile, shown on larger screens */}
             <Link 
               href="/sessions" 
-              className={`mode-pill ${location.startsWith("/sessions") ? "active" : ""} hidden lg:inline-flex`}
-              data-testid="link-sessions-desktop"
+              className={`mode-pill ${location.startsWith("/sessions") ? "active" : ""}`}
+              data-testid="link-sessions"
             >
               Sessions
             </Link>
           </nav>
           
           {/* Enhanced Header Features */}
-          <div className="flex items-center space-x-2">
-            {/* Mobile Sessions button - shown only on smaller screens */}
-            <Link 
-              href="/sessions" 
-              className={`lg:hidden mode-pill-compact ${location.startsWith("/sessions") ? "active" : ""}`}
-              data-testid="link-sessions-mobile"
-            >
-              Sessions
-            </Link>
+          <div className="hidden md:flex items-center space-x-2">
             <span className="rounded bg-white/20 px-2 py-1 text-xs font-medium">BETA</span>
             <AuthButton />
             <Button variant="ghost" size="icon" onClick={toggleTheme} data-testid="button-toggle-theme" className="text-white hover:bg-white/20">
@@ -119,6 +110,14 @@ export default function Header() {
               <div className="h-2 w-2 rounded-full bg-green-400" />
               <span className="text-xs text-white">API Connected</span>
             </div>
+          </div>
+          
+          {/* Mobile Menu Button */}
+          <div className="md:hidden flex items-center">
+            <Button variant="ghost" size="icon" onClick={toggleTheme} data-testid="button-toggle-theme-mobile" className="text-white hover:bg-white/20">
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
+            <AuthButton />
           </div>
         </div>
       </div>
