@@ -234,7 +234,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get sessions
   app.get("/api/sessions", async (req, res) => {
     try {
-      const sessions = await storage.getUserSessions();
+      const sessions = await storage.getUserAnalysisSessions();
       res.json(sessions);
     } catch (error: any) {
       console.error("Sessions API error:", error);
@@ -245,7 +245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get specific session
   app.get("/api/sessions/:id", async (req, res) => {
     try {
-      const session = await storage.getSession(req.params.id);
+      const session = await storage.getAnalysisSession(req.params.id);
       if (!session) {
         return res.status(404).json({ message: "Session not found" });
       }
@@ -857,7 +857,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     async (req: any, res) => {
       // Original /api/think implementation continues here...
       try {
-        const result = insertThinkRequestSchema.parse(req.body);
+        const result = thinkRequestSchema.parse(req.body);
         const userId = req.user?.claims?.sub;
 
         // Record usage metric for AI analysis
@@ -866,7 +866,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             organizationId: (req as any).organizationId || null,
             userId: userId,
             metricType: 'ai_analyses',
-            metricName: 'multi_agent_debate',
             valueNumeric: 1,
             period: 'daily'
           });

@@ -126,7 +126,7 @@ export async function setupAuth(app: Express) {
     const domain = req.hostname;
     console.log("🔐 Callback request - Using request hostname:", domain);
     
-    passport.authenticate(`replitauth:${domain}`, (err, user, info) => {
+    passport.authenticate(`replitauth:${domain}`, (err: any, user: any, info: any) => {
       if (err) {
         console.error("OAuth authentication error:", err);
         return res.redirect("/api/login");
