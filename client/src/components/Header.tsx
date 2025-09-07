@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Sun, Moon, HelpCircle, Brain } from "lucide-react";
+import { Sun, Moon, HelpCircle, Brain, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AuthButton } from "@/components/AuthButton";
 // import logoImage from "../assets/symbiosoai-logo.png";
 const logoImage = "/symbiosoai-logo.png";
@@ -9,6 +10,7 @@ const logoImage = "/symbiosoai-logo.png";
 export default function Header() {
   const [location] = useLocation();
   const [isDark, setIsDark] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   // Dark mode effect
   useEffect(() => {
@@ -113,11 +115,46 @@ export default function Header() {
           </div>
           
           {/* Mobile Menu Button */}
-          <div className="md:hidden flex items-center">
-            <Button variant="ghost" size="icon" onClick={toggleTheme} data-testid="button-toggle-theme-mobile" className="text-white hover:bg-white/20">
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
-            <AuthButton />
+          <div className="md:hidden">
+            <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 mt-2">
+                <DropdownMenuItem onClick={() => setIsDropdownOpen(false)}>
+                  <div className="flex items-center space-x-2">
+                    <div className="h-2 w-2 rounded-full bg-green-400" />
+                    <span className="text-sm">API Connected</span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <div className="flex items-center justify-between w-full">
+                    <span>Theme</span>
+                    <Button variant="ghost" size="sm" onClick={toggleTheme} className="h-8 w-8 p-0">
+                      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <div className="flex items-center justify-between w-full">
+                    <span>Help</span>
+                    <HelpCircle className="h-4 w-4" />
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <div className="flex items-center justify-between w-full">
+                    <span className="rounded bg-primary/20 px-2 py-1 text-xs font-medium">BETA</span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  <AuthButton />
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
