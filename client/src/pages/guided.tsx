@@ -275,28 +275,26 @@ export default function GuidedPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="mb-4">
-              <h3 className="text-sm font-medium text-muted-foreground mb-3">Experts</h3>
-              <Tabs value={selectionMode} onValueChange={(value: string) => setSelectionMode(value as any)}>
-                <TabsList className="grid w-full grid-cols-4 h-12">
-                  <TabsTrigger value="smart" className="flex items-center gap-2 flex-1">
-                    <Zap size={16} />
-                    Smart
-                  </TabsTrigger>
-                  <TabsTrigger value="manual" className="flex items-center gap-2 flex-1">
-                    <UserCheck size={16} />
-                    Manual
-                  </TabsTrigger>
-                  <TabsTrigger value="domain" className="flex items-center gap-2 flex-1">
-                    <Briefcase size={16} />
-                    Domain
-                  </TabsTrigger>
-                  <TabsTrigger value="usecase" className="flex items-center gap-2 flex-1">
-                    <BookOpen size={16} />
-                    Use Case
-                  </TabsTrigger>
-                </TabsList>
-            </div>
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">Experts</h3>
+            <Tabs value={selectionMode} onValueChange={(value: string) => setSelectionMode(value as any)}>
+              <TabsList className="grid w-full grid-cols-4 h-12 mb-4">
+                <TabsTrigger value="smart" className="flex items-center gap-2 flex-1">
+                  <Zap size={16} />
+                  Smart
+                </TabsTrigger>
+                <TabsTrigger value="manual" className="flex items-center gap-2 flex-1">
+                  <UserCheck size={16} />
+                  Manual
+                </TabsTrigger>
+                <TabsTrigger value="domain" className="flex items-center gap-2 flex-1">
+                  <Briefcase size={16} />
+                  Domain
+                </TabsTrigger>
+                <TabsTrigger value="usecase" className="flex items-center gap-2 flex-1">
+                  <BookOpen size={16} />
+                  Use Case
+                </TabsTrigger>
+              </TabsList>
 
               <TabsContent value="smart" className="mt-4">
                 <div className="text-center p-6 border-2 border-dashed border-muted rounded-lg">
@@ -435,8 +433,7 @@ export default function GuidedPage() {
                   </div>
                 </div>
               </TabsContent>
-              </Tabs>
-            </div>
+            </Tabs>
           </CardContent>
         </Card>
 
