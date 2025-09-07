@@ -24,6 +24,10 @@ import { WorkspaceSync } from "@/components/WorkspaceSync";
 import { VisualJourneyTimeline } from "@/components/VisualJourneyTimeline";
 import { AdvancedFactCheckConfig } from "@/components/AdvancedFactCheckConfig";
 import { CoverageAnalysis } from "@/components/CoverageAnalysis";
+import { DeepAnalysisMode } from "@/components/DeepAnalysisMode";
+import { CustomThinkingPatterns } from "@/components/CustomThinkingPatterns";
+import { EnterpriseSpecialists } from "@/components/EnterpriseSpecialists";
+import { AdvancedRAGControls } from "@/components/AdvancedRAGControls";
 import { useCollaboration } from "@/hooks/useCollaboration";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -96,6 +100,25 @@ export default function ExpertPage() {
       minimumSources: 3,
       confidenceThreshold: 75,
       enableRealTimeValidation: true
+    },
+    // AI Capabilities Enhancement
+    deep_analysis_enabled: false,
+    deep_analysis_config: {
+      processingDepth: 75,
+      iterativeRefinement: true,
+      evidenceRequirement: "comprehensive" as const,
+      crossValidation: true,
+      timeAllocation: 180
+    },
+    custom_thinking_patterns: [] as string[],
+    enterprise_specialists: [] as string[],
+    rag_enabled: false,
+    rag_config: {
+      topK: 5,
+      similarityThreshold: 0.7,
+      hybridSearch: true,
+      webSearch: true,
+      documentLibraries: true
     },
   });
 
@@ -393,10 +416,11 @@ export default function ExpertPage() {
         {/* Center (fills remaining width) */}
         <section className="min-w-0 overflow-y-auto px-4 md:px-6 py-6">
           <Tabs defaultValue="analysis" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="analysis" data-testid="tab-analysis">Expert Analysis</TabsTrigger>
-              <TabsTrigger value="analytics" data-testid="tab-analytics">Advanced Analytics</TabsTrigger>
-              <TabsTrigger value="templates" data-testid="tab-templates">Template Library</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="analysis" data-testid="tab-analysis">Analysis</TabsTrigger>
+              <TabsTrigger value="ai-capabilities" data-testid="tab-ai-capabilities">AI Capabilities</TabsTrigger>
+              <TabsTrigger value="analytics" data-testid="tab-analytics">Analytics</TabsTrigger>
+              <TabsTrigger value="templates" data-testid="tab-templates">Templates</TabsTrigger>
               <TabsTrigger value="workspace" data-testid="tab-workspace">Workspace</TabsTrigger>
             </TabsList>
 
@@ -699,6 +723,62 @@ export default function ExpertPage() {
                   <WorkspaceManagement />
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="ai-capabilities" className="space-y-6">
+              <DeepAnalysisMode
+                isEnabled={configuration.deep_analysis_enabled}
+                config={configuration.deep_analysis_config}
+                onToggle={(enabled) => 
+                  setConfiguration(prev => ({
+                    ...prev,
+                    deep_analysis_enabled: enabled
+                  }))
+                }
+                onChange={(deepConfig) => 
+                  setConfiguration(prev => ({
+                    ...prev,
+                    deep_analysis_config: deepConfig
+                  }))
+                }
+              />
+              
+              <CustomThinkingPatterns
+                selectedPatterns={configuration.custom_thinking_patterns}
+                onChange={(patterns) => 
+                  setConfiguration(prev => ({
+                    ...prev,
+                    custom_thinking_patterns: patterns
+                  }))
+                }
+              />
+              
+              <EnterpriseSpecialists
+                selectedSpecialists={configuration.enterprise_specialists}
+                onChange={(specialists) => 
+                  setConfiguration(prev => ({
+                    ...prev,
+                    enterprise_specialists: specialists
+                  }))
+                }
+              />
+              
+              <AdvancedRAGControls
+                isEnabled={configuration.rag_enabled}
+                config={configuration.rag_config}
+                onToggle={(enabled) => 
+                  setConfiguration(prev => ({
+                    ...prev,
+                    rag_enabled: enabled
+                  }))
+                }
+                onChange={(ragConfig) => 
+                  setConfiguration(prev => ({
+                    ...prev,
+                    rag_config: ragConfig
+                  }))
+                }
+              />
             </TabsContent>
 
             <TabsContent value="analytics" className="space-y-6">
