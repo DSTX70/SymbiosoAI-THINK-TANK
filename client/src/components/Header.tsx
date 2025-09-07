@@ -36,8 +36,8 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 header-gradient text-white">
       <div className="max-w-7xl mx-auto px-6 py-1">
-        {/* Logo Row */}
-        <div className="flex justify-start mb-0">
+        {/* Logo Row with Sessions + Menu */}
+        <div className="flex items-center justify-between mb-2">
           <Link href="/" className="flex items-center" data-testid="link-home">
             <img 
               src={logoImage} 
@@ -56,10 +56,80 @@ export default function Header() {
               SymbiosoAi
             </div>
           </Link>
+          
+          {/* Right side: Sessions + Dropdown */}
+          <div className="flex items-center gap-2">
+            <Link 
+              href="/sessions" 
+              className={`mode-pill ${location.startsWith("/sessions") ? "active" : ""}`}
+              data-testid="link-sessions"
+            >
+              Sessions
+            </Link>
+            
+            {/* Desktop Menu */}
+            <div className="hidden md:flex items-center space-x-2">
+              <span className="rounded bg-white/20 px-2 py-1 text-xs font-medium">BETA</span>
+              <AuthButton />
+              <Button variant="ghost" size="icon" onClick={toggleTheme} data-testid="button-toggle-theme" className="text-white hover:bg-white/20">
+                {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
+              <Button variant="ghost" size="icon" data-testid="button-help" className="text-white hover:bg-white/20">
+                <HelpCircle className="h-4 w-4" />
+              </Button>
+              <div className="flex items-center space-x-2 rounded-lg bg-white/20 px-3 py-1">
+                <div className="h-2 w-2 rounded-full bg-green-400" />
+                <span className="text-xs text-white">API Connected</span>
+              </div>
+            </div>
+            
+            {/* Mobile Dropdown */}
+            <div className="md:hidden">
+              <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 mt-2">
+                  <DropdownMenuItem onClick={() => setIsDropdownOpen(false)}>
+                    <div className="flex items-center space-x-2">
+                      <div className="h-2 w-2 rounded-full bg-green-400" />
+                      <span className="text-sm">API Connected</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    <div className="flex items-center justify-between w-full">
+                      <span>Theme</span>
+                      <Button variant="ghost" size="sm" onClick={toggleTheme} className="h-8 w-8 p-0">
+                        {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <div className="flex items-center justify-between w-full">
+                      <span>Help</span>
+                      <HelpCircle className="h-4 w-4" />
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <div className="flex items-center justify-between w-full">
+                      <span className="rounded bg-primary/20 px-2 py-1 text-xs font-medium">BETA</span>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    <AuthButton />
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
         </div>
 
         {/* Navigation Row */}
-        <div className="flex items-center justify-between">
+        <div className="flex justify-center">
           <nav className="flex gap-2 items-center">
             <Link 
               href="/" 
@@ -89,73 +159,7 @@ export default function Header() {
             >
               Expert
             </Link>
-            <Link 
-              href="/sessions" 
-              className={`mode-pill ${location.startsWith("/sessions") ? "active" : ""}`}
-              data-testid="link-sessions"
-            >
-              Sessions
-            </Link>
           </nav>
-          
-          {/* Enhanced Header Features */}
-          <div className="hidden md:flex items-center space-x-2">
-            <span className="rounded bg-white/20 px-2 py-1 text-xs font-medium">BETA</span>
-            <AuthButton />
-            <Button variant="ghost" size="icon" onClick={toggleTheme} data-testid="button-toggle-theme" className="text-white hover:bg-white/20">
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
-            <Button variant="ghost" size="icon" data-testid="button-help" className="text-white hover:bg-white/20">
-              <HelpCircle className="h-4 w-4" />
-            </Button>
-            <div className="flex items-center space-x-2 rounded-lg bg-white/20 px-3 py-1">
-              <div className="h-2 w-2 rounded-full bg-green-400" />
-              <span className="text-xs text-white">API Connected</span>
-            </div>
-          </div>
-          
-          {/* Mobile Menu Button */}
-          <div className="md:hidden">
-            <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48 mt-2">
-                <DropdownMenuItem onClick={() => setIsDropdownOpen(false)}>
-                  <div className="flex items-center space-x-2">
-                    <div className="h-2 w-2 rounded-full bg-green-400" />
-                    <span className="text-sm">API Connected</span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <div className="flex items-center justify-between w-full">
-                    <span>Theme</span>
-                    <Button variant="ghost" size="sm" onClick={toggleTheme} className="h-8 w-8 p-0">
-                      {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <div className="flex items-center justify-between w-full">
-                    <span>Help</span>
-                    <HelpCircle className="h-4 w-4" />
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <div className="flex items-center justify-between w-full">
-                    <span className="rounded bg-primary/20 px-2 py-1 text-xs font-medium">BETA</span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <AuthButton />
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
         </div>
       </div>
     </header>
