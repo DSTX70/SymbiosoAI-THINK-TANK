@@ -32,6 +32,7 @@ import { APIIntegrationPanel } from "@/components/APIIntegrationPanel";
 import { WebhookConfiguration } from "@/components/WebhookConfiguration";
 import { CustomExportTemplates } from "@/components/CustomExportTemplates";
 import { SSOIntegration } from "@/components/SSOIntegration";
+import { SessionTransfer } from "@/components/SessionTransfer";
 import { useCollaboration } from "@/hooks/useCollaboration";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -47,6 +48,7 @@ export default function ExpertPage() {
   const [useStreaming, setUseStreaming] = useState(false);
   const [streamingResult, setStreamingResult] = useState<any>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [transferSessionId, setTransferSessionId] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Agent Selection State (for UI display)
@@ -191,6 +193,7 @@ export default function ExpertPage() {
         context: context.trim() || undefined,
         debate_title: debateTitle.trim() || undefined,
         temperature: 0.2,
+        transfer_from_session_id: transferSessionId || undefined,
         
         // AI Agent Selection
         selection_mode: configuration.selection_mode as any,
@@ -631,6 +634,35 @@ export default function ExpertPage() {
                       </div>
                     </TabsContent>
                   </Tabs>
+                </CardContent>
+              </Card>
+
+              {/* Session Transfer Option */}
+              <Card className="card-elevated">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium">Continue Previous Debate</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Build upon insights from previous sessions with full Expert mode capabilities
+                      </p>
+                    </div>
+                    <SessionTransfer 
+                      currentMode="expert"
+                      onTransfer={(sessionId) => {
+                        setTransferSessionId(sessionId);
+                        toast({ description: "Previous debate loaded! Ready to enhance with Expert mode features." });
+                      }}
+                      disabled={thinkMutation.isPending || isStreaming}
+                    />
+                  </div>
+                  {transferSessionId && (
+                    <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                      <p className="text-sm text-purple-800">
+                        ✓ Previous debate session loaded. Your new analysis will continue the discussion with advanced Expert mode capabilities.
+                      </p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
