@@ -4,9 +4,10 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { 
   thinkRequestSchema, type ThinkResponse, insertWorkspaceSchema,
-  insertOrganizationSchema, insertOrganizationMemberSchema, insertTeamSchema 
+  insertOrganizationSchema, insertOrganizationMemberSchema, insertTeamSchema,
+  brainstormResponseSchema, type BrainstormResponse
 } from "@shared/schema";
-import { runMultiAgentDebate } from "./ai-service";
+import { runMultiAgentDebate, runBrainstormingSession } from "./ai-service";
 import { perplexityService } from "./services/perplexity";
 import { registerStreamingRoutes } from "./streaming";
 import type { Citation, FactCheckFinding } from "@shared/schema";
@@ -988,6 +989,59 @@ Please build upon the previous discussion while addressing the new question.`
       }
     }
   );
+
+  // Brainstorming endpoint - transforms debate results into collaborative solutions
+  app.post("/api/brainstorm", isAuthenticated, express.json(), async (req: any, res) => {
+    try {
+      const { sessionId, settings = {} } = req.body;
+      const userId = req.user?.claims?.sub;
+
+      if (!sessionId) {
+        return res.status(400).json({ error: "Session ID is required" });
+      }
+
+      // Get the session and its debate results
+      const session = await storage.getSessionForTransfer(sessionId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      // Check if user owns the session (or allow if no auth)
+      if (userId && session.userId && session.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Extract debate results for brainstorming
+      const debateResults = {
+        consensus: session.results?.consensus || '',
+        dissents: session.results?.dissents || [],
+        unresolved: session.results?.unresolved || []
+      };
+
+      // Validate that we have sufficient debate results
+      if (!debateResults.consensus && (!debateResults.dissents || debateResults.dissents.length === 0)) {
+        return res.status(400).json({ error: "Insufficient debate results to start brainstorming" });
+      }
+
+      // Run collaborative brainstorming session
+      const brainstormResults = await runBrainstormingSession(
+        session.prompt,
+        debateResults,
+        settings
+      );
+
+      // Store brainstorming results back to the session
+      await storage.updateAnalysisSession(sessionId, {
+        brainstormResults: brainstormResults,
+        lastBrainstormedAt: new Date()
+      });
+
+      res.json(brainstormResults);
+    } catch (error: any) {
+      console.error("Brainstorming endpoint error:", error);
+      res.status(400).json({ error: error.message });
+    }
+  });
 
   // ============================================
   // ENTERPRISE FEATURES - Performance Monitoring APIs
