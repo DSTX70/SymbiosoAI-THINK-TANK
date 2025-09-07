@@ -45,7 +45,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      console.log("🔍 Looking for user with ID:", userId);
       const user = await storage.getUser(userId);
+      console.log("🔍 Found user:", user ? "YES" : "NO");
       
       if (!user) {
         return res.status(404).json({ message: "User not found" });
@@ -848,16 +850,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const result = thinkRequestSchema.parse(req.body);
         const userId = req.user?.claims?.sub;
 
-        // Record usage metric for AI analysis
-        if (userId) {
-          await storage.recordUsageMetric({
-            organizationId: (req as any).organizationId || null,
-            userId: userId,
-            metricType: 'ai_analyses',
-            valueNumeric: 1,
-            period: 'daily'
-          });
-        }
+        // Record usage metric for AI analysis - temporarily disabled for debugging
+        // if (userId) {
+        //   await storage.recordUsageMetric({
+        //     organizationId: (req as any).organizationId || null,
+        //     userId: userId,
+        //     metricType: 'ai_analyses',
+        //     value: 1,
+        //     unit: 'requests',
+        //     period: 'daily',
+        //     periodStart: new Date(),
+        //     periodEnd: new Date()
+        //   });
+        // }
 
         const response = await runMultiAgentDebate(result.prompt, result);
         res.json(response);
