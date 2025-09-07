@@ -7,11 +7,12 @@
 2. [Getting Started](#getting-started)
 3. [Authentication & User Management](#authentication--user-management)
 4. [Platform Modes](#platform-modes)
-5. [Team Collaboration Features](#team-collaboration-features)
-6. [Multi-Agent AI System](#multi-agent-ai-system)
-7. [Advanced Features](#advanced-features)
-8. [Troubleshooting](#troubleshooting)
-9. [Technical Specifications](#technical-specifications)
+5. [Cross-Mode Debate Transfer](#cross-mode-debate-transfer)
+6. [Team Collaboration Features](#team-collaboration-features)
+7. [Multi-Agent AI System](#multi-agent-ai-system)
+8. [Advanced Features](#advanced-features)
+9. [Troubleshooting](#troubleshooting)
+10. [Technical Specifications](#technical-specifications)
 
 ---
 
@@ -21,6 +22,7 @@
 
 ### Key Features ✨
 - **Three Progressive Complexity Levels**: Simple, Guided, and Expert modes
+- **Cross-Mode Debate Transfer**: Seamlessly continue debates across different modes for progressive enhancement
 - **18+ Specialized Domain Experts**: Legal, Medical, Financial, Technology, Business, and more
 - **Real-time Team Collaboration**: Live session sharing, team chat, workspace synchronization
 - **Interactive Fact-Checking**: Configurable verification depth and source requirements
@@ -72,11 +74,13 @@
 - Default AI agent configuration (Analyst, Critic, Synthesizer)
 - Basic debate rounds (3-5 rounds typical)
 - Instant results with clear conclusions
+- **Transfer Option**: Continue debates in Guided or Expert mode for enhanced analysis
 
 **Best For:**
 - Quick decision-making
 - Initial exploration of topics
 - Users new to multi-agent AI debates
+- Starting point for deeper analysis in other modes
 
 ### 🟡 Guided Mode
 **Balanced approach with customization options**
@@ -87,6 +91,7 @@
 - Basic collaboration features
 - Visual journey timeline
 - Result export options
+- **Transfer Option**: Continue debates from Simple mode or elevate to Expert mode
 
 **Available Domain Experts:**
 - **Legal**: Legal Analyst, Legal Advocate
@@ -110,6 +115,7 @@
 - Thinking pattern selection
 - Comprehensive debate controls
 - Real-time collaboration tools
+- **Transfer Option**: Continue debates from Simple or Guided mode with full expert capabilities
 
 #### 2. **Template Library Tab**
 - Pre-built analysis templates
@@ -124,6 +130,66 @@
 - Real-time synchronization
 - Permission controls
 - Session sharing capabilities
+
+---
+
+## Cross-Mode Debate Transfer
+
+### 🔄 Progressive Enhancement Workflow
+SymbiosoAi ThinkTank now supports seamless debate transfer between modes, allowing you to progressively enhance your analysis complexity as your needs evolve.
+
+### **Transfer Process**
+1. **Start Simple**: Begin with a quick analysis in Simple mode
+2. **Identify Potential**: Recognize when deeper analysis would be valuable
+3. **Transfer & Enhance**: Move to Guided or Expert mode with full context preservation
+4. **Continue Building**: New analysis builds upon previous insights and conclusions
+
+### **How Transfer Works**
+
+#### **From Simple Mode**
+- Access the "Continue Previous Debate" option in Guided or Expert mode
+- Select from available Simple mode sessions
+- Previous consensus, dissents, and unresolved questions are preserved
+- New analysis continues the conversation with enhanced capabilities
+
+#### **Transfer Benefits**
+- **Context Preservation**: All previous insights, conclusions, and discussion points carry forward
+- **Progressive Complexity**: Add specialized experts, advanced reasoning, and enterprise features
+- **No Data Loss**: Complete debate history remains accessible and integrated
+- **Seamless Experience**: Natural workflow progression without starting over
+
+### **Transfer Interface Features**
+
+#### **Session Browser**
+- **Visual Preview**: See consensus, dissenting views, and unresolved questions before transfer
+- **Session Filtering**: Easily find relevant previous debates
+- **Mode Indicators**: Clear visual distinction between Simple, Guided, and Expert sessions
+- **Transfer Status**: Track which sessions have been transferred and enhanced
+
+#### **Smart Context Integration**
+- **Debate History**: Full conversation threads are preserved and accessible
+- **Insight Continuity**: New agents can reference and build upon previous conclusions
+- **Question Progression**: Unresolved questions become focal points for enhanced analysis
+- **Perspective Expansion**: Additional expert viewpoints complement original insights
+
+### **Best Practices for Cross-Mode Transfer**
+
+#### **When to Transfer**
+- **Simple → Guided**: When you need specialized domain expertise
+- **Simple → Expert**: When you need comprehensive enterprise analysis
+- **Guided → Expert**: When you require advanced collaboration features
+
+#### **Optimal Transfer Timing**
+- After initial Simple mode provides foundational insights
+- When stakeholder involvement increases
+- Before making critical business decisions
+- When deeper technical expertise is needed
+
+#### **Transfer Preparation**
+- Review original session results before transferring
+- Identify specific areas needing deeper analysis
+- Consider which domain experts would add value
+- Plan for enhanced collaboration if needed
 
 ---
 
@@ -305,9 +371,17 @@
 
 ---
 
-## Recent Updates (January 2025)
+## Recent Updates
 
-### ✅ **Completed Enhancements**
+### ✅ **September 2025 - Cross-Mode Debate Transfer System**
+- **Progressive Enhancement Workflow**: Seamlessly continue debates across Simple, Guided, and Expert modes
+- **Context-Aware Transfer**: Full preservation of consensus, dissents, and unresolved questions
+- **Smart Session Browser**: Visual preview and filtering for easy session selection
+- **Transfer Integration**: Native transfer options embedded in Guided and Expert mode interfaces
+- **Debate Continuity**: New analysis builds upon previous insights rather than starting fresh
+- **Enhanced User Experience**: Natural progression from quick analysis to comprehensive enterprise features
+
+### ✅ **January 2025 - Enterprise Collaboration System**
 - **Final Logo Branding**: SymbiosoAi Horizontal Logo with Tag (400% size increase)
 - **Error Resolution**: Fixed authentication polling storms, Fast Refresh issues, TypeScript compilation errors
 - **Enhanced Visual Journey Timeline**: Numbered steps, timestamps, coverage analysis
@@ -319,6 +393,14 @@
 - **Error-Free Status**: Application runs completely without errors
 
 ### 🔧 **Technical Improvements**
+
+#### **September 2025 - Transfer Infrastructure**
+- **Enhanced Database Schema**: Added support for debate history, transfer tracking, and session relationships
+- **Backend API Extensions**: New endpoints for retrieving transferable sessions and handling cross-mode transfers
+- **UI Component System**: Comprehensive transfer interface with session browsing and preview capabilities
+- **Context Preservation Engine**: Advanced system for maintaining debate continuity across modes
+
+#### **January 2025 - Collaboration Foundation**
 - **Authentication Optimization**: Reduced API polling for better performance
 - **Component Export Cleanup**: Resolved all TypeScript compilation issues
 - **WebSocket Stability**: Enhanced real-time communication reliability
@@ -344,4 +426,4 @@
 
 **© 2025 SymbiosoAi ThinkTank - Enterprise Collaborative Intelligence Platform**
 
-*This manual reflects the current state of the platform as of January 2025, including all recent enhancements and the complete enterprise collaboration system.*
+*This manual reflects the current state of the platform as of September 2025, including the new Cross-Mode Debate Transfer System and the complete enterprise collaboration system.*
