@@ -89,8 +89,12 @@ export async function setupAuth(app: Express) {
     verified(null, user);
   };
 
-  for (const domain of process.env
-    .REPLIT_DOMAINS!.split(",")) {
+  // Use REPLIT_DEV_DOMAIN for correct domain or fallback to REPLIT_DOMAINS
+  const currentDomain = process.env.REPLIT_DEV_DOMAIN || process.env.REPLIT_DOMAINS!.split(",")[0];
+  const domains = [currentDomain];
+  
+  for (const domain of domains) {
+    console.log("🔐 Setting up OAuth strategy for domain:", domain);
     const strategy = new Strategy(
       {
         name: `replitauth:${domain}`,
@@ -107,11 +111,9 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
-    // Use the first configured domain instead of req.hostname for consistency
-    const domain = process.env.REPLIT_DOMAINS!.split(",")[0];
-    console.log("🔐 Login request - Request hostname:", req.hostname);
-    console.log("🔐 Login request - Using domain:", domain);
-    console.log("🔐 Login request - Available domains:", process.env.REPLIT_DOMAINS);
+    // Use the actual request hostname for OAuth consistency
+    const domain = req.hostname;
+    console.log("🔐 Login request - Using request hostname:", domain);
     
     passport.authenticate(`replitauth:${domain}`, {
       prompt: "login consent",
@@ -120,8 +122,10 @@ export async function setupAuth(app: Express) {
   });
 
   app.get("/api/callback", (req, res, next) => {
-    // Use the first configured domain instead of req.hostname for consistency
-    const domain = process.env.REPLIT_DOMAINS!.split(",")[0];
+    // Use the actual request hostname for OAuth consistency
+    const domain = req.hostname;
+    console.log("🔐 Callback request - Using request hostname:", domain);
+    
     passport.authenticate(`replitauth:${domain}`, (err, user, info) => {
       if (err) {
         console.error("OAuth authentication error:", err);
