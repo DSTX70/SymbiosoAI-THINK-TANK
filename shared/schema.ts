@@ -342,6 +342,120 @@ export const brainstormResponseSchema = z.object({
   }),
 });
 
+// Report generation schemas
+export const reportRequestSchema = z.object({
+  session_id: z.string(),
+  report_type: z.enum(["executive", "detailed", "full"]),
+  include_citations: z.boolean().default(true),
+  include_expert_summary: z.boolean().default(true),
+  format: z.enum(["markdown", "pdf", "html"]).default("markdown"),
+});
+
+export const reportResponseSchema = z.object({
+  report_type: z.enum(["executive", "detailed", "full"]),
+  title: z.string(),
+  executive_summary: z.string(),
+  debate_overview: z.object({
+    original_question: z.string(),
+    methodology: z.string(),
+    participants: z.array(z.string()),
+    rounds_conducted: z.number(),
+    consensus_reached: z.string(),
+    key_dissents: z.array(z.object({
+      position: z.string(),
+      reasoning: z.string().optional(),
+    })),
+    unresolved_questions: z.array(z.string()),
+  }),
+  brainstorming_outcomes: z.object({
+    collaborative_solutions: z.array(z.object({
+      title: z.string(),
+      description: z.string(),
+      feasibility: z.enum(["low", "medium", "high"]),
+      impact: z.enum(["low", "medium", "high"]),
+      timeline: z.string().optional(),
+      resources_required: z.array(z.string()).optional(),
+    })),
+    implementation_plan: z.array(z.object({
+      step: z.number(),
+      title: z.string(),
+      description: z.string(),
+      owner: z.string().optional(),
+      timeline: z.string().optional(),
+      dependencies: z.array(z.string()).optional(),
+    })),
+    answered_questions: z.array(z.object({
+      original_question: z.string(),
+      answer: z.string(),
+      confidence: z.enum(["low", "medium", "high"]),
+      supporting_evidence: z.array(z.string()).optional(),
+    })),
+    implementation_strategy: z.object({
+      approach: z.string(),
+      key_milestones: z.array(z.string()),
+      success_metrics: z.array(z.string()).optional(),
+      risk_mitigation: z.array(z.string()).optional(),
+    }),
+  }).optional(),
+  expert_analysis: z.object({
+    domain_experts_consulted: z.array(z.object({
+      expert_type: z.string(),
+      role: z.string(),
+      key_contributions: z.array(z.string()),
+      confidence_level: z.enum(["low", "medium", "high"]),
+    })),
+    ai_agents_summary: z.array(z.object({
+      agent_name: z.string(),
+      role: z.string(),
+      key_insights: z.array(z.string()),
+      approach: z.string(),
+    })),
+  }).optional(),
+  citations: z.array(z.object({
+    title: z.string().optional(),
+    url: z.string().optional(),
+    source: z.string().optional(),
+    author: z.string().optional(),
+    year: z.string().optional(),
+    relevance: z.string().optional(),
+  })).optional(),
+  fact_check_summary: z.object({
+    total_claims_verified: z.number(),
+    verification_breakdown: z.object({
+      verified: z.number(),
+      disputed: z.number(),
+      partially_verified: z.number(),
+      inconclusive: z.number(),
+    }),
+    key_findings: z.array(z.object({
+      claim: z.string(),
+      status: z.string(),
+      confidence: z.number().optional(),
+      note: z.string().optional(),
+    })),
+  }).optional(),
+  recommendations: z.array(z.object({
+    title: z.string(),
+    description: z.string(),
+    priority: z.enum(["low", "medium", "high"]),
+    timeline: z.string().optional(),
+    stakeholders: z.array(z.string()).optional(),
+  })),
+  appendices: z.object({
+    full_debate_transcript: z.string().optional(),
+    brainstorming_transcript: z.string().optional(),
+    methodology_details: z.string().optional(),
+    technical_specifications: z.string().optional(),
+  }).optional(),
+  metadata: z.object({
+    generated_at: z.string(),
+    session_id: z.string(),
+    total_analysis_time: z.string(),
+    quality_score: z.number().optional(),
+    word_count: z.number().optional(),
+  }),
+});
+
 // Type definitions
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
@@ -359,6 +473,8 @@ export type WorkspaceRole = z.infer<typeof workspaceRoleSchema>;
 export type ThinkRequest = z.infer<typeof thinkRequestSchema>;
 export type ThinkResponse = z.infer<typeof thinkResponseSchema>;
 export type BrainstormResponse = z.infer<typeof brainstormResponseSchema>;
+export type ReportRequest = z.infer<typeof reportRequestSchema>;
+export type ReportResponse = z.infer<typeof reportResponseSchema>;
 export type Citation = {
   title?: string;
   url?: string;
