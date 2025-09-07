@@ -37,7 +37,7 @@ import { useCollaboration } from "@/hooks/useCollaboration";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import type { ThinkRequest, ThinkResponse } from "@shared/schema";
+import type { ThinkRequest, ThinkResponse, BrainstormResponse } from "@shared/schema";
 
 export default function ExpertPage() {
   const [prompt, setPrompt] = useState("");
@@ -49,6 +49,8 @@ export default function ExpertPage() {
   const [streamingResult, setStreamingResult] = useState<any>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [transferSessionId, setTransferSessionId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [brainstormResults, setBrainstormResults] = useState<BrainstormResponse | null>(null);
   const { toast } = useToast();
 
   // Agent Selection State (for UI display)
@@ -138,9 +140,12 @@ export default function ExpertPage() {
       const response = await apiRequest("POST", "/api/think", data);
       return response.json();
     },
-    onSuccess: (data: ThinkResponse) => {
+    onSuccess: (data: ThinkResponse & { sessionId?: string }) => {
       setResults(data);
       setProcessingProgress(100);
+      if (data.sessionId) {
+        setSessionId(data.sessionId);
+      }
       toast({ description: "Expert analysis completed successfully!" });
     },
     onError: (error: any) => {
@@ -750,6 +755,15 @@ export default function ExpertPage() {
                 results={results}
                 isProcessing={thinkMutation.isPending || isStreaming}
                 onExport={handleExport}
+                sessionId={sessionId}
+                brainstormResults={brainstormResults}
+                onBrainstormComplete={(brainstormData) => {
+                  setBrainstormResults(brainstormData);
+                  toast({
+                    title: "Brainstorming Complete!",
+                    description: "Your collaborative solutions are ready for review.",
+                  });
+                }}
               />
               
               {/* Session Management */}

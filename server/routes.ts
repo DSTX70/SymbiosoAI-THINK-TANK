@@ -980,9 +980,12 @@ Please build upon the previous discussion while addressing the new question.`
           workspaceId: null
         };
 
-        await storage.createAnalysisSession(sessionData);
+        const createdSession = await storage.createAnalysisSession(sessionData);
         
-        res.json(response);
+        res.json({
+          ...response,
+          sessionId: createdSession.id
+        });
       } catch (error: any) {
         console.error("Think endpoint error:", error);
         res.status(400).json({ error: error.message });
