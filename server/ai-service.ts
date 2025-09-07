@@ -80,7 +80,7 @@ export async function runMultiAgentDebate(
           }
         ],
         max_completion_tokens: settings.response_length === "detailed" ? 800 : settings.response_length === "brief" ? 300 : 500,
-        temperature: settings.temperature || 0.7
+        // temperature: settings.temperature || 0.7 // Removed - model only supports default
       });
 
       const content = response.choices[0].message.content || "";
@@ -116,7 +116,7 @@ Respond only with valid JSON.`;
       }
     ],
     max_completion_tokens: 1000,
-    temperature: 0.3,
+    // temperature: 0.3, // Removed - model only supports default
     response_format: { type: "json_object" }
   });
 

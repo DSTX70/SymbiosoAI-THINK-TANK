@@ -613,7 +613,7 @@ async function runStreamingDebate(ctx: StreamingContext) {
             }
           ],
           max_completion_tokens: settings.response_length === "detailed" ? 800 : settings.response_length === "brief" ? 300 : 500,
-          temperature: settings.temperature || 0.7,
+          // temperature: settings.temperature || 0.7, // Removed - model only supports default
           stream: true,
         });
 
