@@ -28,6 +28,10 @@ import { DeepAnalysisMode } from "@/components/DeepAnalysisMode";
 import { CustomThinkingPatterns } from "@/components/CustomThinkingPatterns";
 import { EnterpriseSpecialists } from "@/components/EnterpriseSpecialists";
 import { AdvancedRAGControls } from "@/components/AdvancedRAGControls";
+import { APIIntegrationPanel } from "@/components/APIIntegrationPanel";
+import { WebhookConfiguration } from "@/components/WebhookConfiguration";
+import { CustomExportTemplates } from "@/components/CustomExportTemplates";
+import { SSOIntegration } from "@/components/SSOIntegration";
 import { useCollaboration } from "@/hooks/useCollaboration";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -119,6 +123,11 @@ export default function ExpertPage() {
       webSearch: true,
       documentLibraries: true
     },
+    // Integration Features
+    api_integrations: [] as string[],
+    webhook_configs: [] as string[],
+    export_templates: [] as string[],
+    sso_providers: [] as string[],
   });
 
 
@@ -415,9 +424,10 @@ export default function ExpertPage() {
         {/* Center (fills remaining width) */}
         <section className="min-w-0 overflow-y-auto px-4 md:px-6 py-6">
           <Tabs defaultValue="analysis" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="analysis" data-testid="tab-analysis">Analysis</TabsTrigger>
               <TabsTrigger value="ai-capabilities" data-testid="tab-ai-capabilities">AI Capabilities</TabsTrigger>
+              <TabsTrigger value="integrations" data-testid="tab-integrations">Integrations</TabsTrigger>
               <TabsTrigger value="analytics" data-testid="tab-analytics">Analytics</TabsTrigger>
               <TabsTrigger value="templates" data-testid="tab-templates">Templates</TabsTrigger>
               <TabsTrigger value="workspace" data-testid="tab-workspace">Workspace</TabsTrigger>
@@ -777,6 +787,92 @@ export default function ExpertPage() {
                     rag_config: ragConfig
                   }))
                 }
+              />
+            </TabsContent>
+
+            <TabsContent value="integrations" className="space-y-6">
+              <APIIntegrationPanel
+                onIntegrationCreate={(integration) => {
+                  // Handle API integration creation
+                  console.log('Creating API integration:', integration);
+                }}
+                onIntegrationUpdate={(id, updates) => {
+                  // Handle API integration updates
+                  console.log('Updating API integration:', id, updates);
+                }}
+                onIntegrationDelete={(id) => {
+                  // Handle API integration deletion
+                  console.log('Deleting API integration:', id);
+                }}
+                onIntegrationTest={async (id) => {
+                  // Handle API integration testing
+                  console.log('Testing API integration:', id);
+                  return true;
+                }}
+              />
+              
+              <WebhookConfiguration
+                onWebhookCreate={(webhook) => {
+                  // Handle webhook creation
+                  console.log('Creating webhook:', webhook);
+                }}
+                onWebhookUpdate={(id, updates) => {
+                  // Handle webhook updates
+                  console.log('Updating webhook:', id, updates);
+                }}
+                onWebhookDelete={(id) => {
+                  // Handle webhook deletion
+                  console.log('Deleting webhook:', id);
+                }}
+                onWebhookTest={async (id) => {
+                  // Handle webhook testing
+                  console.log('Testing webhook:', id);
+                  return true;
+                }}
+              />
+              
+              <CustomExportTemplates
+                onTemplateCreate={(template) => {
+                  // Handle template creation
+                  console.log('Creating export template:', template);
+                }}
+                onTemplateUpdate={(id, updates) => {
+                  // Handle template updates
+                  console.log('Updating export template:', id, updates);
+                }}
+                onTemplateDelete={(id) => {
+                  // Handle template deletion
+                  console.log('Deleting export template:', id);
+                }}
+                onTemplateExport={async (templateId, data) => {
+                  // Handle template export
+                  console.log('Exporting with template:', templateId, data);
+                  return 'exported-file-url';
+                }}
+                onTemplatePreview={(templateId) => {
+                  // Handle template preview
+                  console.log('Previewing template:', templateId);
+                }}
+              />
+              
+              <SSOIntegration
+                onProviderCreate={(provider) => {
+                  // Handle SSO provider creation
+                  console.log('Creating SSO provider:', provider);
+                }}
+                onProviderUpdate={(id, updates) => {
+                  // Handle SSO provider updates
+                  console.log('Updating SSO provider:', id, updates);
+                }}
+                onProviderDelete={(id) => {
+                  // Handle SSO provider deletion
+                  console.log('Deleting SSO provider:', id);
+                }}
+                onProviderTest={async (id) => {
+                  // Handle SSO provider testing
+                  console.log('Testing SSO provider:', id);
+                  return true;
+                }}
               />
             </TabsContent>
 
