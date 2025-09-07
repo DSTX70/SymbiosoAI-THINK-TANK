@@ -121,7 +121,7 @@ Respond only with valid JSON.`;
     ],
     max_completion_tokens: 1000,
     // temperature: 0.3, // Removed - model only supports default
-    response_format: { type: "json_object" }
+    // response_format: { type: "json_object" } // Removed - not supported by gpt-4
   });
 
   try {
