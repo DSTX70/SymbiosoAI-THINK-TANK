@@ -48,6 +48,10 @@ export const analysisSessions = pgTable("analysis_sessions", {
   settings: jsonb("settings"),
   results: jsonb("results"),
   telemetry: jsonb("telemetry"),
+  debateHistory: jsonb("debate_history"), // Store agent responses for cross-mode transfers
+  title: text("title"), // User-friendly title for session identification
+  sourceSessionId: varchar("source_session_id"), // Reference to original session if this is a transfer
+  transferCount: integer("transfer_count").default(0), // Track how many times this has been transferred
   userId: varchar("user_id"),
   workspaceId: varchar("workspace_id"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -112,6 +116,9 @@ export const insertAnalysisSessionSchema = createInsertSchema(analysisSessions).
   prompt: true,
   mode: true,
   settings: true,
+  title: true,
+  sourceSessionId: true,
+  transferCount: true,
   userId: true,
   workspaceId: true,
 });
@@ -153,6 +160,7 @@ export const workspaceRoleSchema = z.enum(["owner", "admin", "member", "viewer"]
 export const thinkRequestSchema = z.object({
   prompt: z.string().min(1),
   mode: z.enum(["simple", "guided", "expert"]),
+  transfer_from_session_id: z.string().optional(), // ID of previous session to transfer from
   // Simple mode options
   require_citations: z.boolean().optional(),
   enable_fact_check: z.boolean().optional(),
@@ -354,6 +362,19 @@ export type AgentSelection = {
   manual_agents?: string[];
   domain_expert_type?: string;
   usecase_type?: string;
+};
+
+// Cross-mode debate transfer types
+export type SessionTransfer = {
+  sessionId: string;
+  title: string;
+  prompt: string;
+  mode: string;
+  consensus: string;
+  dissents: Array<{ position: string; reasoning?: string }>;
+  unresolved: string[];
+  debateHistory?: Array<{ agent: string; response: string }>;
+  createdAt: Date;
 };
 
 // Session codes for real-time collaboration
