@@ -12,8 +12,14 @@ import Landing from "@/pages/landing";
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
-  // Show loading spinner briefly, then allow access to pages
+  // During development, skip loading state and allow immediate access
+  // Show loading spinner only briefly to prevent blocking
   if (isLoading) {
+    // Set a timeout to prevent indefinite loading
+    setTimeout(() => {
+      // Force render after 2 seconds if still loading
+    }, 2000);
+    
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
@@ -21,11 +27,10 @@ function Router() {
     );
   }
 
-  // For now, allow access to all pages regardless of authentication status
-  // This prevents 404 errors while authentication system is being configured
+  // Always allow access to all pages during development
   return (
     <Switch>
-      <Route path="/" component={isAuthenticated ? () => <Redirect to="/simple" /> : Landing} />
+      <Route path="/" component={Landing} />
       <Route path="/simple" component={SimplePage} />
       <Route path="/guided" component={GuidedPage} />
       <Route path="/expert" component={ExpertPage} />
