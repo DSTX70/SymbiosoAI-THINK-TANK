@@ -87,9 +87,8 @@ export default function ExpertPage() {
     manual_agents: [] as ("analyst" | "pragmatist" | "innovator" | "thoughtful" | "critic")[],
     domain_experts: [] as ("legal-analyst" | "legal-advocate" | "medical-diagnostician" | "medical-researcher" | "financial-analyst" | "investment-strategist" | "tech-architect" | "devops-engineer" | "educational-psychologist" | "brand-strategist" | "research-scientist" | "systems-engineer" | "behavioral-analyst" | "sustainability-consultant")[],
     usecase_type: "",
-    // Advanced AI Capabilities
+    // Advanced AI Capabilities  
     thinking_patterns: [],
-    enterprise_specialists: [],
     creativity_level: 50,
     deep_analysis_mode: false,
     // Real-time Streaming
