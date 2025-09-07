@@ -49,6 +49,10 @@ export const analysisSessions = pgTable("analysis_sessions", {
   results: jsonb("results"),
   telemetry: jsonb("telemetry"),
   debateHistory: jsonb("debate_history"), // Store agent responses for cross-mode transfers
+  brainstormResults: jsonb("brainstorm_results"), // Store brainstorming session results
+  lastBrainstormedAt: timestamp("last_brainstormed_at"), // When brainstorming was last run
+  lastReportGeneratedAt: timestamp("last_report_generated_at"), // When report was last generated
+  lastReportType: varchar("last_report_type"), // Type of last generated report
   title: text("title"), // User-friendly title for session identification
   sourceSessionId: varchar("source_session_id"), // Reference to original session if this is a transfer
   transferCount: integer("transfer_count").default(0), // Track how many times this has been transferred
