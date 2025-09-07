@@ -6,6 +6,15 @@ SymbiosoAi ThinkTank is an enterprise-grade collaborative intelligence platform 
 
 ## Recent Changes
 
+**September 2025 - Mobile Responsiveness & UI Improvements:**
+- ✅ Fixed mobile header layout with responsive design
+- ✅ Logo left-justified and increased size by 100% 
+- ✅ Sessions moved to same line as logo, right-justified
+- ✅ Mobile dropdown menu for all header actions (BETA, Sign In, Theme Toggle, Help, API Status)
+- ✅ Added Agent Selection & Configuration section to Expert page
+- ✅ AI service stability improvements and error handling
+- ✅ Fixed React rendering errors and JSON parsing in synthesis
+
 **January 2025 - Enterprise Features Implementation:**
 - ✅ Enhanced Visual Journey Timeline with numbered steps, timestamps, and coverage analysis
 - ✅ Interactive Fact-Check Configuration with verification depth controls and source requirements
@@ -21,13 +30,26 @@ Preferred communication style: Simple, everyday language.
 ## System Architecture
 
 ### Frontend Architecture
-The client-side application is built using **React** with **TypeScript** and follows a modern component-based architecture. The UI leverages **shadcn/ui** components for a consistent design system, styled with **Tailwind CSS** for responsive layouts. The application uses **wouter** for lightweight client-side routing and **TanStack Query** for server state management and API communication. The frontend is structured with clear separation between pages (`/simple`, `/guided`, and `/expert`), reusable components, and utility functions.
+The client-side application is built using **React** with **TypeScript** and follows a modern component-based architecture. The UI leverages **shadcn/ui** components for a consistent design system, styled with **Tailwind CSS** for responsive layouts optimized for both desktop and mobile devices. The application uses **wouter** for lightweight client-side routing and **TanStack Query** for server state management and API communication. The frontend is structured with clear separation between pages (`/simple`, `/guided`, and `/expert`), reusable components, and utility functions.
+
+#### Mobile-First Responsive Design
+- **Adaptive Header Layout**: Two-tier mobile header with logo/Sessions/menu on top row, main navigation centered below
+- **Mobile Dropdown Menu**: Hamburger menu containing BETA badge, authentication, theme toggle, help, and API connection status
+- **Touch-Optimized Navigation**: Properly sized touch targets for mobile interaction
+- **Responsive Component Layouts**: All UI components adapt gracefully across screen sizes
 
 ### Expert Mode Enterprise Features
 The Expert mode provides a comprehensive 3-tab enterprise interface:
-- **Expert Analysis Tab**: Advanced AI debate configuration with domain experts, reasoning frameworks, thinking patterns, and workspace management
+- **Expert Analysis Tab**: Advanced AI debate configuration with Agent Selection & Configuration section, domain experts, reasoning frameworks, thinking patterns, and workspace management
 - **Template Library Tab**: Pre-built analysis templates with ratings, categories, and management capabilities
 - **Workspace Tab**: Team collaboration features with real-time sync, permissions management, and session sharing
+
+#### Agent Selection & Configuration System
+Both Guided and Expert modes now feature a unified Agent Selection & Configuration interface:
+- **Smart Selection**: AI automatically chooses optimal agents based on prompt analysis
+- **Manual Selection**: Users select from 5 core AI personalities (Analyst, Pragmatist, Innovator, Thoughtful, Critic)
+- **Domain Experts**: 14 specialized experts across legal, medical, financial, technical, and research domains
+- **Use Case Templates**: Pre-configured agent combinations for specific scenarios (business analysis, technical debates, creative brainstorms, etc.)
 
 #### Interactive Fact-Check System
 - Clickable confidence percentages with verification states
@@ -86,8 +108,9 @@ The system implements session-based tracking using PostgreSQL sessions with `con
 ## External Dependencies
 
 ### AI Services
-- **OpenAI API**: Primary language model provider using GPT-5 for multi-agent conversations
+- **OpenAI API**: Primary language model provider using GPT-4 for multi-agent conversations with robust error handling and response validation
 - **Anthropic Claude**: Secondary AI provider (optional) for additional model diversity
+- **AI Service Layer**: Enhanced with proper data type enforcement, consensus response handling, and comprehensive error management
 
 ### Database and Storage
 - **Neon Database**: Serverless PostgreSQL hosting for production data persistence
@@ -106,4 +129,4 @@ The system implements session-based tracking using PostgreSQL sessions with `con
 - **TanStack Query**: Server state management, caching, and API synchronization
 - **wouter**: Lightweight routing for single-page application navigation
 
-The architecture prioritizes modularity and maintainability, with clear separation between the AI orchestration layer, data persistence, and user interface components. This design enables easy extension of AI capabilities and user interface enhancements while maintaining system reliability.
+The architecture prioritizes modularity and maintainability, with clear separation between the AI orchestration layer, data persistence, and user interface components. The responsive design ensures optimal user experience across all device types, from desktop workstations to mobile phones. This design enables easy extension of AI capabilities and user interface enhancements while maintaining system reliability and accessibility.
