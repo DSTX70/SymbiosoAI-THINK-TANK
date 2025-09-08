@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import type { InsertPerformanceMetric, InsertErrorLog } from "@shared/schema";
 import { db } from "../db";
 import { performanceMetrics, errorLogs } from "@shared/schema";
+import { sql } from "drizzle-orm";
 
 interface PerformanceConfig {
   enableMetrics: boolean;
@@ -61,7 +62,7 @@ class PerformanceMonitor {
       const self = this; // Capture 'this' context
 
       // Override res.send to capture response time
-      res.send = function(body: any) {
+      res.send = async function(body: any) {
         const endTime = Date.now();
         const responseTime = endTime - startTime;
         
@@ -140,7 +141,7 @@ class PerformanceMonitor {
    * Error Tracking Middleware
    */
   errorTrackingMiddleware() {
-    return (error: Error, req: Request, res: Response, next: NextFunction) => {
+    return async (error: Error, req: Request, res: Response, next: NextFunction) => {
       if (!this.config.enableErrorTracking) {
         return next(error);
       }
@@ -391,13 +392,20 @@ class PerformanceMonitor {
 
   private async checkDatabaseHealth(): Promise<'healthy' | 'degraded' | 'down'> {
     try {
-      // In real implementation, perform database health check
-      // For now, simulate random health status
-      const rand = Math.random();
-      if (rand > 0.95) return 'down';
-      if (rand > 0.85) return 'degraded';
+      const startTime = Date.now();
+      
+      // Simple database connectivity test
+      await db.execute(sql`SELECT 1 as health_check`);
+      
+      const responseTime = Date.now() - startTime;
+      
+      // Determine health based on response time
+      if (responseTime > 5000) return 'down';
+      if (responseTime > 1000) return 'degraded';
+      
       return 'healthy';
     } catch (error) {
+      console.error('Database health check failed:', error);
       return 'down';
     }
   }

@@ -1,10 +1,31 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { ResponseCache } from "./middleware/responseCache";
+import { PerformanceMonitor } from "./middleware/monitoring";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Initialize performance monitoring and caching
+const responseCache = new ResponseCache({
+  defaultTTL: 300, // 5 minutes
+  maxSize: 1000,
+  excludeRoutes: ['/api/auth', '/api/think', '/api/admin'] // Don't cache sensitive endpoints
+});
+
+const performanceMonitor = new PerformanceMonitor({
+  enableMetrics: true,
+  enableErrorTracking: true,
+  slowQueryThreshold: 2000, // Alert on responses > 2s
+  errorAlertThreshold: 10
+});
+
+// Apply middleware
+app.use(responseCache.middleware());
+app.use(performanceMonitor.performanceMiddleware());
+app.use(performanceMonitor.errorTrackingMiddleware());
 
 app.use((req, res, next) => {
   const start = Date.now();
