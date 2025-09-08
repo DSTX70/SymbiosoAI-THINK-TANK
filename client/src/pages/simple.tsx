@@ -15,6 +15,8 @@ import { createStreamUrl } from "@/lib/streamUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { useOnboarding } from "@/hooks/useOnboarding";
+import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough";
 import type { ThinkRequest, ThinkResponse } from "@shared/schema";
 
 export default function SimplePage() {
@@ -31,6 +33,9 @@ export default function SimplePage() {
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
   const { toast } = useToast();
 
+  // Onboarding setup
+  const onboarding = useOnboarding();
+
   const thinkMutation = useMutation({
     mutationFn: async (data: ThinkRequest) => {
       const response = await apiRequest("POST", "/api/think", data);
@@ -39,6 +44,10 @@ export default function SimplePage() {
     onSuccess: (data: ThinkResponse) => {
       setResults(data);
       toast({ description: "Analysis completed successfully!" });
+      
+      // Track feature usage and trigger follow-up onboarding
+      onboarding.trackFeatureUsage("sessions");
+      onboarding.triggerOnboarding({ completed_debate: true });
     },
     onError: (error: any) => {
       if (isUnauthorizedError(error)) {
@@ -312,6 +321,19 @@ export default function SimplePage() {
         </div>
       </main>
       <Footer />
+
+      {/* Onboarding Walkthrough */}
+      <OnboardingWalkthrough
+        isActive={onboarding.isActive}
+        currentFlow={onboarding.currentFlow}
+        currentStepIndex={onboarding.currentStepIndex}
+        progress={onboarding.progress}
+        onNext={onboarding.nextStep}
+        onPrevious={onboarding.previousStep}
+        onSkip={onboarding.skipFlow}
+        onComplete={onboarding.completeFlow}
+        onDismiss={onboarding.dismissOnboarding}
+      />
     </div>
   );
 }
