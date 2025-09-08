@@ -98,6 +98,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Onboarding progress routes
+  app.get('/api/user/onboarding-progress', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(user.onboardingProgress || {
+        completed_steps: [],
+        current_flow: null,
+        experience_level: "beginner",
+        skipped_flows: [],
+        last_interaction: null,
+        feature_usage: {}
+      });
+    } catch (error: any) {
+      console.error("Error fetching onboarding progress:", error);
+      res.status(500).json({ message: "Failed to fetch onboarding progress" });
+    }
+  });
+
+  app.patch('/api/user/onboarding-progress', isAuthenticated, express.json(), async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const updatedUser = await storage.updateOnboardingProgress(userId, req.body);
+      res.json(updatedUser.onboardingProgress);
+    } catch (error: any) {
+      console.error("Error updating onboarding progress:", error);
+      res.status(500).json({ message: "Failed to update onboarding progress" });
+    }
+  });
+
   // Workspace management routes
   app.get("/api/workspaces", isAuthenticated, async (req: any, res) => {
     try {

@@ -37,6 +37,7 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserPreferences(id: string, preferences: UserPreferences): Promise<User | undefined>;
   updateUserSubscription(id: string, subscription: any): Promise<User | undefined>;
+  updateOnboardingProgress(id: string, progress: any): Promise<User | undefined>;
   
   // Analysis session management
   createAnalysisSession(session: InsertAnalysisSession & { results?: any; telemetry?: any; debateHistory?: any }): Promise<AnalysisSession>;
@@ -657,6 +658,15 @@ export class DatabaseStorage implements IStorage {
     
     return await this.updateUser(id, { 
       preferences: existing.preferences ? { ...existing.preferences, ...preferences } : preferences
+    });
+  }
+
+  async updateOnboardingProgress(id: string, progress: any): Promise<User | undefined> {
+    const existing = await this.getUser(id);
+    if (!existing) return undefined;
+    
+    return await this.updateUser(id, { 
+      onboardingProgress: existing.onboardingProgress ? { ...existing.onboardingProgress, ...progress } : progress
     });
   }
 

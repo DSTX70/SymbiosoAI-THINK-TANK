@@ -166,11 +166,21 @@ export function useOnboarding() {
 
   // Update progress mutation
   const updateProgressMutation = useMutation({
-    mutationFn: (newProgress: Partial<OnboardingProgress>) =>
-      apiRequest("/api/user/onboarding-progress", {
+    mutationFn: async (newProgress: Partial<OnboardingProgress>) => {
+      const response = await fetch("/api/user/onboarding-progress", {
         method: "PATCH",
-        body: JSON.stringify(newProgress)
-      }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newProgress),
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to update onboarding progress");
+      }
+      
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/user/onboarding-progress"] });
     }
