@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,14 @@ export default function SimplePage() {
 
   // Onboarding setup
   const onboarding = useOnboarding();
+
+  // Trigger onboarding on page load for new users
+  useEffect(() => {
+    onboarding.triggerOnboarding({ 
+      first_visit: true,
+      no_sessions: true 
+    });
+  }, [onboarding.triggerOnboarding]);
 
   const thinkMutation = useMutation({
     mutationFn: async (data: ThinkRequest) => {

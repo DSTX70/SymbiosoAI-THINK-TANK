@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,8 @@ import { createStreamUrl } from "@/lib/streamUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { useOnboarding } from "@/hooks/useOnboarding";
+import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough";
 import type { ThinkRequest, ThinkResponse } from "@shared/schema";
 
 export default function GuidedPage() {
@@ -46,6 +48,17 @@ export default function GuidedPage() {
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
   const [transferSessionId, setTransferSessionId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Onboarding setup
+  const onboarding = useOnboarding();
+
+  // Trigger onboarding on guided page visit
+  useEffect(() => {
+    onboarding.triggerOnboarding({ 
+      visited_guided: true,
+      has_sessions: true 
+    });
+  }, [onboarding.triggerOnboarding]);
 
   const thinkMutation = useMutation({
     mutationFn: async (data: ThinkRequest) => {
@@ -622,6 +635,19 @@ export default function GuidedPage() {
       </main>
 
       <Footer />
+
+      {/* Onboarding Walkthrough */}
+      <OnboardingWalkthrough
+        isActive={onboarding.isActive}
+        currentFlow={onboarding.currentFlow}
+        currentStepIndex={onboarding.currentStepIndex}
+        progress={onboarding.progress}
+        onNext={onboarding.nextStep}
+        onPrevious={onboarding.previousStep}
+        onSkip={onboarding.skipFlow}
+        onComplete={onboarding.completeFlow}
+        onDismiss={onboarding.dismissOnboarding}
+      />
     </div>
   );
 }
