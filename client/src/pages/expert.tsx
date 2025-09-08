@@ -36,6 +36,7 @@ import { SessionTransfer } from "@/components/SessionTransfer";
 import { useCollaboration } from "@/hooks/useCollaboration";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import type { ThinkRequest, ThinkResponse, BrainstormResponse } from "@shared/schema";
 
@@ -52,6 +53,7 @@ export default function ExpertPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [brainstormResults, setBrainstormResults] = useState<BrainstormResponse | null>(null);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   // Agent Selection State (for UI display)
   const [selectionMode, setSelectionMode] = useState<"smart" | "manual" | "domain" | "usecase">("smart");

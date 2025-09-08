@@ -4,6 +4,7 @@ import { Sun, Moon, HelpCircle, Brain, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AuthButton } from "@/components/AuthButton";
+import { useIsMobile } from "@/hooks/use-mobile";
 // import logoImage from "../assets/symbiosoai-logo.png";
 const logoImage = "/symbiosoai-logo.png";
 
@@ -11,6 +12,8 @@ export default function Header() {
   const [location] = useLocation();
   const [isDark, setIsDark] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const isMobile = useIsMobile();
+  const isExpertMode = location.startsWith("/expert");
 
   // Dark mode effect
   useEffect(() => {
@@ -128,39 +131,41 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Navigation Row */}
-        <div className="flex justify-center">
-          <nav className="flex gap-2 items-center">
-            <Link 
-              href="/" 
-              className={`mode-pill ${location === "/" ? "active" : ""}`}
-              data-testid="link-home"
-            >
-              Home
-            </Link>
-            <Link 
-              href="/simple" 
-              className={`mode-pill ${location === "/simple" ? "active" : ""}`}
-              data-testid="link-simple-mode"
-            >
-              Simple
-            </Link>
-            <Link 
-              href="/guided" 
-              className={`mode-pill ${location === "/guided" ? "active" : ""}`}
-              data-testid="link-guided-mode"
-            >
-              Guided
-            </Link>
-            <Link 
-              href="/expert" 
-              className={`mode-pill ${location === "/expert" ? "active" : ""}`}
-              data-testid="link-expert-mode"
-            >
-              Expert
-            </Link>
-          </nav>
-        </div>
+        {/* Navigation Row - Hidden on mobile (using bottom nav), shown on desktop */}
+        {!isMobile && (
+          <div className="flex justify-center">
+            <nav className="flex gap-2 items-center">
+              <Link 
+                href="/" 
+                className={`mode-pill ${location === "/" ? "active" : ""}`}
+                data-testid="link-home"
+              >
+                Home
+              </Link>
+              <Link 
+                href="/simple" 
+                className={`mode-pill ${location === "/simple" ? "active" : ""}`}
+                data-testid="link-simple-mode"
+              >
+                Simple
+              </Link>
+              <Link 
+                href="/guided" 
+                className={`mode-pill ${location === "/guided" ? "active" : ""}`}
+                data-testid="link-guided-mode"
+              >
+                Guided
+              </Link>
+              <Link 
+                href="/expert" 
+                className={`mode-pill ${location === "/expert" ? "active" : ""}`}
+                data-testid="link-expert-mode"
+              >
+                Expert
+              </Link>
+            </nav>
+          </div>
+        )}
       </div>
     </header>
   );

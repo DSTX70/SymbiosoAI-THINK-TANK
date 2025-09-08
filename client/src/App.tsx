@@ -8,6 +8,8 @@ import SimplePage from "@/pages/simple";
 import GuidedPage from "@/pages/guided";
 import ExpertPage from "@/pages/expert";
 import Landing from "@/pages/landing";
+import BottomNavigation from "@/components/BottomNavigation";
+import DesktopSidebar from "@/components/DesktopSidebar";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -29,13 +31,19 @@ function Router() {
 
   // Always allow access to all pages during development
   return (
-    <Switch>
-      <Route path="/" component={Landing} />
-      <Route path="/simple" component={SimplePage} />
-      <Route path="/guided" component={GuidedPage} />
-      <Route path="/expert" component={ExpertPage} />
-      <Route component={() => <div>Page not found</div>} />
-    </Switch>
+    <div className="min-h-screen bg-background">
+      <DesktopSidebar />
+      <div className="pb-16 md:pb-0"> {/* Add bottom padding for mobile navigation */}
+        <Switch>
+          <Route path="/" component={Landing} />
+          <Route path="/simple" component={SimplePage} />
+          <Route path="/guided" component={GuidedPage} />
+          <Route path="/expert" component={ExpertPage} />
+          <Route component={() => <div>Page not found</div>} />
+        </Switch>
+      </div>
+      <BottomNavigation />
+    </div>
   );
 }
 
