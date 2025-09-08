@@ -1,5 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import type { InsertUsageMetric, InsertRateLimitRule } from "@shared/schema";
+import { db } from "../db";
+import { usageMetrics, organizations } from "@shared/schema";
+import { eq, and, gte, lte, sum } from "drizzle-orm";
 
 interface RateLimitConfig {
   defaultLimits: {
@@ -363,19 +366,150 @@ class EnterpriseRateLimiter {
   }
 
   private async recordUsageMetric(tracker: UsageTracker): Promise<void> {
-    // In a real implementation, this would save to database
-    console.log('Usage metric recorded:', tracker);
+    try {
+      const now = new Date();
+      const periodStart = this.getPeriodStart(now, tracker.period);
+      const periodEnd = this.getPeriodEnd(periodStart, tracker.period);
+
+      await db.insert(usageMetrics).values({
+        organizationId: tracker.organizationId || null,
+        userId: tracker.userId || null,
+        metricType: tracker.metricType,
+        value: tracker.value,
+        unit: this.getUnitForMetricType(tracker.metricType),
+        period: tracker.period,
+        periodStart,
+        periodEnd,
+        metadata: {
+          timestamp: now.toISOString(),
+          source: 'rate_limiter'
+        }
+      });
+    } catch (error) {
+      console.error('Failed to record usage metric:', error);
+      // Fallback to console logging if database fails
+      console.log('Usage metric recorded (fallback):', tracker);
+    }
   }
 
   private async getCurrentUsage(organizationId: string, quotaType: string): Promise<number> {
-    // In a real implementation, this would query usage from database
-    // Return mock data for now
-    return Math.floor(Math.random() * 100);
+    try {
+      const now = new Date();
+      const period = this.getPeriodFromQuotaType(quotaType);
+      const periodStart = this.getPeriodStart(now, period);
+      
+      const result = await db
+        .select({ total: sum(usageMetrics.value) })
+        .from(usageMetrics)
+        .where(
+          and(
+            eq(usageMetrics.organizationId, organizationId),
+            eq(usageMetrics.metricType, quotaType),
+            gte(usageMetrics.periodStart, periodStart)
+          )
+        );
+      
+      return Number(result[0]?.total || 0);
+    } catch (error) {
+      console.error('Failed to get current usage:', error);
+      return 0; // Safe fallback
+    }
   }
 
   private async getUsageMetrics(organizationId: string, period: string): Promise<any[]> {
-    // Mock implementation - would query database in real system
-    return [];
+    try {
+      const now = new Date();
+      const periodStart = this.getPeriodStart(now, period);
+      
+      const metrics = await db
+        .select()
+        .from(usageMetrics)
+        .where(
+          and(
+            eq(usageMetrics.organizationId, organizationId),
+            gte(usageMetrics.periodStart, periodStart)
+          )
+        )
+        .orderBy(usageMetrics.createdAt);
+      
+      return metrics;
+    } catch (error) {
+      console.error('Failed to get usage metrics:', error);
+      return []; // Safe fallback
+    }
+  }
+
+  // Helper methods for database operations
+  private getPeriodStart(date: Date, period: string): Date {
+    const start = new Date(date);
+    switch (period) {
+      case 'minute':
+        start.setSeconds(0, 0);
+        break;
+      case 'hourly':
+        start.setMinutes(0, 0, 0);
+        break;
+      case 'daily':
+        start.setHours(0, 0, 0, 0);
+        break;
+      case 'monthly':
+        start.setDate(1);
+        start.setHours(0, 0, 0, 0);
+        break;
+      default:
+        start.setHours(0, 0, 0, 0);
+    }
+    return start;
+  }
+
+  private getPeriodEnd(periodStart: Date, period: string): Date {
+    const end = new Date(periodStart);
+    switch (period) {
+      case 'minute':
+        end.setMinutes(end.getMinutes() + 1);
+        break;
+      case 'hourly':
+        end.setHours(end.getHours() + 1);
+        break;
+      case 'daily':
+        end.setDate(end.getDate() + 1);
+        break;
+      case 'monthly':
+        end.setMonth(end.getMonth() + 1);
+        break;
+      default:
+        end.setDate(end.getDate() + 1);
+    }
+    return end;
+  }
+
+  private getUnitForMetricType(metricType: string): string {
+    switch (metricType) {
+      case 'api_calls':
+      case 'requests':
+        return 'calls';
+      case 'analyses':
+        return 'analyses';
+      case 'storage':
+        return 'mb';
+      case 'bandwidth':
+        return 'gb';
+      default:
+        return 'units';
+    }
+  }
+
+  private getPeriodFromQuotaType(quotaType: string): string {
+    switch (quotaType) {
+      case 'api_calls_per_hour':
+        return 'hourly';
+      case 'ai_analyses_per_day':
+        return 'daily';
+      case 'monthly_analyses':
+        return 'monthly';
+      default:
+        return 'daily';
+    }
   }
 
   private shouldAllowBurst(req: Request, resourceType: string): boolean {
