@@ -679,13 +679,17 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async createAnalysisSession(sessionData: InsertAnalysisSession & { results?: any; telemetry?: any }): Promise<AnalysisSession> {
+  async createAnalysisSession(sessionData: InsertAnalysisSession & { results?: any; telemetry?: any; debateHistory?: any }): Promise<AnalysisSession> {
     const [session] = await db.insert(analysisSessions).values({
       prompt: sessionData.prompt,
       mode: sessionData.mode,
       settings: sessionData.settings || null,
       results: sessionData.results || null,
       telemetry: sessionData.telemetry || null,
+      debateHistory: sessionData.debateHistory || null,
+      title: sessionData.title || null,
+      sourceSessionId: sessionData.sourceSessionId || null,
+      transferCount: sessionData.transferCount || 0,
       userId: sessionData.userId || null,
       workspaceId: sessionData.workspaceId || null
     }).returning();
