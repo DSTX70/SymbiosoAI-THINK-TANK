@@ -175,7 +175,7 @@ export function EnterpriseAdminDashboard({ organizationId, userRole }: Enterpris
 
         {/* Main Dashboard Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-6 w-full" data-testid="dashboard-tabs">
+          <TabsList className="grid grid-cols-2 w-full gap-1" data-testid="dashboard-tabs">
             <TabsTrigger value="overview" data-testid="tab-overview">
               <BarChart3 className="h-4 w-4 mr-2" />
               Overview

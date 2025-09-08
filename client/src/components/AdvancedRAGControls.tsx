@@ -213,7 +213,7 @@ export function AdvancedRAGControls({
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="retrieval" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-2 gap-1">
             <TabsTrigger value="retrieval">Retrieval</TabsTrigger>
             <TabsTrigger value="sources">Sources</TabsTrigger>
             <TabsTrigger value="advanced">Advanced</TabsTrigger>

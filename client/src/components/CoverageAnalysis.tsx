@@ -242,7 +242,7 @@ export function CoverageAnalysis({
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-2 gap-1">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="topics">Topics</TabsTrigger>
             <TabsTrigger value="perspectives">Perspectives</TabsTrigger>
