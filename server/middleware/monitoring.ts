@@ -1,5 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import type { InsertPerformanceMetric, InsertErrorLog } from "@shared/schema";
+import { db } from "../db";
+import { performanceMetrics, errorLogs } from "@shared/schema";
 
 interface PerformanceConfig {
   enableMetrics: boolean;
@@ -109,8 +111,23 @@ class PerformanceMonitor {
           });
         }
 
-        // In real implementation, save to database
-        console.log('Performance metric:', performanceData);
+        // Save performance metric to database
+        try {
+          await self.savePerformanceMetric({
+            organizationId: performanceData.organizationId,
+            metricName: performanceData.metricName,
+            value: performanceData.metricValue,
+            unit: performanceData.metricUnit,
+            endpoint: performanceData.endpoint,
+            tags: {
+              statusCode: performanceData.statusCode,
+              userId: performanceData.userId,
+              ...performanceData.metadata
+            }
+          });
+        } catch (error) {
+          console.error('Failed to save performance metric:', error);
+        }
 
         return originalSend.call(res, body);
       };
@@ -159,8 +176,24 @@ class PerformanceMonitor {
         this.triggerErrorRateAlert(currentErrorRate);
       }
 
-      // Log error (in real implementation, save to database)
-      console.error('Error tracked:', errorData);
+      // Save error to database
+      try {
+        await this.saveErrorLog({
+          organizationId: errorData.organizationId,
+          userId: errorData.userId,
+          errorType: errorData.errorType,
+          errorCode: res.statusCode.toString(),
+          message: errorData.errorMessage,
+          stackTrace: errorData.errorStack,
+          endpoint: errorData.endpoint,
+          severity: errorData.severity,
+          metadata: errorData.metadata
+        });
+      } catch (dbError) {
+        console.error('Failed to save error log:', dbError);
+        // Fallback to console logging if database fails
+        console.error('Original error:', errorData);
+      }
 
       // Continue with normal error handling
       next(error);
@@ -313,6 +346,21 @@ class PerformanceMonitor {
       }>,
       trends: [] as Array<{timestamp: string; errors: number}>
     };
+  }
+
+  // Database Methods
+  /**
+   * Save performance metric to database
+   */
+  private async savePerformanceMetric(metric: InsertPerformanceMetric): Promise<void> {
+    await db.insert(performanceMetrics).values(metric);
+  }
+
+  /**
+   * Save error log to database
+   */
+  private async saveErrorLog(errorLog: InsertErrorLog): Promise<void> {
+    await db.insert(errorLogs).values(errorLog);
   }
 
   // Helper Methods
