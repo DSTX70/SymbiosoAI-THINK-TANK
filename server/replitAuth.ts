@@ -62,13 +62,28 @@ function updateUserSession(
 async function upsertUser(
   claims: any,
 ) {
-  await storage.upsertUser({
-    id: claims["sub"],
-    email: claims["email"],
-    firstName: claims["first_name"],
-    lastName: claims["last_name"],
-    profileImageUrl: claims["profile_image_url"],
-  });
+  try {
+    console.log("🔄 Creating/updating user with claims:", {
+      id: claims["sub"],
+      email: claims["email"],
+      firstName: claims["first_name"],
+      lastName: claims["last_name"]
+    });
+    
+    const user = await storage.upsertUser({
+      id: claims["sub"],
+      email: claims["email"],
+      firstName: claims["first_name"],
+      lastName: claims["last_name"],
+      profileImageUrl: claims["profile_image_url"],
+    });
+    
+    console.log("✅ User upserted successfully:", user.id);
+    return user;
+  } catch (error) {
+    console.error("❌ Failed to upsert user:", error);
+    throw error;
+  }
 }
 
 export async function setupAuth(app: Express) {
@@ -83,10 +98,15 @@ export async function setupAuth(app: Express) {
     tokens: client.TokenEndpointResponse & client.TokenEndpointResponseHelpers,
     verified: passport.AuthenticateCallback
   ) => {
-    const user = {};
-    updateUserSession(user, tokens);
-    await upsertUser(tokens.claims());
-    verified(null, user);
+    try {
+      const user = {};
+      updateUserSession(user, tokens);
+      await upsertUser(tokens.claims());
+      verified(null, user);
+    } catch (error) {
+      console.error("❌ Verification failed:", error);
+      verified(error, null);
+    }
   };
 
   // Use REPLIT_DEV_DOMAIN for correct domain or fallback to REPLIT_DOMAINS
