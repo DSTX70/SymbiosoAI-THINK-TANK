@@ -117,14 +117,12 @@ class PerformanceMonitor {
           await self.savePerformanceMetric({
             organizationId: performanceData.organizationId,
             metricName: performanceData.metricName,
-            value: performanceData.metricValue,
-            unit: performanceData.metricUnit,
+            metricValue: performanceData.metricValue,
+            metricUnit: performanceData.metricUnit,
             endpoint: performanceData.endpoint,
-            tags: {
-              statusCode: performanceData.statusCode,
-              userId: performanceData.userId,
-              ...performanceData.metadata
-            }
+            statusCode: performanceData.statusCode,
+            userId: performanceData.userId,
+            metadata: performanceData.metadata
           });
         } catch (error) {
           console.error('Failed to save performance metric:', error);
