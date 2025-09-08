@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, jsonb, timestamp, integer, boolean, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, jsonb, timestamp, integer, boolean, index, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -788,6 +788,140 @@ export const rateLimitStates = pgTable("rate_limit_states", {
   index("rate_limit_states_window_end_idx").on(table.windowEnd),
 ]);
 
+// ============================================  
+// PHASE 3 AUTOMATION FEATURES
+// ============================================
+
+// Time tracking for automated invoicing
+export const timeLogs = pgTable("time_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  projectId: varchar("project_id"), // Optional project association
+  description: text("description").notNull(),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time"),
+  duration: integer("duration_minutes"), // Auto-calculated
+  billableRate: decimal("billable_rate", { precision: 10, scale: 2 }),
+  isBillable: boolean("is_billable").default(true).notNull(),
+  isInvoiced: boolean("is_invoiced").default(false).notNull(),
+  tags: jsonb("tags").default([]),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("time_logs_org_user_idx").on(table.organizationId, table.userId),
+  index("time_logs_billable_idx").on(table.isBillable, table.isInvoiced),
+  index("time_logs_date_idx").on(table.startTime),
+]);
+
+// Automated invoice generation
+export const invoices = pgTable("invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(),
+  invoiceNumber: varchar("invoice_number").unique().notNull(),
+  clientEmail: varchar("client_email").notNull(),
+  status: varchar("status").notNull().default("draft"), // draft, sent, paid, overdue
+  subtotal: decimal("subtotal", { precision: 12, scale: 2 }).notNull(),
+  taxAmount: decimal("tax_amount", { precision: 12, scale: 2 }).default("0"),
+  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull(),
+  currency: varchar("currency").notNull().default("USD"),
+  dueDate: timestamp("due_date").notNull(),
+  sentAt: timestamp("sent_at"),
+  paidAt: timestamp("paid_at"),
+  lineItems: jsonb("line_items").notNull(), // Time log details
+  notes: text("notes"),
+  paymentTerms: text("payment_terms"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("invoices_org_idx").on(table.organizationId),
+  index("invoices_status_idx").on(table.status),
+  index("invoices_due_date_idx").on(table.dueDate),
+]);
+
+// Smart notification system
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  organizationId: varchar("organization_id"),
+  type: varchar("type").notNull(), // invoice, system, workflow, ai_analysis
+  priority: varchar("priority").notNull().default("medium"), // low, medium, high, urgent
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  actionUrl: varchar("action_url"),
+  isRead: boolean("is_read").default(false).notNull(),
+  deliveryMethods: jsonb("delivery_methods").default(["in_app"]), // in_app, email, sms
+  scheduledFor: timestamp("scheduled_for"),
+  sentAt: timestamp("sent_at"),
+  readAt: timestamp("read_at"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("notifications_user_idx").on(table.userId),
+  index("notifications_unread_idx").on(table.userId, table.isRead),
+  index("notifications_scheduled_idx").on(table.scheduledFor),
+]);
+
+// Notification rules for intelligent alerts
+export const notificationRules = pgTable("notification_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
+  organizationId: varchar("organization_id"),
+  name: varchar("name").notNull(),
+  trigger: varchar("trigger").notNull(), // invoice_overdue, usage_limit, analysis_complete
+  conditions: jsonb("conditions").notNull(), // Rule conditions
+  actions: jsonb("actions").notNull(), // What to do when triggered
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("notification_rules_user_idx").on(table.userId),
+  index("notification_rules_trigger_idx").on(table.trigger, table.isActive),
+]);
+
+// Workflow automation templates
+export const workflowTemplates = pgTable("workflow_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id"),
+  name: varchar("name").notNull(),
+  description: text("description").notNull(),
+  category: varchar("category").notNull(), // invoicing, notifications, ai_analysis, reporting
+  template: jsonb("template").notNull(), // Workflow definition
+  variables: jsonb("variables").default([]), // Template variables
+  isPublic: boolean("is_public").default(false).notNull(),
+  rating: decimal("rating", { precision: 3, scale: 2 }).default("0"),
+  usageCount: integer("usage_count").default(0).notNull(),
+  tags: jsonb("tags").default([]),
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("workflow_templates_category_idx").on(table.category),
+  index("workflow_templates_public_idx").on(table.isPublic, table.rating),
+  index("workflow_templates_org_idx").on(table.organizationId),
+]);
+
+// Workflow instances (executed workflows)
+export const workflowInstances = pgTable("workflow_instances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateId: varchar("template_id").notNull(),
+  organizationId: varchar("organization_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  status: varchar("status").notNull().default("running"), // running, completed, failed, cancelled
+  input: jsonb("input"), // Input data for workflow
+  output: jsonb("output"), // Generated results
+  steps: jsonb("steps").default([]), // Execution steps log
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  errorMessage: text("error_message"),
+  metadata: jsonb("metadata"),
+}, (table) => [
+  index("workflow_instances_template_idx").on(table.templateId),
+  index("workflow_instances_user_idx").on(table.userId),
+  index("workflow_instances_status_idx").on(table.status),
+]);
+
 // ============================================
 // ENTERPRISE FEATURES - Performance & Monitoring
 // ============================================
@@ -1072,6 +1206,99 @@ export type PiiCategory = z.infer<typeof piiCategorySchema>;
 export type RedactionType = z.infer<typeof redactionTypeSchema>;
 export type RateLimitAction = z.infer<typeof rateLimitActionSchema>;
 export type HealthStatus = z.infer<typeof healthStatusSchema>;
+
+// ============================================
+// PHASE 3 AUTOMATION - Zod Schemas
+// ============================================
+
+export const insertTimeLogSchema = createInsertSchema(timeLogs).pick({
+  organizationId: true,
+  userId: true,
+  projectId: true,
+  description: true,
+  startTime: true,
+  endTime: true,
+  duration: true,
+  billableRate: true,
+  isBillable: true,
+  tags: true,
+  metadata: true,
+});
+
+export const insertInvoiceSchema = createInsertSchema(invoices).pick({
+  organizationId: true,
+  invoiceNumber: true,
+  clientEmail: true,
+  status: true,
+  subtotal: true,
+  taxAmount: true,
+  totalAmount: true,
+  currency: true,
+  dueDate: true,
+  lineItems: true,
+  notes: true,
+  paymentTerms: true,
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).pick({
+  userId: true,
+  organizationId: true,
+  type: true,
+  priority: true,
+  title: true,
+  message: true,
+  actionUrl: true,
+  deliveryMethods: true,
+  scheduledFor: true,
+  metadata: true,
+});
+
+export const insertNotificationRuleSchema = createInsertSchema(notificationRules).pick({
+  userId: true,
+  organizationId: true,
+  name: true,
+  trigger: true,
+  conditions: true,
+  actions: true,
+  isActive: true,
+});
+
+export const insertWorkflowTemplateSchema = createInsertSchema(workflowTemplates).pick({
+  organizationId: true,
+  name: true,
+  description: true,
+  category: true,
+  template: true,
+  variables: true,
+  isPublic: true,
+  tags: true,
+  createdBy: true,
+});
+
+export const insertWorkflowInstanceSchema = createInsertSchema(workflowInstances).pick({
+  templateId: true,
+  organizationId: true,
+  userId: true,
+  input: true,
+  metadata: true,
+});
+
+// ============================================
+// PHASE 3 AUTOMATION - Type Definitions  
+// ============================================
+
+export type TimeLog = typeof timeLogs.$inferSelect;
+export type InsertTimeLog = z.infer<typeof insertTimeLogSchema>;
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type NotificationRule = typeof notificationRules.$inferSelect;
+export type InsertNotificationRule = z.infer<typeof insertNotificationRuleSchema>;
+export type WorkflowTemplate = typeof workflowTemplates.$inferSelect;
+export type InsertWorkflowTemplate = z.infer<typeof insertWorkflowTemplateSchema>;
+export type WorkflowInstance = typeof workflowInstances.$inferSelect;
+export type InsertWorkflowInstance = z.infer<typeof insertWorkflowInstanceSchema>;
 
 // Settings types
 export type OrganizationSettings = z.infer<typeof organizationSettingsSchema>;

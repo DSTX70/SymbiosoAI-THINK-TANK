@@ -18,6 +18,7 @@ import express from "express";
 import { SecurityMiddleware } from "./middleware/security";
 import { EnterpriseRateLimiter } from "./middleware/rateLimiting";
 import { PerformanceMonitor } from "./middleware/monitoring";
+import { registerAutomationRoutes } from "./routes/automation";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register SSE streaming routes
@@ -1437,6 +1438,9 @@ Please build upon the previous discussion while addressing the new question.`
     }
   }
   
+  // Register automation routes
+  registerAutomationRoutes(app);
+
   return httpServer;
 }
 
