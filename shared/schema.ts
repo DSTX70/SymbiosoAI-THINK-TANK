@@ -19,6 +19,14 @@ export const users = pgTable("users", {
     default_temperature: 0.7,
     auto_save: true
   }),
+  onboardingProgress: jsonb("onboarding_progress").default({
+    completed_steps: [],
+    current_flow: null,
+    experience_level: "beginner",
+    skipped_flows: [],
+    last_interaction: null,
+    feature_usage: {}
+  }),
   subscription: jsonb("subscription").default({
     plan: "free",
     usage_count: 0,
@@ -1069,3 +1077,35 @@ export type HealthStatus = z.infer<typeof healthStatusSchema>;
 export type OrganizationSettings = z.infer<typeof organizationSettingsSchema>;
 export type BillingSettings = z.infer<typeof billingSettingsSchema>;
 export type Permissions = z.infer<typeof permissionsSchema>;
+
+// Onboarding types
+export type OnboardingStep = {
+  id: string;
+  title: string;
+  description: string;
+  target: string;
+  position: "top" | "bottom" | "left" | "right";
+  type: "tooltip" | "modal" | "highlight" | "tour";
+  trigger?: string;
+  conditions?: string[];
+  action?: string;
+};
+
+export type OnboardingFlow = {
+  id: string;
+  name: string;
+  description: string;
+  target_role: "beginner" | "intermediate" | "expert" | "all";
+  trigger_conditions: string[];
+  steps: OnboardingStep[];
+  completion_criteria: string[];
+};
+
+export type OnboardingProgress = {
+  completed_steps: string[];
+  current_flow: string | null;
+  experience_level: "beginner" | "intermediate" | "expert";
+  skipped_flows: string[];
+  last_interaction: string | null;
+  feature_usage: Record<string, number>;
+};
