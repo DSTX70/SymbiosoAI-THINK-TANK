@@ -133,6 +133,35 @@
 - Permission controls
 - Session sharing capabilities
 
+### ⚡ **Automation Suite** ✨ NEW
+**Enterprise automation with intelligent workflows**
+
+**Four-Tab Interface:**
+
+#### 1. **Time Tracking Tab**
+- Smart billable hour logging with automatic calculations
+- Start/stop timers with real-time tracking
+- Project-based time organization
+- Billable rate management and reporting
+
+#### 2. **Invoicing Tab**
+- Automated invoice generation from time logs
+- Professional invoice templates with tax calculations
+- Client management and billing history
+- Payment tracking and status management
+
+#### 3. **Smart Notifications Tab**
+- Rule-based intelligent alert system
+- Personalized notification preferences
+- Multi-channel delivery (email, SMS, in-app)
+- Custom notification triggers and conditions
+
+#### 4. **Workflow Templates Tab**
+- Pre-built automation workflows for common business processes
+- Template execution with variable substitution
+- Custom workflow creation and management
+- Performance tracking and optimization analytics
+
 ---
 
 ## Cross-Mode Debate Transfer
