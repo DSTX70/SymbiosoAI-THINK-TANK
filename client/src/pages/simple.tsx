@@ -218,7 +218,7 @@ export default function SimplePage() {
           <div className="lg:col-span-3">
 
             {/* Prompt Card */}
-            <Card className="card-elevated gradient-bg mb-6">
+            <Card variant="elevated" className="gradient-bg mb-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-3">
                   <Lightbulb className="text-primary" size={20} />
@@ -278,7 +278,7 @@ export default function SimplePage() {
                 <Button 
                   onClick={handleSubmit}
                   disabled={thinkMutation.isPending || isStreaming}
-                  className="btn-primary flex items-center gap-2"
+                  variant="primary" className="flex items-center gap-2"
                   data-testid="button-start-thinking"
                 >
                   {(thinkMutation.isPending || isStreaming) ? (

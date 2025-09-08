@@ -137,7 +137,7 @@ export function DeepAnalysisMode({
   };
 
   return (
-    <Card className="card-elevated">
+    <Card variant="elevated">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-3">

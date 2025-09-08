@@ -272,7 +272,7 @@ export default function GuidedPage() {
       
       <main className="max-w-4xl mx-auto px-6 py-8">
         {/* 1. Collaborative Prompt */}
-        <Card className="card-elevated gradient-bg mb-6">
+        <Card variant="elevated" className="gradient-bg mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-3">
               <Compass className="text-primary" size={20} />
@@ -292,7 +292,7 @@ export default function GuidedPage() {
         </Card>
 
         {/* Session Transfer Option */}
-        <Card className="card-elevated mb-6">
+        <Card variant="elevated" className="mb-6">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -321,7 +321,7 @@ export default function GuidedPage() {
         </Card>
 
         {/* Agent Selection Section */}
-        <Card className="card-elevated mb-6">
+        <Card variant="elevated" className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-3">
               <Users className="text-primary" size={20} />
@@ -492,7 +492,7 @@ export default function GuidedPage() {
         </Card>
 
         {/* Compact Toggle Options */}
-        <Card className="card-elevated mb-6">
+        <Card variant="elevated" className="mb-6">
           <CardContent className="pt-6">
             <div className="grid grid-cols-2 gap-6">
               {/* Column 1 */}

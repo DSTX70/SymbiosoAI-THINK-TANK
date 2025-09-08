@@ -18,6 +18,9 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
+        // Enhanced SymbiosoAi branded variants
+        primary: "bg-[var(--color-brand-accent-500)] text-[var(--color-neutral-white)] hover:bg-[var(--color-brand-accent-shade)] hover:transform hover:translate-y-[-1px] hover:shadow-[0_4px_12px_rgba(0,153,255,0.3)]",
+        brandSecondary: "bg-transparent border border-[var(--color-brand-teal-500)] text-[var(--color-brand-teal-500)] hover:bg-[var(--color-brand-teal-500)] hover:text-[var(--color-neutral-white)]",
       },
       size: {
         default: "h-10 px-4 py-2",

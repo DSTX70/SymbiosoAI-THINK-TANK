@@ -233,7 +233,7 @@ export function CoverageAnalysis({
   };
 
   return (
-    <Card className="card-elevated">
+    <Card variant="elevated">
       <CardHeader>
         <CardTitle className="flex items-center gap-3">
           <BarChart3 className="text-primary" size={20} />

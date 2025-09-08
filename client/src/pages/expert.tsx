@@ -390,7 +390,7 @@ export default function ExpertPage() {
         {/* Left sidebar (256px) */}
         <aside className="hidden md:block border-r border-border overflow-y-auto">
           <div className="w-64 p-4 space-y-6">
-            <Card className="card-elevated">
+            <Card variant="elevated">
               <CardHeader>
                 <CardTitle className="flex items-center gap-3">
                   <Settings className="text-primary" size={20} />
@@ -443,7 +443,7 @@ export default function ExpertPage() {
 
             <TabsContent value="analysis" className="space-y-6">
               {/* Agent Selection Section */}
-              <Card className="card-elevated mb-6">
+              <Card variant="elevated" className="mb-6">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-3">
                     <Users className="text-primary" size={20} />
@@ -643,7 +643,7 @@ export default function ExpertPage() {
               </Card>
 
               {/* Session Transfer Option */}
-              <Card className="card-elevated">
+              <Card variant="elevated">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -672,7 +672,7 @@ export default function ExpertPage() {
               </Card>
 
               {/* Prompt Input */}
-              <Card className="card-elevated gradient-bg">
+              <Card variant="elevated" className="gradient-bg">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-3">
                     <Brain className="text-primary" size={20} />
@@ -721,7 +721,7 @@ export default function ExpertPage() {
                   <Button 
                     onClick={handleSubmit}
                     disabled={thinkMutation.isPending}
-                    className="btn-primary flex items-center gap-2 w-full"
+                    variant="primary" className="flex items-center gap-2 w-full"
                     data-testid="button-start-expert-analysis"
                   >
                     {thinkMutation.isPending ? (
@@ -767,7 +767,7 @@ export default function ExpertPage() {
               />
               
               {/* Session Management */}
-              <Card className="card-elevated">
+              <Card variant="elevated">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-3">
                     <Settings className="text-primary" size={20} />
@@ -944,7 +944,7 @@ export default function ExpertPage() {
             </TabsContent>
 
             <TabsContent value="templates" className="space-y-6">
-              <Card className="card-elevated">
+              <Card variant="elevated">
                 <CardContent className="p-6">
                   <TemplateLibrary />
                 </CardContent>
@@ -954,13 +954,13 @@ export default function ExpertPage() {
             <TabsContent value="workspace" className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-6">
-                  <Card className="card-elevated">
+                  <Card variant="elevated">
                     <CardContent className="p-6">
                       <WorkspaceManagement />
                     </CardContent>
                   </Card>
 
-                  <Card className="card-elevated">
+                  <Card variant="elevated">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         <Settings className="h-5 w-5" />
