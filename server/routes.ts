@@ -722,7 +722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         organizationId: organizationId || null,
         userId: userId,
         action: "security_event_resolved",
-        resourceType: "security_event",
+        resource: "security_event",
         resourceId: eventId,
         details: {
           event_type: resolvedEvent.eventType,
@@ -853,11 +853,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const ruleData = {
         organizationId: organizationId || null,
-        ruleName: req.body.ruleName,
-        resourceType: req.body.resourceType,
-        limitType: req.body.limitType || 'requests_per_minute',
-        limitValue: parseInt(req.body.limitValue),
-        windowMs: req.body.windowMs || 60000,
+        ruleType: req.body.limitType || 'requests_per_minute',
+        target: req.body.resourceType,
+        limit: parseInt(req.body.limitValue),
+        window: req.body.windowMs || 60000,
+        action: 'throttle',
         isActive: req.body.isActive ?? true
       };
       
@@ -868,7 +868,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         organizationId: organizationId || null,
         userId: userId,
         action: "rate_limit_rule_created",
-        resourceType: "rate_limit_rule",
+        resource: "rate_limit_rule",
         resourceId: rule.id,
         details: {
           rule_name: ruleData.ruleName,

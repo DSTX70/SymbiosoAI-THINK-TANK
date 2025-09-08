@@ -258,6 +258,19 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
+  async updateOnboardingProgress(id: string, progress: any): Promise<User | undefined> {
+    const existing = this.users.get(id);
+    if (!existing) return undefined;
+    
+    const updated = { 
+      ...existing, 
+      onboardingProgress: existing.onboardingProgress ? { ...existing.onboardingProgress, ...progress } : progress,
+      updatedAt: new Date() 
+    };
+    this.users.set(id, updated);
+    return updated;
+  }
+
   async createAnalysisSession(sessionData: InsertAnalysisSession & { results?: any; telemetry?: any; debateHistory?: any }): Promise<AnalysisSession> {
     const id = randomUUID();
     const session: AnalysisSession = {
@@ -716,6 +729,32 @@ export class DatabaseStorage implements IStorage {
     }
     const result = await db.select().from(analysisSessions).orderBy(analysisSessions.createdAt);
     return result.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  // Session transfer methods for cross-mode debate continuation
+  async getTransferableSessions(userId?: string, excludeMode?: string): Promise<AnalysisSession[]> {
+    let query = db.select().from(analysisSessions);
+    
+    const conditions = [];
+    if (userId) {
+      conditions.push(eq(analysisSessions.userId, userId));
+    }
+    if (excludeMode) {
+      conditions.push(not(eq(analysisSessions.mode, excludeMode)));
+    }
+    
+    if (conditions.length > 0) {
+      const result = await query.where(and(...conditions)).orderBy(analysisSessions.createdAt);
+      return result.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+    }
+    
+    const result = await query.orderBy(analysisSessions.createdAt);
+    return result.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  async getSessionForTransfer(sessionId: string): Promise<AnalysisSession | undefined> {
+    const [session] = await db.select().from(analysisSessions).where(eq(analysisSessions.id, sessionId));
+    return session || undefined;
   }
 
   // Workspace management methods

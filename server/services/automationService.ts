@@ -63,26 +63,25 @@ export class AutomationService {
    * Get billable time logs for invoice generation
    */
   async getBillableTimeLogs(organizationId: string, startDate?: Date, endDate?: Date) {
-    let query = db
-      .select()
-      .from(timeLogs)
-      .where(
-        and(
-          eq(timeLogs.organizationId, organizationId),
-          eq(timeLogs.isBillable, true),
-          eq(timeLogs.isInvoiced, false),
-          isNull(timeLogs.endTime) === false // Only completed time logs
-        )
-      );
+    const conditions = [
+      eq(timeLogs.organizationId, organizationId),
+      eq(timeLogs.isBillable, true),
+      eq(timeLogs.isInvoiced, false),
+      not(isNull(timeLogs.endTime)) // Only completed time logs
+    ];
 
     if (startDate) {
-      query = query.where(gte(timeLogs.startTime, startDate));
+      conditions.push(gte(timeLogs.startTime, startDate));
     }
     if (endDate) {
-      query = query.where(lte(timeLogs.startTime, endDate));
+      conditions.push(lte(timeLogs.startTime, endDate));
     }
 
-    return await query.orderBy(asc(timeLogs.startTime));
+    return await db
+      .select()
+      .from(timeLogs)
+      .where(and(...conditions))
+      .orderBy(asc(timeLogs.startTime));
   }
 
   /**
@@ -166,16 +165,17 @@ export class AutomationService {
    * Get invoices for organization
    */
   async getInvoices(organizationId: string, status?: string) {
-    let query = db
-      .select()
-      .from(invoices)
-      .where(eq(invoices.organizationId, organizationId));
-
+    const conditions = [eq(invoices.organizationId, organizationId)];
+    
     if (status) {
-      query = query.where(eq(invoices.status, status));
+      conditions.push(eq(invoices.status, status));
     }
 
-    return await query.orderBy(desc(invoices.createdAt));
+    return await db
+      .select()
+      .from(invoices)
+      .where(and(...conditions))
+      .orderBy(desc(invoices.createdAt));
   }
 
   // ============================================
@@ -210,16 +210,17 @@ export class AutomationService {
    * Get notifications for user
    */
   async getUserNotifications(userId: string, unreadOnly = false) {
-    let query = db
-      .select()
-      .from(notifications)
-      .where(eq(notifications.userId, userId));
-
+    const conditions = [eq(notifications.userId, userId)];
+    
     if (unreadOnly) {
-      query = query.where(eq(notifications.isRead, false));
+      conditions.push(eq(notifications.isRead, false));
     }
 
-    return await query.orderBy(desc(notifications.createdAt));
+    return await db
+      .select()
+      .from(notifications)
+      .where(and(...conditions))
+      .orderBy(desc(notifications.createdAt));
   }
 
   /**
@@ -328,14 +329,16 @@ export class AutomationService {
    * Get workflow templates
    */
   async getWorkflowTemplates(category?: string, isPublic?: boolean) {
-    let query = db.select().from(workflowTemplates);
-
     const conditions = [];
     if (category) conditions.push(eq(workflowTemplates.category, category));
     if (isPublic !== undefined) conditions.push(eq(workflowTemplates.isPublic, isPublic));
 
+    const query = db.select().from(workflowTemplates);
+    
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      return await query
+        .where(and(...conditions))
+        .orderBy(desc(workflowTemplates.rating), desc(workflowTemplates.usageCount));
     }
 
     return await query.orderBy(desc(workflowTemplates.rating), desc(workflowTemplates.usageCount));
@@ -452,16 +455,17 @@ export class AutomationService {
    * Get workflow instances for user
    */
   async getWorkflowInstances(userId: string, status?: string) {
-    let query = db
-      .select()
-      .from(workflowInstances)
-      .where(eq(workflowInstances.userId, userId));
-
+    const conditions = [eq(workflowInstances.userId, userId)];
+    
     if (status) {
-      query = query.where(eq(workflowInstances.status, status));
+      conditions.push(eq(workflowInstances.status, status));
     }
 
-    return await query.orderBy(desc(workflowInstances.startedAt));
+    return await db
+      .select()
+      .from(workflowInstances)
+      .where(and(...conditions))
+      .orderBy(desc(workflowInstances.startedAt));
   }
 }
 
