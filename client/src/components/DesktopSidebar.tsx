@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Compass, Brain, Settings, FileText, Users, Zap } from "lucide-react";
+import { Home, Compass, Brain, Settings, FileText, Users, Zap, Workflow } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent } from "@/components/ui/card";
@@ -70,6 +70,18 @@ const navigationSections: NavSection[] = [
         label: "Workspace",
         icon: Users,
         description: "Team collaboration",
+      },
+    ],
+  },
+  {
+    title: "Enterprise Automation",
+    items: [
+      {
+        href: "/automation",
+        label: "Automation Suite",
+        icon: Workflow,
+        badge: "NEW",
+        description: "Time tracking, invoicing & workflows",
       },
     ],
   },

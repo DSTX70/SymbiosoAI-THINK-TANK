@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import SimplePage from "@/pages/simple";
 import GuidedPage from "@/pages/guided";
 import ExpertPage from "@/pages/expert";
+import AutomationPage from "@/pages/AutomationPage";
 import Landing from "@/pages/landing";
 import BottomNavigation from "@/components/BottomNavigation";
 import DesktopSidebar from "@/components/DesktopSidebar";
@@ -39,6 +40,7 @@ function Router() {
           <Route path="/simple" component={SimplePage} />
           <Route path="/guided" component={GuidedPage} />
           <Route path="/expert" component={ExpertPage} />
+          <Route path="/automation" component={AutomationPage} />
           <Route component={() => <div>Page not found</div>} />
         </Switch>
       </div>
