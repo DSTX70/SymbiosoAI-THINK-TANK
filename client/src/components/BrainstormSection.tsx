@@ -41,10 +41,7 @@ export function BrainstormSection({
     mutationFn: async () => {
       if (!sessionId) throw new Error("No session available");
       
-      const response = await apiRequest("/api/brainstorm", {
-        method: "POST",
-        body: JSON.stringify({ sessionId, settings: {} }),
-      });
+      const response = await apiRequest("POST", "/api/brainstorm", { sessionId, settings: {} });
       
       if (!response.ok) {
         const error = await response.json();
