@@ -641,6 +641,7 @@ export class DatabaseStorage implements IStorage {
     } else {
       // Create new user with defaults
       const newUser: InsertUser = {
+        id: upsertData.id, // Use the OAuth ID as the user ID
         email: upsertData.email || null,
         firstName: upsertData.firstName || null,
         lastName: upsertData.lastName || null,
