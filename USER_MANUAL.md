@@ -333,6 +333,89 @@ The Collaborative Brainstorming feature represents the next evolution of AI-powe
 - **Agent Performance**: Track collaboration effectiveness between AI agents
 - **Solution Validation**: Cross-reference solutions against original debate context
 
+### 🎯 Agent Selection for Creative Work
+
+#### Pre-configured Creative Brainstorm Settings
+The platform offers optimized agent combinations specifically designed for ideation and creative problem-solving:
+
+**Creative Brainstorm Configuration:**
+- **The Innovator**: Focuses on creative solutions and alternative approaches, thinks outside the box
+- **The Pragmatist**: Evaluates creative ideas for feasibility and implementation constraints
+- **The Thoughtful**: Considers diverse stakeholder perspectives and ethical implications
+
+#### Smart Agent Selection
+- **Automatic Selection**: AI analyzes your prompt and automatically chooses optimal agents
+- **Manual Override**: Select from 5 core AI personalities and 18+ specialized domain experts
+- **Use Case Templates**: Pre-configured combinations for specific scenarios:
+  - **Business Innovation**: Strategic thinking + market analysis + implementation planning
+  - **Technical Solutions**: Architecture design + feasibility assessment + implementation roadmap
+  - **Creative Projects**: Ideation + artistic vision + practical execution
+  - **Research Design**: Scientific methodology + resource planning + validation strategies
+
+#### Domain Expert Integration
+Access specialized knowledge from 18+ domain experts including:
+- **Legal Experts**: Legal Analyst, Legal Advocate
+- **Medical Specialists**: Medical Diagnostician, Medical Researcher  
+- **Financial Experts**: Financial Analyst, Investment Strategist
+- **Technology Leaders**: Tech Architect, DevOps Engineer
+- **Business Strategists**: Brand Strategist, Grant Writing Expert, HR Expert
+- **Industry Specialists**: Hospitality Expert, Public Safety Expert
+- **Research Scientists**: Educational Psychologist, Behavioral Analyst, Systems Engineer
+
+### 📚 Template Library for Brainstorming
+
+#### Pre-built Brainstorming Frameworks
+The Template Library provides structured approaches to creative problem-solving:
+
+**Available Categories:**
+- **Business Templates**: Strategic planning, market analysis, innovation frameworks
+- **Technology Templates**: Technical solution design, architecture planning, system optimization
+- **Education Templates**: Learning design, curriculum development, training programs
+- **Research Templates**: Study design, hypothesis development, methodology planning
+
+#### Template Features
+- **Star Ratings**: Community-reviewed templates with effectiveness scores
+- **Usage Statistics**: See which templates work best for similar projects
+- **Custom Creation**: Build your own reusable brainstorming frameworks
+- **Import/Export**: Share templates with team members and across organizations
+- **Category Filtering**: Quickly find templates relevant to your domain
+
+#### Template Integration with Brainstorming
+1. **Select Template**: Choose from library or create custom framework
+2. **Configure Parameters**: Adapt template to your specific context
+3. **Run Brainstorming**: AI agents follow template structure for ideation
+4. **Generate Solutions**: Receive structured output matching template format
+
+### 🧭 Custom Thinking Patterns
+
+#### Creative Thinking Frameworks
+Guide AI agents through proven ideation methodologies:
+
+**Design Thinking Pattern:**
+- **Empathize**: Understand users and stakeholders deeply
+- **Define**: Clearly articulate the core problem
+- **Ideate**: Generate multiple creative solutions
+- **Prototype**: Develop testable concepts
+- **Iterate**: Refine based on feedback and testing
+
+**Innovation Catalyst Pattern:**
+- **Challenge Assumptions**: Question existing approaches
+- **Explore Alternatives**: Consider unconventional solutions
+- **Cross-Pollinate**: Apply ideas from other domains
+- **Synthesize**: Combine elements for novel approaches
+
+**Devil's Advocate Pattern:**
+- **Present Counter-Arguments**: Systematically challenge ideas
+- **Identify Weaknesses**: Find potential failure points
+- **Stress-Test Assumptions**: Validate underlying premises
+- **Strengthen Solutions**: Use criticism to improve concepts
+
+#### Pattern Customization
+- **Step Modification**: Adapt framework steps to your needs
+- **Prompt Customization**: Tailor guiding questions for your context
+- **Effectiveness Tracking**: Monitor which patterns work best for your use cases
+- **Team Sharing**: Share successful patterns across your organization
+
 ### 🔄 Workflow Integration
 
 #### Typical User Journey
@@ -342,11 +425,59 @@ The Collaborative Brainstorming feature represents the next evolution of AI-powe
 4. **Implement Solutions**: Use action plans and implementation strategies
 5. **Track Progress**: Monitor success using defined metrics
 
+#### Enhanced Brainstorming Workflow
+1. **Select Mode**: Choose Simple (quick), Guided (intermediate), or Expert (comprehensive)
+2. **Configure Agents**: Use smart selection or manually choose creative personalities
+3. **Apply Templates**: Optionally apply pre-built brainstorming frameworks
+4. **Set Thinking Patterns**: Guide AI through proven creative methodologies
+5. **Run Debate Phase**: Generate diverse perspectives and consensus
+6. **Launch Brainstorming**: Transform insights into collaborative solutions
+7. **Export Results**: Share implementation plans with teams
+
+#### Access Points for Brainstorming
+**Simple Mode:**
+- Quick brainstorming with automatic agent selection
+- Streamlined interface for rapid ideation
+- Pre-configured creative agent combinations
+
+**Guided Mode:**
+- Intermediate control with agent selection options
+- Template integration for structured brainstorming
+- Domain expert inclusion based on topic analysis
+
+**Expert Mode:**
+- Full access to all brainstorming tools and configurations
+- Advanced template management and creation
+- Custom thinking pattern development
+- Comprehensive workspace and collaboration features
+
 #### Collaboration Benefits
 - **Team Alignment**: Shared understanding of solutions and implementation
 - **Clear Accountability**: Defined ownership and responsibility assignments
 - **Measurable Progress**: Success metrics and milestone tracking
 - **Risk Management**: Proactive identification and mitigation strategies
+- **Creative Synthesis**: Multiple AI perspectives working collaboratively
+- **Implementation Focus**: Solutions designed for real-world execution
+
+### 💡 Brainstorming Best Practices Summary
+
+#### For Maximum Creative Output
+- **Diverse Agent Selection**: Combine creative and practical AI personalities
+- **Rich Context Building**: Provide detailed problem descriptions and constraints
+- **Template Integration**: Use proven frameworks to structure ideation
+- **Iterative Refinement**: Run multiple brainstorming sessions for complex problems
+
+#### Cross-Feature Integration
+- **Start Simple, Scale Up**: Begin in Simple mode, transfer to Expert for advanced brainstorming
+- **Template-First Approach**: Select appropriate templates before running brainstorming
+- **Expert Knowledge**: Include domain specialists for technical or specialized problems
+- **Team Collaboration**: Use workspace features to involve stakeholders in solution development
+
+#### Quality Optimization
+- **Pattern Selection**: Choose thinking patterns that match your problem type
+- **Context Preservation**: Use cross-mode transfer to maintain discussion continuity
+- **Solution Validation**: Cross-reference brainstorming outputs with original debate insights
+- **Metric Definition**: Establish clear success criteria before implementing solutions
 
 ---
 
