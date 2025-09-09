@@ -108,15 +108,15 @@ export default function DesktopSidebar({ isOpen = true, onToggle }: DesktopSideb
       isOpen ? "w-64" : "w-16",
       "overflow-y-auto"
     )}>
-      <div className="p-4 space-y-6">
+      <div className="p-3 space-y-4">
         {navigationSections.map((section) => (
-          <div key={section.title} className="space-y-2">
+          <div key={section.title} className="space-y-1">
             {isOpen && (
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 {section.title}
               </h3>
             )}
-            <nav className="space-y-1">
+            <nav className="space-y-0">
               {section.items.map((item) => {
                 const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href.split("?")[0]));
                 const Icon = item.icon;
@@ -125,27 +125,27 @@ export default function DesktopSidebar({ isOpen = true, onToggle }: DesktopSideb
                   <Link key={item.href} href={item.href}>
                     <div 
                       className={cn(
-                        "flex items-center gap-2 p-2 rounded-lg transition-all duration-200 group",
+                        "flex items-center gap-1 p-1 rounded-md transition-all duration-200 group",
                         isActive 
                           ? "bg-primary text-primary-foreground shadow-sm" 
                           : "hover:bg-accent hover:text-accent-foreground text-muted-foreground"
                       )}
                       data-testid={`sidebar-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
                     >
-                      <Icon className={cn("h-4 w-4 flex-shrink-0", isActive && "text-primary-foreground")} />
+                      <Icon className={cn("h-3 w-3 flex-shrink-0", isActive && "text-primary-foreground")} />
                       {isOpen && (
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <span className="font-medium truncate">{item.label}</span>
+                            <span className="text-sm font-medium truncate">{item.label}</span>
                             {item.badge && (
-                              <Badge variant={isActive ? "secondary" : "outline"} className="ml-2 text-xs">
+                              <Badge variant={isActive ? "secondary" : "outline"} className="ml-1 text-[10px] px-1 py-0">
                                 {item.badge}
                               </Badge>
                             )}
                           </div>
                           {item.description && (
                             <p className={cn(
-                              "text-xs mt-1 truncate",
+                              "text-[10px] mt-0.5 truncate",
                               isActive ? "text-primary-foreground/80" : "text-muted-foreground"
                             )}>
                               {item.description}
