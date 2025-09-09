@@ -13,8 +13,16 @@ import {
   TrendingUp,
   ArrowRight,
   Zap,
-  Wrench
+  Wrench,
+  Save,
+  Download,
+  MessageSquare,
+  ExternalLink,
+  FileText
 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import type { BrainstormResponse } from "@shared/schema";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -34,6 +42,10 @@ export function BrainstormSection({
   onBrainstormComplete 
 }: BrainstormSectionProps) {
   const [isStarting, setIsStarting] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<{type: 'solution' | 'action' | 'question', item: any, index: number} | null>(null);
+  const [followUpQuestion, setFollowUpQuestion] = useState("");
+  const [isAsking, setIsAsking] = useState(false);
+  const [followUpAnswer, setFollowUpAnswer] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -73,6 +85,116 @@ export function BrainstormSection({
       });
     },
   });
+
+  // Follow-up question mutation for deeper dives
+  const followUpMutation = useMutation({
+    mutationFn: async (question: string) => {
+      if (!sessionId || !selectedItem) throw new Error("No item selected");
+      
+      const response = await apiRequest("POST", "/api/brainstorm/followup", {
+        sessionId,
+        itemType: selectedItem.type,
+        itemIndex: selectedItem.index,
+        question,
+        context: selectedItem.item
+      });
+      
+      return response.json();
+    },
+    onMutate: () => {
+      setIsAsking(true);
+    },
+    onSuccess: (data: any) => {
+      setIsAsking(false);
+      setFollowUpAnswer(data.answer);
+      toast({
+        title: "Follow-up Complete!",
+        description: "Got detailed insights for your question.",
+      });
+    },
+    onError: (error: Error) => {
+      setIsAsking(false);
+      setFollowUpAnswer("Unable to get follow-up insights at this time. Please try again.");
+      toast({
+        title: "Follow-up Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Save brainstorming results as JSON
+  const handleSave = () => {
+    if (!brainstormResults) return;
+    
+    const dataStr = JSON.stringify(brainstormResults, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `brainstorming-results-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    
+    toast({ description: "Brainstorming results saved successfully!" });
+  };
+
+  // Export to markdown format
+  const handleExportMarkdown = () => {
+    if (!brainstormResults) return;
+    
+    let markdown = "# Brainstorming Results\n\n";
+    
+    if (brainstormResults.final_consensus) {
+      markdown += `## Final Consensus\n\n${brainstormResults.final_consensus}\n\n`;
+    }
+    
+    if (brainstormResults.solutions?.length > 0) {
+      markdown += "## Solutions\n\n";
+      brainstormResults.solutions.forEach((solution, index) => {
+        markdown += `### ${index + 1}. ${solution.title}\n\n`;
+        markdown += `**Description:** ${solution.description}\n\n`;
+        markdown += `**Feasibility:** ${solution.feasibility} | **Impact:** ${solution.impact}\n\n`;
+        if (solution.timeline) markdown += `**Timeline:** ${solution.timeline}\n\n`;
+        if (solution.resources_required?.length) {
+          markdown += `**Resources Required:** ${solution.resources_required.join(", ")}\n\n`;
+        }
+      });
+    }
+    
+    if (brainstormResults.action_plan?.length > 0) {
+      markdown += "## Action Plan\n\n";
+      brainstormResults.action_plan.forEach((step) => {
+        markdown += `${step.step}. **${step.title}**\n\n`;
+        markdown += `   ${step.description}\n\n`;
+        if (step.owner) markdown += `   *Owner:* ${step.owner}\n\n`;
+        if (step.timeline) markdown += `   *Timeline:* ${step.timeline}\n\n`;
+      });
+    }
+    
+    const dataBlob = new Blob([markdown], { type: 'text/markdown' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `brainstorming-results-${new Date().toISOString().split('T')[0]}.md`;
+    link.click();
+    URL.revokeObjectURL(url);
+    
+    toast({ description: "Brainstorming results exported as Markdown!" });
+  };
+
+  // Handle clicking on items for deeper exploration
+  const handleItemClick = (type: 'solution' | 'action' | 'question', item: any, index: number) => {
+    setSelectedItem({ type, item, index });
+    setFollowUpQuestion("");
+    setFollowUpAnswer("");
+  };
+
+  // Ask follow-up questions
+  const handleAskFollowUp = () => {
+    if (!followUpQuestion.trim()) return;
+    followUpMutation.mutate(followUpQuestion);
+  };
 
   const getFeasibilityColor = (feasibility: string) => {
     switch (feasibility) {
@@ -154,8 +276,27 @@ export function BrainstormSection({
   }
 
   return (
-    <ScrollArea className="h-96">
-      <div className="space-y-6">
+    <div className="space-y-4" data-testid="brainstorm-results">
+      {/* Save and Export Buttons */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Zap className="h-5 w-5 text-yellow-500" />
+          <h3 className="text-lg font-semibold">Brainstorming Results</h3>
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={handleSave} variant="outline" size="sm" className="gap-2">
+            <Save className="h-4 w-4" />
+            Save JSON
+          </Button>
+          <Button onClick={handleExportMarkdown} variant="outline" size="sm" className="gap-2">
+            <FileText className="h-4 w-4" />
+            Export MD
+          </Button>
+        </div>
+      </div>
+      
+      <ScrollArea className="h-96">
+        <div className="space-y-6">
         {/* Final Consensus */}
         <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="pb-3">
@@ -183,7 +324,12 @@ export function BrainstormSection({
             <CardContent>
               <div className="space-y-4">
                 {brainstormResults.solutions.map((solution, index) => (
-                  <Card key={index} className="border-l-4 border-l-yellow-400" data-testid={`solution-${index}`}>
+                  <Card 
+                    key={index} 
+                    className="border-l-4 border-l-yellow-400 cursor-pointer hover:shadow-md transition-shadow" 
+                    data-testid={`solution-${index}`}
+                    onClick={() => handleItemClick('solution', solution, index)}
+                  >
                     <CardContent className="pt-4">
                       <div className="space-y-3">
                         <div className="flex items-start justify-between gap-3">
@@ -235,7 +381,12 @@ export function BrainstormSection({
             <CardContent>
               <div className="space-y-3">
                 {brainstormResults.action_plan.map((step, index) => (
-                  <Card key={index} className="border-l-4 border-l-green-400" data-testid={`action-step-${index}`}>
+                  <Card 
+                    key={index} 
+                    className="border-l-4 border-l-green-400 cursor-pointer hover:shadow-md transition-shadow" 
+                    data-testid={`action-step-${index}`}
+                    onClick={() => handleItemClick('action', step, index)}
+                  >
                     <CardContent className="pt-4">
                       <div className="space-y-2">
                         <div className="flex items-start gap-3">
@@ -290,7 +441,12 @@ export function BrainstormSection({
             <CardContent>
               <div className="space-y-4">
                 {brainstormResults.answered_questions.map((qa, index) => (
-                  <Card key={index} className="border-l-4 border-l-blue-400" data-testid={`answered-question-${index}`}>
+                  <Card 
+                    key={index} 
+                    className="border-l-4 border-l-blue-400 cursor-pointer hover:shadow-md transition-shadow" 
+                    data-testid={`answered-question-${index}`}
+                    onClick={() => handleItemClick('question', qa, index)}
+                  >
                     <CardContent className="pt-4">
                       <div className="space-y-2">
                         <div className="flex items-start justify-between gap-3">
@@ -403,5 +559,137 @@ export function BrainstormSection({
         )}
       </div>
     </ScrollArea>
+    
+    {/* Deep Dive Dialog */}
+    <Dialog open={!!selectedItem} onOpenChange={() => setSelectedItem(null)}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {selectedItem?.type === 'solution' && <Lightbulb className="h-5 w-5 text-yellow-500" />}
+            {selectedItem?.type === 'action' && <CheckCircle className="h-5 w-5 text-green-500" />}
+            {selectedItem?.type === 'question' && <MessageSquare className="h-5 w-5 text-blue-500" />}
+            Deep Dive: {selectedItem?.item?.title || selectedItem?.item?.original_question || `Step ${selectedItem?.item?.step}`}
+          </DialogTitle>
+          <DialogDescription>
+            Explore this {selectedItem?.type} in detail and ask follow-up questions for deeper insights.
+          </DialogDescription>
+        </DialogHeader>
+        
+        {selectedItem && (
+          <div className="space-y-6">
+            {/* Item Details */}
+            <div className="space-y-3">
+              <h4 className="font-medium">Details</h4>
+              <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+                {selectedItem.type === 'solution' && (
+                  <>
+                    <div className="flex gap-2 mb-2">
+                      <Badge className={getFeasibilityColor(selectedItem.item.feasibility)}>
+                        {selectedItem.item.feasibility} feasibility
+                      </Badge>
+                      <Badge className={getImpactColor(selectedItem.item.impact)}>
+                        {selectedItem.item.impact} impact
+                      </Badge>
+                    </div>
+                    <p className="text-sm">{selectedItem.item.description}</p>
+                    {selectedItem.item.timeline && (
+                      <p className="text-xs text-muted-foreground">Timeline: {selectedItem.item.timeline}</p>
+                    )}
+                    {selectedItem.item.resources_required?.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Resources: {selectedItem.item.resources_required.join(", ")}
+                      </p>
+                    )}
+                  </>
+                )}
+                
+                {selectedItem.type === 'action' && (
+                  <>
+                    <p className="text-sm">{selectedItem.item.description}</p>
+                    {selectedItem.item.owner && (
+                      <p className="text-xs text-muted-foreground">Owner: {selectedItem.item.owner}</p>
+                    )}
+                    {selectedItem.item.timeline && (
+                      <p className="text-xs text-muted-foreground">Timeline: {selectedItem.item.timeline}</p>
+                    )}
+                    {selectedItem.item.dependencies?.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Dependencies: {selectedItem.item.dependencies.join(", ")}
+                      </p>
+                    )}
+                  </>
+                )}
+                
+                {selectedItem.type === 'question' && (
+                  <>
+                    <p className="text-sm font-medium">Q: {selectedItem.item.original_question}</p>
+                    <p className="text-sm">A: {selectedItem.item.answer}</p>
+                    <Badge variant="outline" className={getConfidenceColor(selectedItem.item.confidence)}>
+                      {selectedItem.item.confidence} confidence
+                    </Badge>
+                    {selectedItem.item.supporting_evidence?.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-xs font-medium mb-1">Supporting Evidence:</p>
+                        <ul className="text-xs space-y-1">
+                          {selectedItem.item.supporting_evidence.map((evidence: string, idx: number) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="text-blue-500">•</span>
+                              {evidence}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+            
+            {/* Follow-up Questions */}
+            <div className="space-y-3">
+              <h4 className="font-medium">Ask Follow-up Questions</h4>
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="followup-question">Your Question</Label>
+                  <Textarea
+                    id="followup-question"
+                    placeholder={`Ask a deeper question about this ${selectedItem.type}...`}
+                    value={followUpQuestion}
+                    onChange={(e) => setFollowUpQuestion(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <Button 
+                  onClick={handleAskFollowUp}
+                  disabled={!followUpQuestion.trim() || isAsking}
+                  className="gap-2"
+                >
+                  {isAsking ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                      Asking...
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquare className="h-4 w-4" />
+                      Ask Question
+                    </>
+                  )}
+                </Button>
+              </div>
+              
+              {/* Follow-up Answer */}
+              {followUpAnswer && (
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border-l-4 border-l-blue-400">
+                  <h5 className="font-medium text-sm mb-2">Follow-up Insights</h5>
+                  <p className="text-sm text-muted-foreground">{followUpAnswer}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  </div>
   );
 }
