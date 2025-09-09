@@ -18,11 +18,6 @@ function Router() {
   // During development, skip loading state and allow immediate access
   // Show loading spinner only briefly to prevent blocking
   if (isLoading) {
-    // Set a timeout to prevent indefinite loading
-    setTimeout(() => {
-      // Force render after 2 seconds if still loading
-    }, 2000);
-    
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>

@@ -6,7 +6,8 @@ export function useAuth() {
   const { data: user, isLoading, error } = useQuery({
     queryKey: ["/api/auth/user"],
     queryFn: getQueryFn({ on401: "returnNull" }), // Don't throw on 401, just return null
-    retry: false,
+    retry: 1, // Only retry once
+    retryDelay: 1000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     refetchOnReconnect: false,
@@ -17,19 +18,19 @@ export function useAuth() {
     enabled: true, // Always enabled but handle errors gracefully
   });
 
-  // Force loading to false after a reasonable time during development
-  const forceNotLoading = React.useRef(false);
+  // Simplified loading state - don't block the UI for too long
+  const [maxWaitPassed, setMaxWaitPassed] = React.useState(false);
   React.useEffect(() => {
     const timer = setTimeout(() => {
-      forceNotLoading.current = true;
-    }, 3000); // Force not loading after 3 seconds
+      setMaxWaitPassed(true);
+    }, 1500); // Only wait 1.5 seconds max
     
     return () => clearTimeout(timer);
   }, []);
 
   return {
     user,
-    isLoading: isLoading && !forceNotLoading.current,
+    isLoading: isLoading && !maxWaitPassed,
     isAuthenticated: !!user,
     error,
   };
