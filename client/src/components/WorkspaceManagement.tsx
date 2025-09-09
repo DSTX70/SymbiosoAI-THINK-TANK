@@ -218,10 +218,10 @@ export function WorkspaceManagement() {
                   <p className="text-sm text-muted-foreground text-center py-8">Loading workspaces...</p>
                 ) : error ? (
                   <p className="text-sm text-destructive text-center py-8">Unable to load workspaces</p>
-                ) : workspaces.length === 0 ? (
+                ) : (!workspaces || workspaces.length === 0) ? (
                   <p className="text-sm text-muted-foreground text-center py-8">No workspaces yet. Create your first one!</p>
                 ) : (
-                  workspaces.map((workspace: any) => (
+                  (workspaces as any[]).map((workspace: any) => (
                     <Card key={workspace.id} className="hover:shadow-md transition-shadow">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
