@@ -785,3 +785,29 @@ function getReportStructurePrompt(reportType: string): string {
       return "Standard report format with all available sections.";
   }
 }
+
+// Generate follow-up response for deeper exploration
+export async function generateFollowUpResponse(prompt: string): Promise<string> {
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert consultant providing detailed follow-up insights. Be thorough, practical, and actionable in your responses."
+        },
+        {
+          role: "user", 
+          content: prompt
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 1000
+    });
+
+    return completion.choices[0]?.message?.content || "Unable to generate follow-up response.";
+  } catch (error) {
+    console.error("Error generating follow-up response:", error);
+    throw new Error("Failed to generate follow-up response");
+  }
+}

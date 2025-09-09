@@ -1437,6 +1437,72 @@ Please build upon the previous discussion while addressing the new question.`
       });
     }
   }
+
+  // Follow-up question endpoint for deeper dives
+  app.post("/api/brainstorm/followup", isAuthenticated, express.json(), async (req: any, res) => {
+    try {
+      const { sessionId, itemType, itemIndex, question, context } = req.body;
+      const userId = req.user?.claims?.sub;
+
+      // Validate required fields
+      if (!sessionId || !itemType || itemIndex === undefined || !question) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // Get session to verify ownership
+      const session = await storage.getSession(sessionId);
+      if (!session || session.userId !== userId) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      // Create specialized follow-up prompt based on item type
+      let followUpPrompt = "";
+      
+      if (itemType === 'solution') {
+        followUpPrompt = `You are analyzing a specific solution from a brainstorming session. Here's the solution:
+Title: ${context.title}
+Description: ${context.description}
+Feasibility: ${context.feasibility}
+Impact: ${context.impact}
+${context.timeline ? `Timeline: ${context.timeline}` : ''}
+${context.resources_required ? `Resources Required: ${context.resources_required.join(', ')}` : ''}
+
+User's follow-up question: ${question}
+
+Provide a detailed, practical answer that helps them understand the solution better and implement it effectively. Be specific and actionable.`;
+      } else if (itemType === 'action') {
+        followUpPrompt = `You are analyzing a specific action step from an implementation plan. Here's the action:
+Step ${context.step}: ${context.title}
+Description: ${context.description}
+${context.owner ? `Owner: ${context.owner}` : ''}
+${context.timeline ? `Timeline: ${context.timeline}` : ''}
+${context.dependencies ? `Dependencies: ${context.dependencies.join(', ')}` : ''}
+
+User's follow-up question: ${question}
+
+Provide detailed guidance that helps them execute this action step successfully. Include practical tips, potential challenges, and specific recommendations.`;
+      } else if (itemType === 'question') {
+        followUpPrompt = `You are analyzing a resolved question from a brainstorming session. Here's the Q&A:
+Original Question: ${context.original_question}
+Answer: ${context.answer}
+Confidence: ${context.confidence}
+${context.supporting_evidence ? `Supporting Evidence: ${context.supporting_evidence.join('; ')}` : ''}
+
+User's follow-up question: ${question}
+
+Provide additional insights, explore deeper implications, or address related aspects that weren't covered in the original answer.`;
+      }
+
+      // Get AI response for the follow-up question
+      const aiResponse = await aiService.generateFollowUpResponse(followUpPrompt);
+      
+      res.json({ answer: aiResponse });
+
+    } catch (error) {
+      console.error("Error processing follow-up question:", error);
+      res.status(500).json({ error: "Failed to process follow-up question" });
+    }
+  });
   
   // Register automation routes
   registerAutomationRoutes(app);
