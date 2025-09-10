@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import type { ThinkResponse, Citation, FactCheckFinding, FollowUpQuestion, FocusAreas, BrainstormResponse } from "@shared/schema";
 import { BrainstormSection } from "@/components/BrainstormSection";
+import { ReportGenerationSection } from "@/components/ReportGenerationSection";
 
 interface ResultsAreaProps {
   results: ThinkResponse | null;
@@ -151,7 +152,7 @@ export function ResultsArea({
       
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className="grid w-full grid-cols-8">
             <TabsTrigger value="consensus" data-testid="tab-consensus">
               Consensus
             </TabsTrigger>
@@ -163,6 +164,9 @@ export function ResultsArea({
             </TabsTrigger>
             <TabsTrigger value="brainstorm" data-testid="tab-brainstorm">
               Brainstorm
+            </TabsTrigger>
+            <TabsTrigger value="reports" data-testid="tab-reports">
+              Reports
             </TabsTrigger>
             <TabsTrigger value="sources" data-testid="tab-sources">
               Sources ({results.citations?.length || 0})
@@ -246,6 +250,17 @@ export function ResultsArea({
                 // Optional: Add loading state handling if needed
               }}
               onBrainstormComplete={onBrainstormComplete}
+            />
+          </TabsContent>
+
+          <TabsContent value="reports" className="mt-4">
+            <ReportGenerationSection
+              sessionId={sessionId}
+              sessionHasResults={!!results?.consensus}
+              onReportGenerated={(report) => {
+                // Optional: Handle report generation completion
+                console.log('Report generated:', report);
+              }}
             />
           </TabsContent>
 
