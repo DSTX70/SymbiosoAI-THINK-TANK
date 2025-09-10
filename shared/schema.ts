@@ -69,6 +69,19 @@ export const analysisSessions = pgTable("analysis_sessions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Generated reports for storing completed report content
+export const generatedReports = pgTable("generated_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull(), // Reference to analysis session
+  userId: varchar("user_id").notNull(), // Owner of the report
+  reportType: varchar("report_type").notNull(), // executive, detailed, full
+  title: text("title").notNull(), // User-friendly title
+  content: text("content").notNull(), // Full report content
+  format: varchar("format").notNull().default("markdown"), // markdown, html, pdf
+  metadata: jsonb("metadata").default({}), // Additional report metadata (word count, generation time, etc.)
+  generatedAt: timestamp("generated_at").defaultNow(),
+});
+
 // Workspaces for team collaboration
 export const workspaces = pgTable("workspaces", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -154,6 +167,16 @@ export const insertWorkspaceInviteSchema = createInsertSchema(workspaceInvites).
   invitedByUserId: true,
   email: true,
   role: true,
+});
+
+export const insertGeneratedReportSchema = createInsertSchema(generatedReports).pick({
+  sessionId: true,
+  userId: true,
+  reportType: true,
+  title: true,
+  content: true,
+  format: true,
+  metadata: true,
 });
 
 // User preferences schema
@@ -480,6 +503,8 @@ export type WorkspaceMember = typeof workspaceMembers.$inferSelect;
 export type InsertWorkspaceMember = z.infer<typeof insertWorkspaceMemberSchema>;
 export type WorkspaceInvite = typeof workspaceInvites.$inferSelect;
 export type InsertWorkspaceInvite = z.infer<typeof insertWorkspaceInviteSchema>;
+export type GeneratedReport = typeof generatedReports.$inferSelect;
+export type InsertGeneratedReport = z.infer<typeof insertGeneratedReportSchema>;
 export type UserPreferences = z.infer<typeof userPreferencesSchema>;
 export type WorkspaceRole = z.infer<typeof workspaceRoleSchema>;
 export type ThinkRequest = z.infer<typeof thinkRequestSchema>;

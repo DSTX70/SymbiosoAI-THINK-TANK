@@ -20,6 +20,185 @@ import { EnterpriseRateLimiter } from "./middleware/rateLimiting";
 import { PerformanceMonitor } from "./middleware/monitoring";
 import { registerAutomationRoutes } from "./routes/automation";
 
+// Helper function to format report object into readable content
+function formatReportContent(report: any, format: string): string {
+  switch (format) {
+    case "markdown":
+      return formatReportAsMarkdown(report);
+    case "html":
+      return formatReportAsHTML(report);
+    case "plain":
+    case "txt":
+      return formatReportAsPlainText(report);
+    default:
+      return formatReportAsMarkdown(report);
+  }
+}
+
+function formatReportAsMarkdown(report: any): string {
+  let content = `# ${report.title || 'Analysis Report'}\n\n`;
+  
+  if (report.executive_summary) {
+    content += `## Executive Summary\n\n${report.executive_summary}\n\n`;
+  }
+  
+  if (report.debate_overview) {
+    content += `## Debate Overview\n\n`;
+    content += `**Original Question:** ${report.debate_overview.original_question}\n\n`;
+    content += `**Methodology:** ${report.debate_overview.methodology}\n\n`;
+    content += `**Consensus Reached:** ${report.debate_overview.consensus_reached}\n\n`;
+    
+    if (report.debate_overview.key_dissents?.length > 0) {
+      content += `### Key Dissenting Views\n\n`;
+      report.debate_overview.key_dissents.forEach((dissent: any) => {
+        content += `- **${dissent.position}**${dissent.reasoning ? `: ${dissent.reasoning}` : ''}\n`;
+      });
+      content += `\n`;
+    }
+    
+    if (report.debate_overview.unresolved_questions?.length > 0) {
+      content += `### Unresolved Questions\n\n`;
+      report.debate_overview.unresolved_questions.forEach((question: string) => {
+        content += `- ${question}\n`;
+      });
+      content += `\n`;
+    }
+  }
+  
+  if (report.brainstorming_outcomes) {
+    content += `## Brainstorming Outcomes\n\n`;
+    
+    if (report.brainstorming_outcomes.collaborative_solutions?.length > 0) {
+      content += `### Collaborative Solutions\n\n`;
+      report.brainstorming_outcomes.collaborative_solutions.forEach((solution: any, index: number) => {
+        content += `${index + 1}. **${solution.title}** (Feasibility: ${solution.feasibility}, Impact: ${solution.impact})\n`;
+        content += `   ${solution.description}\n`;
+        if (solution.timeline) content += `   *Timeline: ${solution.timeline}*\n`;
+        content += `\n`;
+      });
+    }
+    
+    if (report.brainstorming_outcomes.implementation_plan?.length > 0) {
+      content += `### Implementation Plan\n\n`;
+      report.brainstorming_outcomes.implementation_plan.forEach((step: any) => {
+        content += `${step.step}. **${step.title}**\n`;
+        content += `   ${step.description}\n`;
+        if (step.timeline) content += `   *Timeline: ${step.timeline}*\n`;
+        if (step.owner) content += `   *Owner: ${step.owner}*\n`;
+        content += `\n`;
+      });
+    }
+  }
+  
+  if (report.recommendations?.length > 0) {
+    content += `## Recommendations\n\n`;
+    report.recommendations.forEach((rec: any, index: number) => {
+      content += `${index + 1}. **${rec.title}** (Priority: ${rec.priority})\n`;
+      content += `   ${rec.description}\n`;
+      if (rec.timeline) content += `   *Timeline: ${rec.timeline}*\n`;
+      if (rec.stakeholders?.length > 0) content += `   *Stakeholders: ${rec.stakeholders.join(', ')}*\n`;
+      content += `\n`;
+    });
+  }
+  
+  if (report.expert_analysis) {
+    content += `## Expert Analysis\n\n`;
+    
+    if (report.expert_analysis.ai_agents_summary?.length > 0) {
+      content += `### AI Agent Contributions\n\n`;
+      report.expert_analysis.ai_agents_summary.forEach((agent: any) => {
+        content += `**${agent.agent_name}** (${agent.role})\n`;
+        content += `- Approach: ${agent.approach}\n`;
+        if (agent.key_insights?.length > 0) {
+          content += `- Key Insights:\n`;
+          agent.key_insights.forEach((insight: string) => {
+            content += `  - ${insight}\n`;
+          });
+        }
+        content += `\n`;
+      });
+    }
+  }
+  
+  if (report.citations?.length > 0) {
+    content += `## Citations\n\n`;
+    report.citations.forEach((citation: any, index: number) => {
+      content += `${index + 1}. `;
+      if (citation.author) content += `${citation.author}. `;
+      if (citation.title) content += `"${citation.title}." `;
+      if (citation.source) content += `*${citation.source}*, `;
+      if (citation.year) content += `${citation.year}. `;
+      if (citation.url) content += `[Link](${citation.url})`;
+      content += `\n`;
+    });
+    content += `\n`;
+  }
+  
+  if (report.metadata) {
+    content += `---\n\n`;
+    content += `*Generated on ${report.metadata.generated_at}*\n`;
+    if (report.metadata.total_analysis_time) content += `*Analysis Time: ${report.metadata.total_analysis_time}*\n`;
+    if (report.metadata.word_count) content += `*Word Count: ${report.metadata.word_count}*\n`;
+  }
+  
+  return content;
+}
+
+function formatReportAsHTML(report: any): string {
+  let content = `<!DOCTYPE html><html><head><title>${report.title || 'Analysis Report'}</title></head><body>`;
+  content += `<h1>${report.title || 'Analysis Report'}</h1>`;
+  
+  if (report.executive_summary) {
+    content += `<h2>Executive Summary</h2><p>${report.executive_summary}</p>`;
+  }
+  
+  if (report.debate_overview) {
+    content += `<h2>Debate Overview</h2>`;
+    content += `<p><strong>Original Question:</strong> ${report.debate_overview.original_question}</p>`;
+    content += `<p><strong>Methodology:</strong> ${report.debate_overview.methodology}</p>`;
+    content += `<p><strong>Consensus Reached:</strong> ${report.debate_overview.consensus_reached}</p>`;
+    
+    if (report.debate_overview.key_dissents?.length > 0) {
+      content += `<h3>Key Dissenting Views</h3><ul>`;
+      report.debate_overview.key_dissents.forEach((dissent: any) => {
+        content += `<li><strong>${dissent.position}</strong>${dissent.reasoning ? `: ${dissent.reasoning}` : ''}</li>`;
+      });
+      content += `</ul>`;
+    }
+  }
+  
+  // Add more HTML formatting as needed
+  content += `</body></html>`;
+  return content;
+}
+
+function formatReportAsPlainText(report: any): string {
+  let content = `${report.title || 'ANALYSIS REPORT'}\n`;
+  content += '='.repeat((report.title || 'ANALYSIS REPORT').length) + '\n\n';
+  
+  if (report.executive_summary) {
+    content += `EXECUTIVE SUMMARY\n\n${report.executive_summary}\n\n`;
+  }
+  
+  if (report.debate_overview) {
+    content += `DEBATE OVERVIEW\n\n`;
+    content += `Original Question: ${report.debate_overview.original_question}\n\n`;
+    content += `Methodology: ${report.debate_overview.methodology}\n\n`;
+    content += `Consensus Reached: ${report.debate_overview.consensus_reached}\n\n`;
+    
+    if (report.debate_overview.key_dissents?.length > 0) {
+      content += `Key Dissenting Views:\n`;
+      report.debate_overview.key_dissents.forEach((dissent: any) => {
+        content += `- ${dissent.position}${dissent.reasoning ? `: ${dissent.reasoning}` : ''}\n`;
+      });
+      content += `\n`;
+    }
+  }
+  
+  // Add more plain text formatting as needed
+  return content;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register SSE streaming routes
   registerStreamingRoutes(app);
@@ -1011,7 +1190,7 @@ Please build upon the previous discussion while addressing the new question.`
         // }
 
         const response = await runMultiAgentDebate(
-          transferredContext.transferPrompt || result.prompt, 
+          (transferredContext as any)?.transferPrompt || result.prompt, 
           { ...result, ...transferredContext }
         );
 
@@ -1021,7 +1200,7 @@ Please build upon the previous discussion while addressing the new question.`
           mode: result.mode,
           settings: result,
           results: response,
-          telemetry: response.telemetry,
+          telemetry: (response as any).telemetry,
           debateHistory: response.debateHistory,
           title: result.transfer_from_session_id ? 
             `Continued from ${sourceSession?.mode || 'previous'}: ${result.prompt.substring(0, 50)}...` :
@@ -1101,7 +1280,7 @@ Please build upon the previous discussion while addressing the new question.`
   // Report generation endpoint - transform debate and brainstorming results into professional reports
   app.post("/api/report", optionalAuth, async (req, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req as any).user?.claims?.sub;
       const requestBody = reportRequestSchema.parse(req.body);
       const { session_id, report_type, include_citations = true, include_expert_summary = true, format = "markdown" } = requestBody;
 
@@ -1130,7 +1309,7 @@ Please build upon the previous discussion while addressing the new question.`
         unresolved: (session.results as any).unresolved || [],
         citations: (session.results as any).citations,
         fact_check: (session.results as any).fact_check,
-        debateHistory: session.debateHistory
+        debateHistory: session.debateHistory as { agent: string; response: string; }[] | undefined
       };
 
       // Extract brainstorming results if available
@@ -1168,6 +1347,46 @@ Please build upon the previous discussion while addressing the new question.`
       // Update metadata with correct session ID
       report.metadata.session_id = session_id;
 
+      // Store the generated report in the database for future access
+      let storedReport = null;
+      if (userId) {
+        try {
+          // Format the report content properly based on the requested format
+          const reportContent = formatReportContent(report, format);
+
+          storedReport = await storage.createGeneratedReport({
+            sessionId: session_id,
+            userId: userId,
+            reportType: report_type,
+            title: report.title || `${report_type.charAt(0).toUpperCase() + report_type.slice(1)} Report - ${new Date().toLocaleDateString()}`,
+            content: reportContent,
+            format: format,
+            metadata: {
+              wordCount: reportContent.split(' ').length,
+              generatedAt: new Date().toISOString(),
+              sessionPrompt: session.prompt,
+              debateMode: session.mode,
+              ...report.metadata
+            }
+          });
+          console.log(`💾 Report stored in database with ID: ${storedReport.id}`);
+        } catch (error: any) {
+          console.error("Failed to store report in database:", error);
+          // Log specific error details for debugging
+          if (error.message) {
+            console.error("Database error message:", error.message);
+          }
+          if (error.code) {
+            console.error("Database error code:", error.code);
+          }
+          // Don't fail the whole request if storage fails, but return warning
+          storedReport = { 
+            id: null, 
+            error: "Report generation succeeded but storage failed. Content available in response but not persisted." 
+          };
+        }
+      }
+
       // Store report generation in session for future reference
       await storage.updateAnalysisSession(session_id, {
         lastReportGeneratedAt: new Date(),
@@ -1175,11 +1394,79 @@ Please build upon the previous discussion while addressing the new question.`
       });
 
       console.log(`📊 ${report_type} report generated successfully for session: ${session_id}`);
-      res.json(report);
+      
+      // Include the stored report ID in the response
+      const response = {
+        ...report,
+        storedReportId: storedReport?.id
+      };
+      res.json(response);
 
     } catch (error: any) {
       console.error("Report generation endpoint error:", error);
       res.status(400).json({ error: error.message });
+    }
+  });
+
+  // Report management endpoints
+  app.get("/api/reports", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const reports = await storage.getUserGeneratedReports(userId);
+      res.json(reports);
+    } catch (error: any) {
+      console.error("Error fetching user reports:", error);
+      res.status(500).json({ error: "Failed to fetch reports" });
+    }
+  });
+
+  app.get("/api/reports/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const reportId = req.params.id;
+      
+      const report = await storage.getGeneratedReport(reportId);
+      if (!report) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+      
+      // Check if user owns the report
+      if (report.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      res.json(report);
+    } catch (error: any) {
+      console.error("Error fetching report:", error);
+      res.status(500).json({ error: "Failed to fetch report" });
+    }
+  });
+
+  app.delete("/api/reports/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const reportId = req.params.id;
+      
+      // First check if report exists and user owns it
+      const report = await storage.getGeneratedReport(reportId);
+      if (!report) {
+        return res.status(404).json({ error: "Report not found" });
+      }
+      
+      if (report.userId !== userId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Delete the report
+      const deleted = await storage.deleteGeneratedReport(reportId);
+      if (!deleted) {
+        return res.status(500).json({ error: "Failed to delete report" });
+      }
+      
+      res.json({ message: "Report deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting report:", error);
+      res.status(500).json({ error: "Failed to delete report" });
     }
   });
 

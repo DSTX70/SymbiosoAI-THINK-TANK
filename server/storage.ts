@@ -2,6 +2,7 @@ import {
   type User, type InsertUser, type UpsertUser, type AnalysisSession, type InsertAnalysisSession,
   type Workspace, type InsertWorkspace, type WorkspaceMember, type InsertWorkspaceMember,
   type WorkspaceInvite, type InsertWorkspaceInvite, type UserPreferences,
+  type GeneratedReport, type InsertGeneratedReport,
   type SessionCode, type InsertSessionCode, type SessionParticipant, type InsertSessionParticipant,
   type ChatMessage, type InsertChatMessage,
   // Enterprise types
@@ -11,7 +12,7 @@ import {
   type UsageMetric, type InsertUsageMetric, type RateLimitRule, type InsertRateLimitRule,
   type PerformanceMetric, type InsertPerformanceMetric, type ErrorLog, type InsertErrorLog,
   type HealthCheck, type InsertHealthCheck,
-  users, analysisSessions, workspaces, workspaceMembers, workspaceInvites,
+  users, analysisSessions, workspaces, workspaceMembers, workspaceInvites, generatedReports,
   sessionCodes, sessionParticipants, chatMessages,
   organizations, organizationMembers, teams, teamMembers, auditLogs, securityEvents,
   usageMetrics, rateLimitRules, performanceMetrics, errorLogs, healthChecks
@@ -19,7 +20,7 @@ import {
 import { randomUUID } from "crypto";
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, and, not } from 'drizzle-orm';
 import ws from "ws";
 
 neonConfig.webSocketConstructor = ws;
@@ -83,6 +84,13 @@ export interface IStorage {
   saveChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
   getChatHistory(sessionCode: string): Promise<ChatMessage[]>;
   deleteChatMessage(messageId: string): Promise<void>;
+
+  // Generated report operations for report management
+  createGeneratedReport(report: InsertGeneratedReport): Promise<GeneratedReport>;
+  getGeneratedReport(id: string): Promise<GeneratedReport | undefined>;
+  getUserGeneratedReports(userId: string): Promise<GeneratedReport[]>;
+  deleteGeneratedReport(id: string): Promise<boolean>;
+  getSessionReports(sessionId: string): Promise<GeneratedReport[]>;
 
   // ============================================
   // ENTERPRISE FEATURES - Organization Management
@@ -168,6 +176,7 @@ export class MemStorage implements IStorage {
   private workspaces: Map<string, Workspace>;
   private workspaceMembers: Map<string, WorkspaceMember>;
   private workspaceInvites: Map<string, WorkspaceInvite>;
+  private generatedReports: Map<string, GeneratedReport>;
   private sessionCodes: Map<string, SessionCode>;
   private sessionParticipants: Map<string, SessionParticipant>;
   private chatMessages: Map<string, ChatMessage>;
@@ -178,6 +187,7 @@ export class MemStorage implements IStorage {
     this.workspaces = new Map();
     this.workspaceMembers = new Map();
     this.workspaceInvites = new Map();
+    this.generatedReports = new Map();
     this.sessionCodes = new Map();
     this.sessionParticipants = new Map();
     this.chatMessages = new Map();
@@ -217,6 +227,14 @@ export class MemStorage implements IStorage {
           default_model: "gpt-5",
           default_temperature: 0.7,
           auto_save: true
+        },
+        onboardingProgress: {
+          completed_steps: [],
+          current_flow: null,
+          experience_level: "beginner",
+          skipped_flows: [],
+          last_interaction: null,
+          feature_usage: {}
         },
         subscription: {
           plan: "free",
@@ -281,6 +299,10 @@ export class MemStorage implements IStorage {
       results: sessionData.results || null,
       telemetry: sessionData.telemetry || null,
       debateHistory: sessionData.debateHistory || null,
+      brainstormResults: null,
+      lastBrainstormedAt: null,
+      lastReportGeneratedAt: null,
+      lastReportType: null,
       title: sessionData.title || null,
       sourceSessionId: sessionData.sourceSessionId || null,
       transferCount: sessionData.transferCount || 0,
@@ -316,7 +338,7 @@ export class MemStorage implements IStorage {
     let filtered = userId ? allSessions.filter(s => s.userId === userId) : allSessions;
     
     // Only return sessions that have results (completed debates)
-    filtered = filtered.filter(s => s.results && s.results.consensus);
+    filtered = filtered.filter(s => s.results && typeof s.results === 'object' && (s.results as any).consensus);
     
     // Exclude sessions from the specified mode (e.g., don't show Expert sessions when in Expert mode)
     if (excludeMode) {
@@ -546,6 +568,40 @@ export class MemStorage implements IStorage {
     this.chatMessages.delete(messageId);
   }
 
+  // Generated report operations
+  async createGeneratedReport(report: InsertGeneratedReport): Promise<GeneratedReport> {
+    const id = randomUUID();
+    const generatedReport: GeneratedReport = {
+      ...report,
+      id,
+      format: report.format || "markdown",
+      metadata: report.metadata || {},
+      generatedAt: new Date()
+    };
+    this.generatedReports.set(id, generatedReport);
+    return generatedReport;
+  }
+
+  async getGeneratedReport(id: string): Promise<GeneratedReport | undefined> {
+    return this.generatedReports.get(id);
+  }
+
+  async getUserGeneratedReports(userId: string): Promise<GeneratedReport[]> {
+    return Array.from(this.generatedReports.values())
+      .filter(report => report.userId === userId)
+      .sort((a, b) => (b.generatedAt?.getTime() || 0) - (a.generatedAt?.getTime() || 0));
+  }
+
+  async deleteGeneratedReport(id: string): Promise<boolean> {
+    return this.generatedReports.delete(id);
+  }
+
+  async getSessionReports(sessionId: string): Promise<GeneratedReport[]> {
+    return Array.from(this.generatedReports.values())
+      .filter(report => report.sessionId === sessionId)
+      .sort((a, b) => (b.generatedAt?.getTime() || 0) - (a.generatedAt?.getTime() || 0));
+  }
+
   // Stub implementations for enterprise features (not used in memory storage)
   async createOrganization(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
   async getOrganization(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
@@ -641,7 +697,6 @@ export class DatabaseStorage implements IStorage {
     } else {
       // Create new user with defaults
       const newUser: InsertUser = {
-        id: upsertData.id, // Use the OAuth ID as the user ID
         email: upsertData.email || null,
         firstName: upsertData.firstName || null,
         lastName: upsertData.lastName || null,
@@ -662,7 +717,12 @@ export class DatabaseStorage implements IStorage {
           reset_date: null
         }
       };
-      return await this.createUser(newUser);
+      const created = await this.createUser(newUser);
+      // Set the OAuth ID if provided
+      if (upsertData.id && created.id !== upsertData.id) {
+        return await this.updateUser(created.id, { id: upsertData.id }) || created;
+      }
+      return created;
     }
   }
 
@@ -942,6 +1002,33 @@ export class DatabaseStorage implements IStorage {
     await db.delete(chatMessages).where(eq(chatMessages.id, messageId));
   }
 
+  // Generated report operations for report management
+  async createGeneratedReport(report: InsertGeneratedReport): Promise<GeneratedReport> {
+    const [generatedReport] = await db.insert(generatedReports).values(report).returning();
+    return generatedReport;
+  }
+
+  async getGeneratedReport(id: string): Promise<GeneratedReport | undefined> {
+    const [report] = await db.select().from(generatedReports).where(eq(generatedReports.id, id));
+    return report || undefined;
+  }
+
+  async getUserGeneratedReports(userId: string): Promise<GeneratedReport[]> {
+    return await db.select().from(generatedReports)
+      .where(eq(generatedReports.userId, userId))
+      .orderBy(sql`${generatedReports.generatedAt} DESC`);
+  }
+
+  async deleteGeneratedReport(id: string): Promise<boolean> {
+    const result = await db.delete(generatedReports).where(eq(generatedReports.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getSessionReports(sessionId: string): Promise<GeneratedReport[]> {
+    return await db.select().from(generatedReports)
+      .where(eq(generatedReports.sessionId, sessionId))
+      .orderBy(sql`${generatedReports.generatedAt} DESC`);
+  }
 
   // Organization management methods (stubs for now)
   async createOrganization(organization: InsertOrganization): Promise<Organization> {
@@ -1316,7 +1403,7 @@ export class DatabaseStorage implements IStorage {
     const latest: { [serviceName: string]: HealthCheck } = {};
     
     for (const check of checks) {
-      if (!latest[check.serviceName] || (check.timestamp && latest[check.serviceName].timestamp && check.timestamp > latest[check.serviceName].timestamp)) {
+      if (!latest[check.serviceName] || (check.timestamp && latest[check.serviceName]?.timestamp && check.timestamp > latest[check.serviceName].timestamp!)) {
         latest[check.serviceName] = check;
       }
     }

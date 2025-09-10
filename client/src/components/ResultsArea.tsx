@@ -21,9 +21,11 @@ import {
   Target,
   TrendingUp
 } from "lucide-react";
-import type { ThinkResponse, Citation, FactCheckFinding, FollowUpQuestion, FocusAreas, BrainstormResponse } from "@shared/schema";
+import type { ThinkResponse, Citation, FactCheckFinding, FollowUpQuestion, FocusAreas, BrainstormResponse, GeneratedReport } from "@shared/schema";
 import { BrainstormSection } from "@/components/BrainstormSection";
 import { ReportGenerationSection } from "@/components/ReportGenerationSection";
+import { ReportHistorySection } from "@/components/ReportHistorySection";
+import { ReportViewerDialog } from "@/components/ReportViewerDialog";
 
 interface ResultsAreaProps {
   results: ThinkResponse | null;
@@ -43,6 +45,8 @@ export function ResultsArea({
   onBrainstormComplete 
 }: ResultsAreaProps) {
   const [activeTab, setActiveTab] = useState("consensus");
+  const [selectedReport, setSelectedReport] = useState<GeneratedReport | null>(null);
+  const [showReportDialog, setShowReportDialog] = useState(false);
 
   if (isProcessing) {
     return (
@@ -115,6 +119,11 @@ export function ResultsArea({
   const handleFollowUpQuestion = (question: string) => {
     // Start a new debate with this question
     console.log('Starting debate with follow-up question:', question);
+  };
+
+  const handleViewReport = (report: GeneratedReport) => {
+    setSelectedReport(report);
+    setShowReportDialog(true);
   };
 
   return (
@@ -254,14 +263,26 @@ export function ResultsArea({
           </TabsContent>
 
           <TabsContent value="reports" className="mt-4">
-            <ReportGenerationSection
-              sessionId={sessionId}
-              sessionHasResults={!!results?.consensus}
-              onReportGenerated={(report) => {
-                // Optional: Handle report generation completion
-                console.log('Report generated:', report);
-              }}
-            />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+              {/* Report Generation Section */}
+              <div className="h-full">
+                <ReportGenerationSection
+                  sessionId={sessionId}
+                  sessionHasResults={!!results?.consensus}
+                  onReportGenerated={(report) => {
+                    // Optional: Handle report generation completion
+                    console.log('Report generated:', report);
+                  }}
+                />
+              </div>
+              
+              {/* Report History Section */}
+              <div className="h-full">
+                <ReportHistorySection
+                  onViewReport={handleViewReport}
+                />
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="sources" className="mt-4">
@@ -743,6 +764,13 @@ export function ResultsArea({
           </TabsContent>
         </Tabs>
       </CardContent>
+
+      {/* Report Viewer Dialog */}
+      <ReportViewerDialog
+        report={selectedReport}
+        open={showReportDialog}
+        onOpenChange={setShowReportDialog}
+      />
     </Card>
   );
 }
