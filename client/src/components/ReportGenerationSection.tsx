@@ -183,145 +183,193 @@ export function ReportGenerationSection({
   };
 
   const convertReportToMarkdown = (report: ReportResponse): string => {
-    let markdown = `# ${report.title}\n\n`;
-    
-    // Metadata
-    markdown += `**Generated:** ${new Date(report.metadata.generated_at).toLocaleString()}\n`;
-    markdown += `**Report Type:** ${report.report_type.charAt(0).toUpperCase() + report.report_type.slice(1)}\n`;
-    if (report.metadata.total_analysis_time) {
-      markdown += `**Analysis Time:** ${report.metadata.total_analysis_time}\n`;
-    }
-    markdown += `\n---\n\n`;
-    
-    // Executive Summary
-    markdown += `## Executive Summary\n\n${report.executive_summary}\n\n`;
-    
-    // Debate Overview
-    markdown += `## Debate Overview\n\n`;
-    markdown += `**Original Question:** ${report.debate_overview.original_question}\n\n`;
-    markdown += `**Methodology:** ${report.debate_overview.methodology}\n\n`;
-    markdown += `**Participants:** ${report.debate_overview.participants.join(", ")}\n\n`;
-    markdown += `**Rounds Conducted:** ${report.debate_overview.rounds_conducted}\n\n`;
-    markdown += `**Consensus Reached:** ${report.debate_overview.consensus_reached}\n\n`;
-    
-    if (report.debate_overview.key_dissents.length > 0) {
-      markdown += `### Key Dissenting Views\n\n`;
-      report.debate_overview.key_dissents.forEach((dissent, index) => {
-        markdown += `${index + 1}. **${dissent.position}**\n`;
-        if (dissent.reasoning) {
-          markdown += `   ${dissent.reasoning}\n`;
+    try {
+      let markdown = `# ${report?.title || 'Generated Report'}\n\n`;
+      
+      // Metadata with null guards
+      const metadata = report?.metadata || {};
+      markdown += `**Generated:** ${metadata.generated_at ? new Date(metadata.generated_at).toLocaleString() : new Date().toLocaleString()}\n`;
+      markdown += `**Report Type:** ${report?.report_type ? report.report_type.charAt(0).toUpperCase() + report.report_type.slice(1) : 'Unknown'}\n`;
+      if (metadata.total_analysis_time) {
+        markdown += `**Analysis Time:** ${metadata.total_analysis_time}\n`;
+      }
+      markdown += `\n---\n\n`;
+      
+      // Executive Summary with null guard
+      markdown += `## Executive Summary\n\n${report?.executive_summary || 'No executive summary available.'}\n\n`;
+      
+      // Debate Overview with comprehensive null guards
+      const debateOverview = report?.debate_overview;
+      if (debateOverview) {
+        markdown += `## Debate Overview\n\n`;
+        markdown += `**Original Question:** ${debateOverview.original_question || 'N/A'}\n\n`;
+        markdown += `**Methodology:** ${debateOverview.methodology || 'N/A'}\n\n`;
+        markdown += `**Participants:** ${debateOverview.participants?.length ? debateOverview.participants.join(", ") : 'N/A'}\n\n`;
+        markdown += `**Rounds Conducted:** ${debateOverview.rounds_conducted || 'N/A'}\n\n`;
+        markdown += `**Consensus Reached:** ${debateOverview.consensus_reached || 'N/A'}\n\n`;
+        
+        const keyDissents = debateOverview.key_dissents || [];
+        if (keyDissents.length > 0) {
+          markdown += `### Key Dissenting Views\n\n`;
+          keyDissents.forEach((dissent, index) => {
+            if (dissent && typeof dissent === 'object') {
+              markdown += `${index + 1}. **${dissent.position || 'Unnamed dissent'}**\n`;
+              if (dissent.reasoning) {
+                markdown += `   ${dissent.reasoning}\n`;
+              }
+            } else if (typeof dissent === 'string') {
+              markdown += `${index + 1}. **${dissent}**\n`;
+            }
+            markdown += `\n`;
+          });
         }
-        markdown += `\n`;
-      });
-    }
-    
-    if (report.debate_overview.unresolved_questions.length > 0) {
-      markdown += `### Unresolved Questions\n\n`;
-      report.debate_overview.unresolved_questions.forEach((question, index) => {
-        markdown += `${index + 1}. ${question}\n`;
-      });
-      markdown += `\n`;
-    }
-    
-    // Brainstorming Outcomes (if available)
-    if (report.brainstorming_outcomes) {
-      markdown += `## Brainstorming Outcomes\n\n`;
-      
-      if (report.brainstorming_outcomes.collaborative_solutions.length > 0) {
-        markdown += `### Collaborative Solutions\n\n`;
-        report.brainstorming_outcomes.collaborative_solutions.forEach((solution, index) => {
-          markdown += `${index + 1}. **${solution.title}**\n`;
-          markdown += `   ${solution.description}\n`;
-          markdown += `   - **Feasibility:** ${solution.feasibility}\n`;
-          markdown += `   - **Impact:** ${solution.impact}\n`;
-          if (solution.timeline) markdown += `   - **Timeline:** ${solution.timeline}\n`;
-          if (solution.resources_required?.length) {
-            markdown += `   - **Resources:** ${solution.resources_required.join(", ")}\n`;
-          }
+        
+        const unresolvedQuestions = debateOverview.unresolved_questions || [];
+        if (unresolvedQuestions.length > 0) {
+          markdown += `### Unresolved Questions\n\n`;
+          unresolvedQuestions.forEach((question, index) => {
+            markdown += `${index + 1}. ${question || 'Unnamed question'}\n`;
+          });
           markdown += `\n`;
-        });
-      }
-      
-      if (report.brainstorming_outcomes.implementation_plan.length > 0) {
-        markdown += `### Implementation Plan\n\n`;
-        report.brainstorming_outcomes.implementation_plan.forEach((step) => {
-          markdown += `${step.step}. **${step.title}**\n`;
-          markdown += `   ${step.description}\n`;
-          if (step.owner) markdown += `   - **Owner:** ${step.owner}\n`;
-          if (step.timeline) markdown += `   - **Timeline:** ${step.timeline}\n`;
-          if (step.dependencies?.length) {
-            markdown += `   - **Dependencies:** ${step.dependencies.join(", ")}\n`;
-          }
-          markdown += `\n`;
-        });
-      }
-    }
-    
-    // Expert Analysis (if available)
-    if (report.expert_analysis) {
-      markdown += `## Expert Analysis\n\n`;
-      
-      if (report.expert_analysis.domain_experts_consulted.length > 0) {
-        markdown += `### Domain Experts Consulted\n\n`;
-        report.expert_analysis.domain_experts_consulted.forEach((expert, index) => {
-          markdown += `${index + 1}. **${expert.role}** (${expert.expert_type})\n`;
-          markdown += `   - **Confidence Level:** ${expert.confidence_level}\n`;
-          if (expert.key_contributions.length > 0) {
-            markdown += `   - **Key Contributions:**\n`;
-            expert.key_contributions.forEach(contribution => {
-              markdown += `     - ${contribution}\n`;
-            });
-          }
-          markdown += `\n`;
-        });
-      }
-      
-      if (report.expert_analysis.ai_agents_summary.length > 0) {
-        markdown += `### AI Agents Summary\n\n`;
-        report.expert_analysis.ai_agents_summary.forEach((agent, index) => {
-          markdown += `${index + 1}. **${agent.agent_name}** - ${agent.role}\n`;
-          markdown += `   - **Approach:** ${agent.approach}\n`;
-          if (agent.key_insights.length > 0) {
-            markdown += `   - **Key Insights:**\n`;
-            agent.key_insights.forEach(insight => {
-              markdown += `     - ${insight}\n`;
-            });
-          }
-          markdown += `\n`;
-        });
-      }
-    }
-    
-    // Recommendations
-    if (report.recommendations.length > 0) {
-      markdown += `## Recommendations\n\n`;
-      report.recommendations.forEach((rec, index) => {
-        markdown += `${index + 1}. **${rec.title}** (Priority: ${rec.priority})\n`;
-        markdown += `   ${rec.description}\n`;
-        if (rec.timeline) markdown += `   - **Timeline:** ${rec.timeline}\n`;
-        if (rec.stakeholders?.length) {
-          markdown += `   - **Stakeholders:** ${rec.stakeholders.join(", ")}\n`;
         }
-        markdown += `\n`;
-      });
+      }
+      
+      // Brainstorming Outcomes with comprehensive null guards
+      const brainstormingOutcomes = report?.brainstorming_outcomes;
+      if (brainstormingOutcomes) {
+        markdown += `## Brainstorming Outcomes\n\n`;
+        
+        const collaborativeSolutions = brainstormingOutcomes.collaborative_solutions || [];
+        if (collaborativeSolutions.length > 0) {
+          markdown += `### Collaborative Solutions\n\n`;
+          collaborativeSolutions.forEach((solution, index) => {
+            if (solution) {
+              markdown += `${index + 1}. **${solution.title || 'Unnamed solution'}**\n`;
+              markdown += `   ${solution.description || 'No description available'}\n`;
+              markdown += `   - **Feasibility:** ${solution.feasibility || 'N/A'}\n`;
+              markdown += `   - **Impact:** ${solution.impact || 'N/A'}\n`;
+              if (solution.timeline) markdown += `   - **Timeline:** ${solution.timeline}\n`;
+              if (solution.resources_required?.length) {
+                markdown += `   - **Resources:** ${solution.resources_required.join(", ")}\n`;
+              }
+              markdown += `\n`;
+            }
+          });
+        }
+        
+        const implementationPlan = brainstormingOutcomes.implementation_plan || [];
+        if (implementationPlan.length > 0) {
+          markdown += `### Implementation Plan\n\n`;
+          implementationPlan.forEach((step) => {
+            if (step) {
+              markdown += `${step.step || 'N/A'}. **${step.title || 'Unnamed step'}**\n`;
+              markdown += `   ${step.description || 'No description available'}\n`;
+              if (step.owner) markdown += `   - **Owner:** ${step.owner}\n`;
+              if (step.timeline) markdown += `   - **Timeline:** ${step.timeline}\n`;
+              if (step.dependencies?.length) {
+                markdown += `   - **Dependencies:** ${step.dependencies.join(", ")}\n`;
+              }
+              markdown += `\n`;
+            }
+          });
+        }
+      }
+      
+      // Expert Analysis with comprehensive null guards
+      const expertAnalysis = report?.expert_analysis;
+      if (expertAnalysis) {
+        markdown += `## Expert Analysis\n\n`;
+        
+        const domainExperts = expertAnalysis.domain_experts_consulted || [];
+        if (domainExperts.length > 0) {
+          markdown += `### Domain Experts Consulted\n\n`;
+          domainExperts.forEach((expert, index) => {
+            if (expert) {
+              markdown += `${index + 1}. **${expert.role || 'Unknown role'}** (${expert.expert_type || 'Unknown type'})\n`;
+              markdown += `   - **Confidence Level:** ${expert.confidence_level || 'N/A'}\n`;
+              const keyContributions = expert.key_contributions || [];
+              if (keyContributions.length > 0) {
+                markdown += `   - **Key Contributions:**\n`;
+                keyContributions.forEach(contribution => {
+                  markdown += `     - ${contribution || 'No contribution specified'}\n`;
+                });
+              }
+              markdown += `\n`;
+            }
+          });
+        }
+        
+        const aiAgents = expertAnalysis.ai_agents_summary || [];
+        if (aiAgents.length > 0) {
+          markdown += `### AI Agents Summary\n\n`;
+          aiAgents.forEach((agent, index) => {
+            if (agent) {
+              markdown += `${index + 1}. **${agent.agent_name || 'Unnamed agent'}** - ${agent.role || 'Unknown role'}\n`;
+              markdown += `   - **Approach:** ${agent.approach || 'N/A'}\n`;
+              const keyInsights = agent.key_insights || [];
+              if (keyInsights.length > 0) {
+                markdown += `   - **Key Insights:**\n`;
+                keyInsights.forEach(insight => {
+                  markdown += `     - ${insight || 'No insight specified'}\n`;
+                });
+              }
+              markdown += `\n`;
+            }
+          });
+        }
+      }
+      
+      // Recommendations with null guards
+      const recommendations = report?.recommendations || [];
+      if (recommendations.length > 0) {
+        markdown += `## Recommendations\n\n`;
+        recommendations.forEach((rec, index) => {
+          if (rec) {
+            markdown += `${index + 1}. **${rec.title || 'Unnamed recommendation'}** (Priority: ${rec.priority || 'N/A'})\n`;
+            markdown += `   ${rec.description || 'No description available'}\n`;
+            if (rec.timeline) markdown += `   - **Timeline:** ${rec.timeline}\n`;
+            if (rec.stakeholders?.length) {
+              markdown += `   - **Stakeholders:** ${rec.stakeholders.join(", ")}\n`;
+            }
+            markdown += `\n`;
+          }
+        });
+      }
+      
+      // Citations with comprehensive null guards
+      const citations = report?.citations || [];
+      if (citations.length > 0) {
+        markdown += `## Citations\n\n`;
+        citations.forEach((citation, index) => {
+          if (citation) {
+            markdown += `${index + 1}. `;
+            if (citation.title) markdown += `**${citation.title}**. `;
+            if (citation.author) markdown += `${citation.author}. `;
+            if (citation.year) markdown += `(${citation.year}). `;
+            if (citation.source) markdown += `${citation.source}. `;
+            if (citation.url) markdown += `[Link](${citation.url})`;
+            if (citation.relevance) markdown += ` - ${citation.relevance}`;
+            markdown += `\n`;
+          }
+        });
+      }
+      
+      return markdown;
+    } catch (error) {
+      console.error('Error converting report to markdown:', error);
+      // Return a safe fallback markdown
+      return `# ${report?.title || 'Generated Report'}
+
+## Error
+An error occurred while formatting this report. Please try downloading in a different format.
+
+**Report Type:** ${report?.report_type || 'Unknown'}
+**Generated:** ${report?.metadata?.generated_at ? new Date(report.metadata.generated_at).toLocaleString() : new Date().toLocaleString()}
+
+## Executive Summary
+${report?.executive_summary || 'No summary available.'}
+`;
     }
-    
-    // Citations (if available)
-    if (report.citations?.length) {
-      markdown += `## Citations\n\n`;
-      report.citations.forEach((citation, index) => {
-        markdown += `${index + 1}. `;
-        if (citation.title) markdown += `**${citation.title}**. `;
-        if (citation.author) markdown += `${citation.author}. `;
-        if (citation.year) markdown += `(${citation.year}). `;
-        if (citation.source) markdown += `${citation.source}. `;
-        if (citation.url) markdown += `[Link](${citation.url})`;
-        if (citation.relevance) markdown += ` - ${citation.relevance}`;
-        markdown += `\n`;
-      });
-    }
-    
-    return markdown;
   };
 
   const convertReportToHTML = (report: ReportResponse): string => {

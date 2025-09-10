@@ -44,7 +44,7 @@ export function ResultsArea({
   brainstormResults, 
   onBrainstormComplete 
 }: ResultsAreaProps) {
-  const [activeTab, setActiveTab] = useState("consensus");
+  const [activeTab, setActiveTab] = useState(!results ? "reports" : "consensus");
   const [selectedReport, setSelectedReport] = useState<GeneratedReport | null>(null);
   const [showReportDialog, setShowReportDialog] = useState(false);
 
@@ -55,19 +55,6 @@ export function ResultsArea({
           <div className="text-center space-y-4">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
             <p className="text-muted-foreground">AI think tank processing your request...</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!results) {
-    return (
-      <Card className="card-elevated h-full">
-        <CardContent className="flex items-center justify-center h-96">
-          <div className="text-center space-y-4">
-            <FileText className="h-12 w-12 text-muted-foreground mx-auto" />
-            <p className="text-muted-foreground">Enter a prompt to start collaborative analysis</p>
           </div>
         </CardContent>
       </Card>
@@ -126,6 +113,11 @@ export function ResultsArea({
     setShowReportDialog(true);
   };
 
+  const handleReportGenerated = (report: any) => {
+    // Switch to Reports tab to show the newly generated report
+    setActiveTab("reports");
+  };
+
   return (
     <Card className="card-elevated h-full">
       <CardHeader>
@@ -166,10 +158,10 @@ export function ResultsArea({
               Consensus
             </TabsTrigger>
             <TabsTrigger value="dissents" data-testid="tab-dissents">
-              Dissents ({results.dissents?.length || 0})
+              Dissents ({results?.dissents?.length || 0})
             </TabsTrigger>
             <TabsTrigger value="unresolved" data-testid="tab-unresolved">
-              Unresolved ({results.unresolved?.length || 0})
+              Unresolved ({results?.unresolved?.length || 0})
             </TabsTrigger>
             <TabsTrigger value="brainstorm" data-testid="tab-brainstorm">
               Brainstorm
@@ -178,7 +170,7 @@ export function ResultsArea({
               Reports
             </TabsTrigger>
             <TabsTrigger value="sources" data-testid="tab-sources">
-              Sources ({results.citations?.length || 0})
+              Sources ({results?.citations?.length || 0})
             </TabsTrigger>
             <TabsTrigger value="factcheck" data-testid="tab-factcheck">
               Fact Check
@@ -190,17 +182,27 @@ export function ResultsArea({
 
           <TabsContent value="consensus" className="mt-4">
             <ScrollArea className="h-96">
-              <div className="prose prose-sm max-w-none dark:prose-invert">
-                <p className="text-foreground leading-relaxed" data-testid="text-consensus">
-                  {results.consensus}
-                </p>
-              </div>
+              {results ? (
+                <div className="prose prose-sm max-w-none dark:prose-invert">
+                  <p className="text-foreground leading-relaxed" data-testid="text-consensus">
+                    {results.consensus}
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No Analysis Available</h3>
+                  <p className="text-muted-foreground">
+                    Start a collaborative analysis to see the consensus view
+                  </p>
+                </div>
+              )}
             </ScrollArea>
           </TabsContent>
 
           <TabsContent value="dissents" className="mt-4">
             <ScrollArea className="h-96">
-              {results.dissents && results.dissents.length > 0 ? (
+              {results?.dissents && results.dissents.length > 0 ? (
                 <div className="space-y-4">
                   {results.dissents.map((dissent, index) => (
                     <Card key={index} className="border-l-4 border-l-orange-500">
@@ -222,6 +224,14 @@ export function ResultsArea({
                     </Card>
                   ))}
                 </div>
+              ) : !results ? (
+                <div className="text-center py-12">
+                  <AlertTriangle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No Analysis Available</h3>
+                  <p className="text-muted-foreground">
+                    Start a collaborative analysis to see dissenting opinions
+                  </p>
+                </div>
               ) : (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">No dissenting opinions identified</p>
@@ -232,9 +242,9 @@ export function ResultsArea({
 
           <TabsContent value="unresolved" className="mt-4">
             <ScrollArea className="h-96">
-              {results.unresolved && results.unresolved.length > 0 ? (
+              {results?.unresolved && results.unresolved.length > 0 ? (
                 <div className="space-y-3">
-                  {results.unresolved.map((question, index) => (
+                  {results.unresolved?.map((question, index) => (
                     <div key={index} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
                       <HelpCircle className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
                       <p className="text-sm text-foreground" data-testid={`unresolved-${index}`}>
@@ -262,34 +272,33 @@ export function ResultsArea({
             />
           </TabsContent>
 
-          <TabsContent value="reports" className="mt-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-              {/* Report Generation Section */}
-              <div className="h-full">
-                <ReportGenerationSection
-                  sessionId={sessionId}
-                  sessionHasResults={!!results?.consensus}
-                  onReportGenerated={(report) => {
-                    // Optional: Handle report generation completion
-                    console.log('Report generated:', report);
-                  }}
-                />
+          <TabsContent value="reports" className="mt-4" data-testid="panel-reports">
+            <ScrollArea className="h-96">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Report Generation Section */}
+                <div>
+                  <ReportGenerationSection
+                    sessionId={sessionId}
+                    sessionHasResults={!!results?.consensus}
+                    onReportGenerated={handleReportGenerated}
+                  />
+                </div>
+                
+                {/* Report History Section */}
+                <div>
+                  <ReportHistorySection
+                    onViewReport={handleViewReport}
+                  />
+                </div>
               </div>
-              
-              {/* Report History Section */}
-              <div className="h-full">
-                <ReportHistorySection
-                  onViewReport={handleViewReport}
-                />
-              </div>
-            </div>
+            </ScrollArea>
           </TabsContent>
 
           <TabsContent value="sources" className="mt-4">
             <ScrollArea className="h-96">
-              {results.citations && results.citations.length > 0 ? (
+              {results?.citations && results.citations.length > 0 ? (
                 <div className="space-y-3">
-                  {results.citations.map((citation, index) => (
+                  {results.citations?.map((citation, index) => (
                     <div key={index} className="flex items-start gap-3 p-3 border rounded-lg">
                       <ExternalLink className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
                       <div className="flex-1">
@@ -456,11 +465,11 @@ export function ResultsArea({
                 </div>
 
                 {/* Dynamic Results */}
-                {results.fact_check && results.fact_check.findings && results.fact_check.findings.length > 0 && (
+                {results?.fact_check && results.fact_check.findings && results.fact_check.findings.length > 0 && (
                   <div className="space-y-3 pt-4 border-t">
                     <h5 className="text-sm font-medium">Current Analysis Results</h5>
                     <div className="space-y-3">
-                      {results.fact_check.findings.map((finding, index) => (
+                      {results.fact_check.findings?.map((finding, index) => (
                         <div 
                           key={index} 
                           className="cursor-pointer p-4 border rounded-lg hover:bg-muted/30 transition-colors"
@@ -521,9 +530,9 @@ export function ResultsArea({
                   </p>
                   
                   {/* Auto-generated follow-up questions */}
-                  {results.follow_up_questions && results.follow_up_questions.length > 0 ? (
+                  {results?.follow_up_questions && results.follow_up_questions.length > 0 ? (
                     <div className="space-y-2">
-                      {results.follow_up_questions.map((followUp, index) => (
+                      {results.follow_up_questions?.map((followUp, index) => (
                         <div 
                           key={index}
                           className="cursor-pointer p-3 border rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-colors group"
@@ -559,7 +568,7 @@ export function ResultsArea({
                   ) : (
                     // Show existing unresolved questions as clickable
                     <div className="space-y-2">
-                      {results.unresolved?.map((question, index) => (
+                      {results?.unresolved?.map((question, index) => (
                         <div 
                           key={index}
                           className="cursor-pointer p-3 border rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-colors group"
@@ -590,7 +599,7 @@ export function ResultsArea({
                 </div>
 
                 {/* Focus Areas Analysis */}
-                {results.focus_areas && (results.focus_areas.identified || results.focus_areas.connections) && (
+                {results?.focus_areas && (results.focus_areas.identified || results.focus_areas.connections) && (
                   <div className="space-y-3">
                     <Separator />
                     <h4 className="text-sm font-medium flex items-center gap-2">
@@ -598,11 +607,11 @@ export function ResultsArea({
                       Focus Areas Analysis
                     </h4>
 
-                    {results.focus_areas.identified && results.focus_areas.identified.length > 0 && (
+                    {results.focus_areas?.identified && results.focus_areas.identified.length > 0 && (
                       <div className="space-y-2">
                         <h5 className="text-xs font-medium text-muted-foreground">Identified Focus Areas</h5>
                         <div className="flex flex-wrap gap-2">
-                          {results.focus_areas.identified.map((area, index) => (
+                          {results.focus_areas.identified?.map((area, index) => (
                             <Badge key={index} variant="secondary" className="text-xs">
                               {area}
                             </Badge>
@@ -611,7 +620,7 @@ export function ResultsArea({
                       </div>
                     )}
 
-                    {results.focus_areas.connections && results.focus_areas.connections.length > 0 && (
+                    {results.focus_areas?.connections && results.focus_areas.connections.length > 0 && (
                       <div className="space-y-2">
                         <h5 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                           <Link className="h-3 w-3" />
@@ -619,7 +628,7 @@ export function ResultsArea({
                         </h5>
                         <p className="text-xs text-muted-foreground">Strong interdisciplinary connections found</p>
                         <div className="space-y-2">
-                          {results.focus_areas.connections.map((connection, index) => (
+                          {results.focus_areas.connections?.map((connection, index) => (
                             <div key={index} className="flex items-center gap-2 p-2 bg-muted/20 rounded text-xs">
                               <span className="font-medium">{connection.from}</span>
                               <TrendingUp className={`h-3 w-3 ${
