@@ -704,9 +704,9 @@ ${markdown
               <div>
                 <Label className="text-muted-foreground">Executive Summary (Preview)</Label>
                 <div className="text-sm bg-muted/50 p-3 rounded-md" data-testid="text-generated-executive-summary">
-                  {generatedReport.executive_summary.length > 200 
-                    ? `${generatedReport.executive_summary.substring(0, 200)}...` 
-                    : generatedReport.executive_summary
+                  {generatedReport.executive_summary?.length > 200 
+                    ? `${generatedReport.executive_summary?.substring(0, 200)}...` 
+                    : generatedReport.executive_summary || "No executive summary available"
                   }
                 </div>
               </div>

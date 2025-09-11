@@ -152,15 +152,20 @@ As the ${agent.role}, contribute to building collaborative solutions. Focus on:
 Provide concrete, implementable suggestions that move from debate to action.`;
 
       try {
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4",
-          messages: [
-            { role: "system", content: agent.systemPrompt },
-            { role: "user", content: prompt }
-          ],
-          max_tokens: 800,
-          temperature: 0.7,
-        });
+        const completion = await Promise.race([
+          openai.chat.completions.create({
+            model: "gpt-4",
+            messages: [
+              { role: "system", content: agent.systemPrompt },
+              { role: "user", content: prompt }
+            ],
+            max_tokens: 800,
+            temperature: 0.7,
+          }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('OpenAI API timeout after 30 seconds')), 30000)
+          )
+        ]) as any;
 
         const response = completion.choices[0].message.content || "";
         collaboration_history.push({
@@ -224,18 +229,23 @@ Synthesize this into a JSON response with the following structure:
 }`;
 
   try {
-    const synthesisResponse = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        { 
-          role: "system", 
-          content: "You are a synthesis expert who creates structured, actionable responses from collaborative discussions. Always respond with valid JSON." 
-        },
-        { role: "user", content: synthesisPrompt }
-      ],
-      max_tokens: 2000,
-      temperature: 0.3,
-    });
+    const synthesisResponse = await Promise.race([
+      openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          { 
+            role: "system", 
+            content: "You are a synthesis expert who creates structured, actionable responses from collaborative discussions. Always respond with valid JSON." 
+          },
+          { role: "user", content: synthesisPrompt }
+        ],
+        max_tokens: 2000,
+        temperature: 0.3,
+      }),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('OpenAI API timeout after 30 seconds')), 30000)
+      )
+    ]) as any;
 
     const endTime = Date.now();
     const response_text = synthesisResponse.choices[0].message.content || "{}";
@@ -316,21 +326,26 @@ export async function runMultiAgentDebate(
       }
       
       console.log(`🤖 ${agent.role} generating response for: "${prompt}"`);
-      const response = await openai.chat.completions.create({
-        model: "gpt-4", // Using gpt-4 instead of gpt-5 which doesn't exist
-        messages: [
-          {
-            role: "system",
-            content: `${agent.systemPrompt}\n\nYou are participating in a collaborative AI debate about: "${prompt}"\n\nProvide a thoughtful response that contributes to the discussion.${context}${roleSpecificInstructions}`
-          },
-          {
-            role: "user",
-            content: `Round ${round + 1}: Please provide your perspective on: ${prompt}`
-          }
-        ],
-        max_completion_tokens: settings.response_length === "detailed" ? 800 : settings.response_length === "brief" ? 300 : 500,
-        // temperature: settings.temperature || 0.7 // Removed - model only supports default
-      });
+      const response = await Promise.race([
+        openai.chat.completions.create({
+          model: "gpt-4", // Using gpt-4 instead of gpt-5 which doesn't exist
+          messages: [
+            {
+              role: "system",
+              content: `${agent.systemPrompt}\n\nYou are participating in a collaborative AI debate about: "${prompt}"\n\nProvide a thoughtful response that contributes to the discussion.${context}${roleSpecificInstructions}`
+            },
+            {
+              role: "user",
+              content: `Round ${round + 1}: Please provide your perspective on: ${prompt}`
+            }
+          ],
+          max_completion_tokens: settings.response_length === "detailed" ? 800 : settings.response_length === "brief" ? 300 : 500,
+          // temperature: settings.temperature || 0.7 // Removed - model only supports default
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('OpenAI API timeout after 30 seconds')), 30000)
+        )
+      ]) as any;
 
       const content = response.choices[0].message.content || "";
       console.log(`🤖 ${agent.role} response length:`, content.length);
@@ -363,22 +378,27 @@ Debate history:
 ${debate_history.map(h => `${h.agent}: ${h.response}`).join('\n\n')}`;
 
   console.log("🔮 Synthesizing results from debate history:", debate_history.length, "responses");
-  const synthesis = await openai.chat.completions.create({
-    model: "gpt-4", // Using gpt-4 instead of gpt-5 which doesn't exist
-    messages: [
-      {
-        role: "system",
-        content: "You are a synthesis AI. Respond only with valid JSON in the exact format requested."
-      },
-      {
-        role: "user",
-        content: synthesis_prompt
-      }
-    ],
-    max_completion_tokens: 1000,
-    // temperature: 0.3, // Removed - model only supports default
-    // response_format: { type: "json_object" } // Removed - not supported by gpt-4
-  });
+  const synthesis = await Promise.race([
+    openai.chat.completions.create({
+      model: "gpt-4", // Using gpt-4 instead of gpt-5 which doesn't exist
+      messages: [
+        {
+          role: "system",
+          content: "You are a synthesis AI. Respond only with valid JSON in the exact format requested."
+        },
+        {
+          role: "user",
+          content: synthesis_prompt
+        }
+      ],
+      max_completion_tokens: 1000,
+      // temperature: 0.3, // Removed - model only supports default
+      // response_format: { type: "json_object" } // Removed - not supported by gpt-4
+    }),
+    new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('OpenAI API timeout after 30 seconds')), 30000)
+    )
+  ]) as any;
 
   try {
     const rawResponse = synthesis.choices[0].message.content || "{}";
@@ -632,12 +652,13 @@ export async function runReportGeneration(
     
     console.log(`📊 Generating ${reportType} report...`);
     
-    const reportResponse = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content: `${reportAgent.systemPrompt}
+    const reportResponse = await Promise.race([
+      openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: `${reportAgent.systemPrompt}
 
 You are generating a ${reportType.toUpperCase()} report based on multi-agent debate and brainstorming results.
 
@@ -645,15 +666,19 @@ Report Structure Requirements:
 ${getReportStructurePrompt(reportType)}
 
 CRITICAL: Respond with a valid JSON object that matches the expected schema. Include all required fields.`
-        },
-        {
-          role: "user",
-          content: reportContext
-        }
-      ],
-      max_tokens: reportType === "executive" ? 2000 : reportType === "detailed" ? 4000 : 6000,
-      temperature: 0.3
-    });
+          },
+          {
+            role: "user",
+            content: reportContext
+          }
+        ],
+        max_tokens: reportType === "executive" ? 2000 : reportType === "detailed" ? 4000 : 6000,
+        temperature: 0.3
+      }),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('OpenAI API timeout after 30 seconds')), 30000)
+      )
+    ]) as any;
 
     const reportContent = reportResponse.choices[0].message.content || "{}";
     
@@ -789,21 +814,26 @@ function getReportStructurePrompt(reportType: string): string {
 // Generate follow-up response for deeper exploration
 export async function generateFollowUpResponse(prompt: string): Promise<string> {
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert consultant providing detailed follow-up insights. Be thorough, practical, and actionable in your responses."
-        },
-        {
-          role: "user", 
-          content: prompt
-        }
-      ],
-      temperature: 0.7,
-      max_tokens: 1000
-    });
+    const completion = await Promise.race([
+      openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert consultant providing detailed follow-up insights. Be thorough, practical, and actionable in your responses."
+          },
+          {
+            role: "user", 
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 1000
+      }),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('OpenAI API timeout after 30 seconds')), 30000)
+      )
+    ]) as any;
 
     return completion.choices[0]?.message?.content || "Unable to generate follow-up response.";
   } catch (error) {

@@ -4,6 +4,12 @@ import { setupVite, serveStatic, log } from "./vite";
 import { ResponseCache } from "./middleware/responseCache";
 import { PerformanceMonitor } from "./middleware/monitoring";
 
+// Set BYPASS_AUTH for development testing
+if (process.env.NODE_ENV === 'development') {
+  process.env.BYPASS_AUTH = 'true';
+  console.log('🔓 Auth bypass enabled for development testing');
+}
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

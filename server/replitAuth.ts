@@ -24,19 +24,40 @@ const getOidcConfig = memoize(
 
 export function getSession() {
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
-  const pgStore = connectPg(session);
-  const sessionStore = new pgStore({
-    conString: process.env.DATABASE_URL,
-    createTableIfMissing: false,
-    ttl: sessionTtl,
-    tableName: "sessions",
-  });
-  
-  // Fix cookie settings for Replit development environment
   const isProduction = process.env.NODE_ENV === "production";
   
+  // Generate a session secret if not provided
+  const sessionSecret = process.env.SESSION_SECRET || 'development-secret-key-' + Math.random().toString(36);
+  if (!process.env.SESSION_SECRET) {
+    console.log("⚠️ Using auto-generated session secret for development");
+  }
+  
+  let sessionStore;
+  
+  // Try to use PostgreSQL store if DATABASE_URL is available, fallback to MemoryStore
+  if (process.env.DATABASE_URL) {
+    try {
+      const pgStore = connectPg(session);
+      sessionStore = new pgStore({
+        conString: process.env.DATABASE_URL,
+        createTableIfMissing: true, // Allow table creation in development
+        ttl: sessionTtl,
+        tableName: "sessions",
+      });
+      console.log("✅ Using PostgreSQL session store");
+    } catch (error) {
+      console.warn("⚠️ Failed to create PostgreSQL session store, falling back to MemoryStore:", error);
+      // Use default MemoryStore
+      sessionStore = undefined;
+    }
+  } else {
+    console.log("📝 Using MemoryStore for sessions (development)");
+    // Use default MemoryStore
+    sessionStore = undefined;
+  }
+  
   return session({
-    secret: process.env.SESSION_SECRET!,
+    secret: sessionSecret,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
@@ -131,22 +152,22 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
-    // Use the actual request hostname for OAuth consistency
-    const domain = req.hostname;
-    console.log("🔐 Login request - Using request hostname:", domain);
+    // Use the configured domain for OAuth consistency
+    const configuredDomain = currentDomain;
+    console.log("🔐 Login request - Using configured domain:", configuredDomain);
     
-    passport.authenticate(`replitauth:${domain}`, {
+    passport.authenticate(`replitauth:${configuredDomain}`, {
       prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
 
   app.get("/api/callback", (req, res, next) => {
-    // Use the actual request hostname for OAuth consistency
-    const domain = req.hostname;
-    console.log("🔐 Callback request - Using request hostname:", domain);
+    // Use the configured domain for OAuth consistency
+    const configuredDomain = currentDomain;
+    console.log("🔐 Callback request - Using configured domain:", configuredDomain);
     
-    passport.authenticate(`replitauth:${domain}`, (err: any, user: any, info: any) => {
+    passport.authenticate(`replitauth:${configuredDomain}`, (err: any, user: any, info: any) => {
       if (err) {
         console.error("OAuth authentication error:", err);
         return res.redirect("/api/login");
@@ -181,9 +202,15 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  // Temporary bypass for development if BYPASS_AUTH is set
+  if (process.env.BYPASS_AUTH === 'true') {
+    console.log("🔓 Auth bypassed for development");
+    return next();
+  }
+  
   const user = req.user as any;
 
-  if (!req.isAuthenticated() || !user.expires_at) {
+  if (!req.isAuthenticated() || !user?.expires_at) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
@@ -206,6 +233,43 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
   } catch (error) {
     res.status(401).json({ message: "Unauthorized" });
     return;
+  }
+};
+
+// Optional authentication - allows both authenticated and unauthenticated requests
+export const optionalAuth: RequestHandler = async (req, res, next) => {
+  // Temporary bypass for development if BYPASS_AUTH is set
+  if (process.env.BYPASS_AUTH === 'true') {
+    console.log("🔓 Optional auth bypassed for development");
+    return next();
+  }
+  
+  const user = req.user as any;
+
+  if (!req.isAuthenticated() || !user?.expires_at) {
+    // Allow unauthenticated access
+    return next();
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  if (now <= user.expires_at) {
+    return next();
+  }
+
+  const refreshToken = user.refresh_token;
+  if (!refreshToken) {
+    // Allow access but user is not authenticated
+    return next();
+  }
+
+  try {
+    const config = await getOidcConfig();
+    const tokenResponse = await client.refreshTokenGrant(config, refreshToken);
+    updateUserSession(user, tokenResponse);
+    return next();
+  } catch (error) {
+    // Allow access but user is not authenticated
+    return next();
   }
 };
 
