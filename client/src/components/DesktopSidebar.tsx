@@ -116,7 +116,7 @@ export default function DesktopSidebar({ isOpen = true, onToggle }: DesktopSideb
                 {section.title}
               </h3>
             )}
-            <nav className="space-y-0">
+            <nav className="space-y-1">
               {section.items.map((item) => {
                 const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href.split("?")[0]));
                 const Icon = item.icon;
