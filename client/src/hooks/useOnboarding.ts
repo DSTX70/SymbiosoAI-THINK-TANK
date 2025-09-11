@@ -190,11 +190,11 @@ export function useOnboarding() {
   const getApplicableFlows = useCallback((userProgress: OnboardingProgress, context: Record<string, boolean> = {}) => {
     return ONBOARDING_FLOWS.filter(flow => {
       // Check if flow was already skipped
-      if (userProgress.skipped_flows.includes(flow.id)) return false;
+      if (userProgress.skipped_flows?.includes(flow.id)) return false;
       
       // Check if flow steps are already completed
       const allStepsCompleted = flow.steps.every(step => 
-        userProgress.completed_steps.includes(step.id)
+        userProgress.completed_steps?.includes(step.id) || false
       );
       if (allStepsCompleted) return false;
 
@@ -207,21 +207,21 @@ export function useOnboarding() {
       return flow.trigger_conditions.some(condition => {
         switch (condition) {
           case "first_visit":
-            return userProgress.completed_steps.length === 0;
+            return (userProgress.completed_steps?.length || 0) === 0;
           case "no_sessions":
-            return (userProgress.feature_usage.sessions || 0) === 0;
+            return (userProgress.feature_usage?.sessions || 0) === 0;
           case "has_sessions":
-            return (userProgress.feature_usage.sessions || 0) > 0;
+            return (userProgress.feature_usage?.sessions || 0) > 0;
           case "visited_guided":
             return context.visited_guided === true;
           case "visited_expert":
             return context.visited_expert === true;
           case "power_user":
-            return (userProgress.feature_usage.expert_mode || 0) > 2;
+            return (userProgress.feature_usage?.expert_mode || 0) > 2;
           case "completed_debate":
             return context.completed_debate === true;
           case "new_to_workflow":
-            return (userProgress.feature_usage.brainstorm || 0) === 0;
+            return (userProgress.feature_usage?.brainstorm || 0) === 0;
           default:
             return false;
         }
