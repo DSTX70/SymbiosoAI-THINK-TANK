@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,6 +8,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { 
   FileText, 
   MessageSquare, 
@@ -47,6 +53,107 @@ export function ResultsArea({
   const [activeTab, setActiveTab] = useState(!results ? "reports" : "consensus");
   const [selectedReport, setSelectedReport] = useState<GeneratedReport | null>(null);
   const [showReportDialog, setShowReportDialog] = useState(false);
+  
+  // Fact-checking state
+  const [factCheckSettings, setFactCheckSettings] = useState({
+    verification_depth: "standard",
+    min_sources: "3"
+  });
+  const [manualClaim, setManualClaim] = useState("");
+  const [factCheckResults, setFactCheckResults] = useState<FactCheckFinding[]>([]);
+  const [expandedFindingId, setExpandedFindingId] = useState<number | null>(null);
+  
+  const { toast } = useToast();
+
+  // Fact-checking API mutation
+  const factCheckMutation = useMutation({
+    mutationFn: async ({ claims, settings }: { claims: string[]; settings: any }) => {
+      const response = await apiRequest("POST", "/api/factcheck/verify-claims", {
+        claims,
+        settings
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setFactCheckResults(data.findings || []);
+      toast({
+        title: "Fact-checking complete",
+        description: `Verified ${data.findings?.length || 0} claims with ${data.settings?.verification_depth} depth`,
+      });
+    },
+    onError: (error: any) => {
+      console.error("Fact-check error:", error);
+      toast({
+        title: "Fact-checking failed",
+        description: error.message || "Please try again",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Configuration change handlers
+  const handleVerificationDepthChange = (value: string) => {
+    setFactCheckSettings(prev => ({ ...prev, verification_depth: value }));
+  };
+
+  const handleMinSourcesChange = (value: string) => {
+    setFactCheckSettings(prev => ({ ...prev, min_sources: value }));
+  };
+
+  // Manual claim submission
+  const handleManualFactCheck = () => {
+    if (!manualClaim.trim()) {
+      toast({
+        title: "Please enter a claim",
+        description: "Enter a claim to fact-check",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    factCheckMutation.mutate({
+      claims: [manualClaim.trim()],
+      settings: {
+        verification_depth: factCheckSettings.verification_depth,
+        min_sources: parseInt(factCheckSettings.min_sources)
+      }
+    });
+  };
+
+  // Auto fact-check claims from analysis results
+  const handleFactCheckFromResults = () => {
+    if (!results?.consensus) {
+      toast({
+        title: "No analysis available",
+        description: "Run an analysis first to extract claims for fact-checking",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Extract potential claims from consensus and dissents
+    const claims = [
+      results.consensus,
+      ...(results.dissents?.map(d => typeof d === 'string' ? d : d.position) || [])
+    ].filter(claim => claim && claim.length > 10); // Filter short/empty claims
+
+    if (claims.length === 0) {
+      toast({
+        title: "No claims found",
+        description: "No suitable claims found in the analysis results",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    factCheckMutation.mutate({
+      claims,
+      settings: {
+        verification_depth: factCheckSettings.verification_depth,
+        min_sources: parseInt(factCheckSettings.min_sources)
+      }
+    });
+  };
 
   if (isProcessing) {
     return (
@@ -98,9 +205,9 @@ export function ResultsArea({
     }
   };
 
-  const handleFactCheckClick = (finding: FactCheckFinding) => {
-    // Interactive fact-check expansion
-    console.log('Expanding fact-check details for:', finding.claim);
+  const handleFactCheckClick = (finding: FactCheckFinding, index: number) => {
+    // Toggle expandable details for the clicked finding
+    setExpandedFindingId(expandedFindingId === index ? null : index);
   };
 
   const handleFollowUpQuestion = (question: string) => {
@@ -375,7 +482,11 @@ export function ResultsArea({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Verification Depth</Label>
-                      <Select defaultValue="standard" data-testid="select-verification-depth">
+                      <Select 
+                        value={factCheckSettings.verification_depth} 
+                        onValueChange={handleVerificationDepthChange}
+                        data-testid="select-verification-depth"
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Standard Verification" />
                         </SelectTrigger>
@@ -389,7 +500,11 @@ export function ResultsArea({
                     
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Minimum Sources</Label>
-                      <Select defaultValue="3" data-testid="select-minimum-sources">
+                      <Select 
+                        value={factCheckSettings.min_sources} 
+                        onValueChange={handleMinSourcesChange}
+                        data-testid="select-minimum-sources"
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="3 sources" />
                         </SelectTrigger>
@@ -401,6 +516,52 @@ export function ResultsArea({
                           <SelectItem value="10">10 sources</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+                  </div>
+
+                  {/* Manual Claim Input */}
+                  <div className="space-y-3 pt-4 border-t">
+                    <div className="flex items-center gap-2">
+                      <Target className="h-4 w-4 text-blue-500" />
+                      <h5 className="text-sm font-medium">Manual Fact-Check</h5>
+                    </div>
+                    <div className="space-y-2">
+                      <Textarea
+                        placeholder="Enter a specific claim to fact-check (e.g., 'Electric vehicles reduce carbon emissions by 60% compared to gas cars')"
+                        value={manualClaim}
+                        onChange={(e) => setManualClaim(e.target.value)}
+                        className="min-h-[80px]"
+                        data-testid="textarea-manual-claim"
+                      />
+                      <div className="flex gap-2">
+                        <Button 
+                          onClick={handleManualFactCheck}
+                          disabled={factCheckMutation.isPending || !manualClaim.trim()}
+                          className="bg-blue-500 hover:bg-blue-600"
+                          data-testid="button-manual-fact-check"
+                        >
+                          {factCheckMutation.isPending ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                              Verifying...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Fact-Check Claim
+                            </>
+                          )}
+                        </Button>
+                        <Button 
+                          variant="outline"
+                          onClick={handleFactCheckFromResults}
+                          disabled={factCheckMutation.isPending || !results?.consensus}
+                          data-testid="button-fact-check-from-results"
+                        >
+                          <TrendingUp className="h-4 w-4 mr-2" />
+                          Check Analysis Claims
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -464,17 +625,136 @@ export function ResultsArea({
                   </div>
                 </div>
 
-                {/* Dynamic Results */}
+                {/* Interactive Fact-Check Results */}
+                {factCheckResults.length > 0 && (
+                  <div className="space-y-3 pt-4 border-t">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <h5 className="text-sm font-medium">Fact-Check Results</h5>
+                      <Badge variant="secondary" className="text-xs">
+                        {factCheckResults.length} verified
+                      </Badge>
+                    </div>
+                    <div className="space-y-3">
+                      {factCheckResults.map((finding, index) => (
+                        <Collapsible key={index} open={expandedFindingId === index}>
+                          <CollapsibleTrigger asChild>
+                            <div 
+                              className="cursor-pointer p-4 border rounded-lg hover:bg-muted/30 transition-colors"
+                              onClick={() => handleFactCheckClick(finding, index)}
+                              data-testid={`interactive-fact-check-${index}`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1">
+                                  <p className="text-sm text-foreground font-medium mb-2">
+                                    "{finding.claim}"
+                                  </p>
+                                  <div className="flex items-center gap-3">
+                                    <Badge 
+                                      variant="outline" 
+                                      className={`${getStatusColor(finding.status)} font-medium`}
+                                    >
+                                      {getStatusLabel(finding.status)}
+                                    </Badge>
+                                    {finding.confidence && (
+                                      <span className="text-sm font-medium text-foreground">
+                                        {finding.confidence}% Confidence
+                                      </span>
+                                    )}
+                                    {finding.sources_count && (
+                                      <span className="text-xs text-muted-foreground">
+                                        {finding.sources_count} sources
+                                      </span>
+                                    )}
+                                    {finding.verification_depth && (
+                                      <Badge variant="outline" className="text-xs">
+                                        {finding.verification_depth}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {getStatusIcon(finding.status)}
+                                  <div className={`transform transition-transform ${expandedFindingId === index ? 'rotate-180' : ''}`}>
+                                    ▼
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="p-4 border-l-4 border-l-blue-500 bg-muted/20 rounded-b-lg space-y-3">
+                              {/* Detailed Analysis */}
+                              {finding.note && (
+                                <div>
+                                  <h6 className="text-xs font-semibold text-foreground mb-1">Analysis Summary</h6>
+                                  <p className="text-xs text-muted-foreground">{finding.note}</p>
+                                </div>
+                              )}
+                              
+                              {/* Citations */}
+                              {finding.citations && finding.citations.length > 0 && (
+                                <div>
+                                  <h6 className="text-xs font-semibold text-foreground mb-2">Sources & Citations</h6>
+                                  <div className="space-y-2">
+                                    {finding.citations.map((citation, citIndex) => (
+                                      <div key={citIndex} className="flex items-start gap-2 text-xs">
+                                        <ExternalLink className="h-3 w-3 text-blue-500 mt-0.5 flex-shrink-0" />
+                                        <div>
+                                          <p className="font-medium text-foreground">
+                                            {citation.title || `Source ${citIndex + 1}`}
+                                          </p>
+                                          {citation.url && (
+                                            <a 
+                                              href={citation.url} 
+                                              target="_blank" 
+                                              rel="noopener noreferrer"
+                                              className="text-blue-500 hover:underline break-all"
+                                            >
+                                              {citation.url}
+                                            </a>
+                                          )}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Verification Metadata */}
+                              <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+                                <div>
+                                  <h6 className="text-xs font-semibold text-foreground">Verification Depth</h6>
+                                  <p className="text-xs text-muted-foreground capitalize">
+                                    {finding.verification_depth || 'Standard'}
+                                  </p>
+                                </div>
+                                <div>
+                                  <h6 className="text-xs font-semibold text-foreground">Sources Consulted</h6>
+                                  <p className="text-xs text-muted-foreground">
+                                    {finding.sources_count || 'Unknown'} {finding.sources_count === 1 ? 'source' : 'sources'}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Analysis Results Integration */}
                 {results?.fact_check && results.fact_check.findings && results.fact_check.findings.length > 0 && (
                   <div className="space-y-3 pt-4 border-t">
-                    <h5 className="text-sm font-medium">Current Analysis Results</h5>
+                    <h5 className="text-sm font-medium">Analysis Fact-Checks</h5>
                     <div className="space-y-3">
                       {results.fact_check.findings?.map((finding, index) => (
                         <div 
-                          key={index} 
-                          className="cursor-pointer p-4 border rounded-lg hover:bg-muted/30 transition-colors"
-                          onClick={() => handleFactCheckClick(finding)}
-                          data-testid={`interactive-fact-check-${index}`}
+                          key={`analysis-${index}`} 
+                          className="cursor-pointer p-4 border rounded-lg hover:bg-muted/30 transition-colors bg-amber-50/50 dark:bg-amber-950/20"
+                          onClick={() => handleFactCheckClick(finding, index + 1000)}
+                          data-testid={`analysis-fact-check-${index}`}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1">

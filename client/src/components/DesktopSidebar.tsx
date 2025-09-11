@@ -125,18 +125,18 @@ export default function DesktopSidebar({ isOpen = true, onToggle }: DesktopSideb
                   <Link key={item.href} href={item.href}>
                     <div 
                       className={cn(
-                        "flex items-center gap-1 p-1 rounded-md transition-all duration-200 group",
+                        "flex items-center gap-1 px-2 py-1 rounded-md transition-all duration-200 group",
                         isActive 
                           ? "bg-primary text-primary-foreground shadow-sm" 
                           : "hover:bg-accent hover:text-accent-foreground text-muted-foreground"
                       )}
                       data-testid={`sidebar-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
                     >
-                      <Icon className={cn("h-3 w-3 flex-shrink-0", isActive && "text-primary-foreground")} />
+                      <Icon className={cn("h-2.5 w-2.5 flex-shrink-0", isActive && "text-primary-foreground")} />
                       {isOpen && (
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium truncate">{item.label}</span>
+                            <span className="text-xs font-medium truncate">{item.label}</span>
                             {item.badge && (
                               <Badge variant={isActive ? "secondary" : "outline"} className="ml-1 text-[10px] px-1 py-0">
                                 {item.badge}

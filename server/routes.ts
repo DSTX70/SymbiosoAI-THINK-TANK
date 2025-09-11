@@ -10,6 +10,7 @@ import {
 } from "@shared/schema";
 import { runMultiAgentDebate, runBrainstormingSession, runReportGeneration } from "./ai-service";
 import { perplexityService } from "./services/perplexity";
+import { advancedFactChecker } from "./services/factchecker";
 import { registerStreamingRoutes } from "./streaming";
 import type { Citation, FactCheckFinding } from "@shared/schema";
 import { setupAuth, isAuthenticated } from "./replitAuth";
@@ -1467,6 +1468,62 @@ Please build upon the previous discussion while addressing the new question.`
     } catch (error: any) {
       console.error("Error deleting report:", error);
       res.status(500).json({ error: "Failed to delete report" });
+    }
+  });
+
+  // Fact-checking endpoint for interactive UI verification
+  app.post("/api/factcheck/verify-claims", optionalAuth, express.json(), async (req: any, res) => {
+    try {
+      const { claims, settings = {} } = req.body;
+
+      // Validate input
+      if (!claims || !Array.isArray(claims) || claims.length === 0) {
+        return res.status(400).json({ error: "Claims array is required and must not be empty" });
+      }
+
+      // Sanitize claims (remove empty strings and limit length)
+      const validClaims = claims
+        .filter((claim: any) => typeof claim === 'string' && claim.trim().length > 0)
+        .slice(0, 10); // Limit to 10 claims max
+
+      if (validClaims.length === 0) {
+        return res.status(400).json({ error: "No valid claims provided" });
+      }
+
+      console.log(`🔍 Fact-checking ${validClaims.length} claims with advanced verification`);
+      
+      // Prepare settings with defaults
+      const factCheckSettings = {
+        enable_fact_check: true,
+        max_claims: Math.min(validClaims.length, settings.max_claims || 5),
+        verification_depth: settings.verification_depth || "standard",
+        min_sources: settings.min_sources || 3,
+        ...settings
+      };
+
+      // Call the advanced fact-checker service
+      const findings = await advancedFactChecker.verifyClaimsAdvanced(validClaims, factCheckSettings);
+
+      console.log(`✅ Fact-check completed: ${findings.length} findings generated`);
+
+      // Return structured response
+      res.json({
+        findings,
+        settings: factCheckSettings,
+        meta: {
+          total_claims: validClaims.length,
+          findings_count: findings.length,
+          verification_depth: factCheckSettings.verification_depth,
+          processed_at: new Date().toISOString()
+        }
+      });
+
+    } catch (error: any) {
+      console.error("Fact-checking endpoint error:", error);
+      res.status(500).json({ 
+        error: "Fact-checking service temporarily unavailable",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   });
 
