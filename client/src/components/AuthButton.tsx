@@ -2,8 +2,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { LogIn, LogOut, User, Settings } from "lucide-react";
+import { useState } from "react";
 import { Link } from "wouter";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { User as UserType } from "@shared/schema";
 
 export function AuthButton() {
@@ -21,17 +26,7 @@ export function AuthButton() {
   }
 
   if (!isAuthenticated) {
-    return (
-      <Button 
-        variant="default" 
-        size="sm" 
-        onClick={() => window.location.href = "/api/login"}
-        data-testid="button-login"
-      >
-        <LogIn className="w-4 h-4 mr-2" />
-        Sign In
-      </Button>
-    );
+    return <DemoLoginForm />;
   }
 
   const displayName = typedUser?.firstName && typedUser?.lastName 
@@ -48,7 +43,7 @@ export function AuthButton() {
         <Button variant="ghost" className="relative h-8 w-8 rounded-full" data-testid="button-user-menu">
           <Avatar className="h-8 w-8">
             <AvatarImage 
-              src={typedUser?.profileImageUrl} 
+              src={typedUser?.profileImageUrl || undefined} 
               alt={displayName}
               className="object-cover"
             />
@@ -96,5 +91,117 @@ export function AuthButton() {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+function DemoLoginForm() {
+  const [showForm, setShowForm] = useState(false);
+  const [username, setUsername] = useState("demo");
+  const [password, setPassword] = useState("demo123");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const loginMutation = useMutation({
+    mutationFn: async (credentials: { username: string; password: string }) => {
+      const response = await fetch("/api/demo-login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(credentials),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Login failed");
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success!",
+        description: "Welcome to the If When Always Platform",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      window.location.reload();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Login Failed",
+        description: error.message || "Please check your credentials",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Only show demo login in development environment
+  const isDevelopment = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_LOGIN === 'true';
+
+  if (!showForm) {
+    return (
+      <div className="flex gap-2">
+        {isDevelopment && (
+          <Button 
+            variant="default" 
+            size="sm" 
+            onClick={() => setShowForm(true)}
+            data-testid="button-demo-login"
+          >
+            <LogIn className="w-4 h-4 mr-2" />
+            Demo Login
+          </Button>
+        )}
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => window.location.href = "/api/login"}
+          data-testid="button-oauth-login"
+        >
+          OAuth Sign In
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2 p-3 border rounded-lg bg-card min-w-[200px]">
+      <div className="text-sm font-medium">Demo Login</div>
+      <Input
+        type="text"
+        placeholder="Username"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+        data-testid="input-demo-username"
+      />
+      <Input
+        type="password"
+        placeholder="Password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        data-testid="input-demo-password"
+      />
+      <div className="flex gap-2">
+        <Button 
+          size="sm" 
+          onClick={() => loginMutation.mutate({ username, password })}
+          disabled={loginMutation.isPending}
+          data-testid="button-demo-submit"
+        >
+          {loginMutation.isPending ? "Logging in..." : "Login"}
+        </Button>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => setShowForm(false)}
+          data-testid="button-demo-cancel"
+        >
+          Cancel
+        </Button>
+      </div>
+      <div className="text-xs text-muted-foreground">
+        Default: demo / demo123
+      </div>
+    </div>
   );
 }

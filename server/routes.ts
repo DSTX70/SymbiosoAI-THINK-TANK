@@ -224,6 +224,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(performanceMonitor.errorTrackingMiddleware());
   */
 
+  // Demo login endpoint for easy access (development only)
+  app.post('/api/demo-login', async (req, res) => {
+    // Only enable demo login in development or when explicitly enabled
+    if (process.env.NODE_ENV === 'production' && process.env.ENABLE_DEMO_LOGIN !== 'true') {
+      return res.status(404).json({ message: "Not found" });
+    }
+    
+    try {
+      const { username, password } = req.body;
+      
+      // Simple demo credentials check
+      if (username === 'demo' && password === 'demo123') {
+        // Create a demo user session
+        const demoUser = {
+          id: 'demo-user-12345',
+          email: 'demo@ifwhenalways.com',
+          firstName: 'Demo',
+          lastName: 'User',
+          profileImageUrl: null,
+          role: 'user'
+        };
+        
+        // Store demo user in storage
+        await storage.upsertUser(demoUser);
+        
+        // Regenerate session to prevent session fixation attacks
+        await new Promise<void>((resolve, reject) => {
+          req.session.regenerate((err: any) => {
+            if (err) {
+              reject(err);
+            } else {
+              // Set up the session to mimic authenticated user
+              (req.session as any).passport = {
+                user: {
+                  claims: {
+                    sub: demoUser.id,
+                    email: demoUser.email,
+                    first_name: demoUser.firstName,
+                    last_name: demoUser.lastName,
+                    profile_image_url: demoUser.profileImageUrl
+                  }
+                }
+              };
+              
+              req.session.save((saveErr: any) => {
+                if (saveErr) reject(saveErr);
+                else resolve();
+              });
+            }
+          });
+        });
+        
+        console.log("✅ Demo login successful for user:", username);
+        res.json({ success: true, message: "Demo login successful" });
+      } else {
+        res.status(401).json({ message: "Invalid demo credentials" });
+      }
+    } catch (error: any) {
+      console.error("❌ Demo login error:", error);
+      res.status(500).json({ message: "Demo login failed" });
+    }
+  });
+
   // Authentication routes with organization context
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
