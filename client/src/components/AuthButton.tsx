@@ -124,7 +124,11 @@ function DemoLoginForm() {
         description: "Welcome to the If When Always Platform",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      window.location.reload();
+      setShowForm(false);
+      // Force a refresh of auth state without full page reload
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
+      }, 100);
     },
     onError: (error: any) => {
       toast({

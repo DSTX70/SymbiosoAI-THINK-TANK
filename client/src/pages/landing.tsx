@@ -4,6 +4,35 @@ import { Brain, Users, Lightbulb, ArrowRight, CheckCircle, Star, LogIn } from "l
 import { Link } from "wouter";
 import symbiosoLogo from "@assets/SymbiosoAi Horizontal Logo with Tag_1756950480614.png";
 import { AuthButton } from "@/components/AuthButton";
+import { useAuth } from "@/hooks/useAuth";
+
+function AuthStatusPanel() {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return <div className="text-sm">Loading...</div>;
+  }
+  
+  if (isAuthenticated && user) {
+    return (
+      <div className="space-y-3">
+        <div className="text-green-600 dark:text-green-400 font-medium">
+          ✅ Signed in as {(user as any)?.firstName || 'Demo'} {(user as any)?.lastName || 'User'}
+        </div>
+        <div className="flex gap-2 justify-center">
+          <Link href="/simple">
+            <Button variant="default" size="sm">
+              Start Analysis
+            </Button>
+          </Link>
+          <AuthButton />
+        </div>
+      </div>
+    );
+  }
+  
+  return <AuthButton />;
+}
 
 export default function Landing() {
   return (
@@ -48,7 +77,7 @@ export default function Landing() {
               <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 text-center">
                 Quick Demo Access:
               </p>
-              <AuthButton />
+              <AuthStatusPanel />
             </div>
           </div>
 

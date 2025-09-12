@@ -8,11 +8,11 @@ export function useAuth() {
     queryFn: getQueryFn({ on401: "returnNull" }), // Don't throw on 401, just return null
     retry: 1, // Only retry once
     retryDelay: 1000,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
     refetchInterval: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 0, // Always fetch fresh data
     gcTime: 10 * 60 * 1000, // 10 minutes (previously cacheTime)
     throwOnError: false, // Prevent unhandled promise rejections
     enabled: true, // Always enabled but handle errors gracefully
