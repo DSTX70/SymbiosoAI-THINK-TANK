@@ -86,6 +86,11 @@ export default function Header() {
               </div>
             </div>
             
+            {/* Mobile Auth Buttons - Visible on mobile */}
+            <div className="md:hidden flex items-center space-x-2">
+              <AuthButton />
+            </div>
+            
             {/* Mobile Dropdown */}
             <div className="md:hidden">
               <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>

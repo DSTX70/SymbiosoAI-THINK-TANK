@@ -135,8 +135,8 @@ function DemoLoginForm() {
     },
   });
 
-  // Only show demo login in development environment
-  const isDevelopment = import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_LOGIN === 'true';
+  // Always show demo login - remove environment gating for visibility
+  const isDevelopment = true;
 
   if (!showForm) {
     return (
@@ -153,10 +153,11 @@ function DemoLoginForm() {
           </Button>
         )}
         <Button 
-          variant="outline" 
+          variant="secondary" 
           size="sm" 
           onClick={() => window.location.href = "/api/login"}
           data-testid="button-oauth-login"
+          className="bg-white text-gray-900 hover:bg-gray-100"
         >
           OAuth Sign In
         </Button>
