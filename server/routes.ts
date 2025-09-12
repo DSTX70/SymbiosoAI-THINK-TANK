@@ -255,22 +255,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (err) {
               reject(err);
             } else {
-              // Set up the session to mimic authenticated user
-              (req.session as any).passport = {
-                user: {
-                  claims: {
-                    sub: demoUser.id,
-                    email: demoUser.email,
-                    first_name: demoUser.firstName,
-                    last_name: demoUser.lastName,
-                    profile_image_url: demoUser.profileImageUrl
-                  }
-                }
+              // Create proper user object with claims and required fields
+              const demoUserObj = {
+                claims: {
+                  sub: demoUser.id,
+                  email: demoUser.email,
+                  first_name: demoUser.firstName,
+                  last_name: demoUser.lastName,
+                  profile_image_url: demoUser.profileImageUrl
+                },
+                access_token: null,
+                refresh_token: null,
+                expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60), // 7 days
+                isDemo: true
               };
               
-              req.session.save((saveErr: any) => {
-                if (saveErr) reject(saveErr);
-                else resolve();
+              // Use Passport's logIn method to properly set up the session
+              req.logIn(demoUserObj, (loginErr: any) => {
+                if (loginErr) {
+                  reject(loginErr);
+                } else {
+                  req.session.save((saveErr: any) => {
+                    if (saveErr) reject(saveErr);
+                    else resolve();
+                  });
+                }
               });
             }
           });
