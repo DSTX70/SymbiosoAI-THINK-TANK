@@ -42,6 +42,7 @@ export function BrainstormSection({
   onBrainstormComplete 
 }: BrainstormSectionProps) {
   const [isStarting, setIsStarting] = useState(false);
+  const [brainstormPrompt, setBrainstormPrompt] = useState("");
   const [selectedItem, setSelectedItem] = useState<{type: 'solution' | 'action' | 'question', item: any, index: number} | null>(null);
   const [followUpQuestion, setFollowUpQuestion] = useState("");
   const [isAsking, setIsAsking] = useState(false);
@@ -51,9 +52,15 @@ export function BrainstormSection({
 
   const brainstormMutation = useMutation({
     mutationFn: async () => {
-      if (!sessionId) throw new Error("No session available");
+      if (!sessionId && !brainstormPrompt.trim()) {
+        throw new Error("Please enter a brainstorming prompt or complete a debate session first");
+      }
       
-      const response = await apiRequest("POST", "/api/brainstorm", { sessionId, settings: {} });
+      const requestData = sessionId 
+        ? { sessionId, settings: {} }
+        : { prompt: brainstormPrompt.trim(), settings: {} };
+      
+      const response = await apiRequest("POST", "/api/brainstorm", requestData);
       
       if (!response.ok) {
         const error = await response.json();
@@ -226,10 +233,57 @@ export function BrainstormSection({
   if (!brainstormResults && !sessionId) {
     return (
       <Card className="card-elevated h-full">
-        <CardContent className="flex items-center justify-center h-96">
-          <div className="text-center space-y-4">
-            <Lightbulb className="h-12 w-12 text-muted-foreground mx-auto" />
-            <p className="text-muted-foreground">Complete a debate to unlock brainstorming</p>
+        <CardContent className="flex items-center justify-center p-8">
+          <div className="text-center space-y-6 w-full max-w-md">
+            <div className="space-y-3">
+              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                <Zap className="h-8 w-8 text-white" />
+              </div>
+              <h3 className="text-lg font-semibold">Start Brainstorming</h3>
+              <p className="text-muted-foreground">
+                Enter a prompt to generate collaborative solutions and actionable plans
+              </p>
+            </div>
+            
+            <div className="space-y-4 text-left">
+              <div>
+                <Label htmlFor="brainstorm-prompt" className="text-sm font-medium">
+                  Brainstorming Prompt
+                </Label>
+                <Textarea
+                  id="brainstorm-prompt"
+                  placeholder="What challenge, opportunity, or question would you like to explore through collaborative AI brainstorming? Be specific about your goals and context..."
+                  value={brainstormPrompt}
+                  onChange={(e) => setBrainstormPrompt(e.target.value)}
+                  className="mt-2 min-h-[100px]"
+                  disabled={isStarting}
+                  data-testid="textarea-brainstorm-prompt"
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  Example: "How can we improve customer retention for our SaaS product?" or "What innovative solutions can reduce our company's carbon footprint?"
+                </p>
+              </div>
+              
+              <Button 
+                onClick={() => brainstormMutation.mutate()}
+                disabled={isStarting || !brainstormPrompt.trim()}
+                size="lg"
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                data-testid="button-start-brainstorm"
+              >
+                {isStarting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    Starting Brainstorming...
+                  </>
+                ) : (
+                  <>
+                    <Lightbulb className="h-4 w-4 mr-2" />
+                    Start Brainstorming Session
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -239,8 +293,8 @@ export function BrainstormSection({
   if (!brainstormResults) {
     return (
       <Card className="card-elevated h-full">
-        <CardContent className="flex items-center justify-center h-96">
-          <div className="text-center space-y-6">
+        <CardContent className="flex items-center justify-center p-8">
+          <div className="text-center space-y-6 w-full max-w-md">
             <div className="space-y-3">
               <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                 <Zap className="h-8 w-8 text-white" />
@@ -250,25 +304,47 @@ export function BrainstormSection({
                 Transform your debate insights into collaborative solutions and actionable plans
               </p>
             </div>
-            <Button 
-              onClick={() => brainstormMutation.mutate()}
-              disabled={isStarting}
-              size="lg"
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
-              data-testid="button-start-brainstorm"
-            >
-              {isStarting ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  Starting Brainstorming...
-                </>
-              ) : (
-                <>
-                  <Lightbulb className="h-4 w-4 mr-2" />
-                  Start Brainstorming Session
-                </>
-              )}
-            </Button>
+            
+            {/* Option to add additional prompt for existing session */}
+            <div className="space-y-4 text-left">
+              <div>
+                <Label htmlFor="brainstorm-prompt-session" className="text-sm font-medium">
+                  Additional Focus (Optional)
+                </Label>
+                <Textarea
+                  id="brainstorm-prompt-session"
+                  placeholder="Add specific focus areas or questions to guide the brainstorming session..."
+                  value={brainstormPrompt}
+                  onChange={(e) => setBrainstormPrompt(e.target.value)}
+                  className="mt-2 min-h-[80px]"
+                  disabled={isStarting}
+                  data-testid="textarea-brainstorm-focus"
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  Optional: Add specific questions or focus areas to guide the brainstorming based on your debate results.
+                </p>
+              </div>
+              
+              <Button 
+                onClick={() => brainstormMutation.mutate()}
+                disabled={isStarting}
+                size="lg"
+                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white"
+                data-testid="button-start-brainstorm"
+              >
+                {isStarting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    Starting Brainstorming...
+                  </>
+                ) : (
+                  <>
+                    <Lightbulb className="h-4 w-4 mr-2" />
+                    Start Brainstorming Session
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
