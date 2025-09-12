@@ -110,13 +110,13 @@ export default function DesktopSidebar({ isOpen = true, onToggle }: DesktopSideb
     )}>
       <div className="p-3 space-y-4">
         {navigationSections.map((section) => (
-          <div key={section.title} className="space-y-1">
+          <div key={section.title} className="space-y-2">
             {isOpen && (
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 {section.title}
               </h3>
             )}
-            <nav className="space-y-1">
+            <nav className="space-y-2">
               {section.items.map((item) => {
                 const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href.split("?")[0]));
                 const Icon = item.icon;
