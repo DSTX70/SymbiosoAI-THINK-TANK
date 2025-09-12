@@ -290,6 +290,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes with organization context
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
+      // Check if user and claims exist
+      if (!req.user || !req.user.claims || !req.user.claims.sub) {
+        console.log("🔍 No valid user claims found");
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
       const userId = req.user.claims.sub;
       console.log("🔍 Looking for user with ID:", userId);
       let user = await storage.getUser(userId);
