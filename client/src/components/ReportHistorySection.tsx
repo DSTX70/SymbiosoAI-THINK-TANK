@@ -298,7 +298,7 @@ export function ReportHistorySection({ onViewReport }: ReportHistorySectionProps
                               <div className="flex items-center gap-1">
                                 <Calendar className="h-3 w-3" />
                                 <span data-testid="text-generated-date">
-                                  {report.generatedAt ? formatDate(report.generatedAt.toISOString()) : 'Unknown'}
+                                  {report.generatedAt ? formatDate(report.generatedAt) : 'Unknown'}
                                 </span>
                               </div>
                               {(report.metadata as any)?.wordCount && (
