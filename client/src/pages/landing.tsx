@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Brain, Users, Lightbulb, ArrowRight, CheckCircle, Star } from "lucide-react";
+import { Brain, Users, Lightbulb, ArrowRight, CheckCircle, Star, LogIn } from "lucide-react";
 import { Link } from "wouter";
 import symbiosoLogo from "@assets/SymbiosoAi Horizontal Logo with Tag_1756950480614.png";
+import { AuthButton } from "@/components/AuthButton";
 
 export default function Landing() {
   return (
@@ -39,6 +40,16 @@ export default function Landing() {
                 Try Demo
               </Button>
             </Link>
+          </div>
+          
+          {/* Authentication Section */}
+          <div className="mt-8 flex justify-center">
+            <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 border border-white/30">
+              <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 text-center">
+                Quick Demo Access:
+              </p>
+              <AuthButton />
+            </div>
           </div>
 
           <div className="flex items-center justify-center gap-8 text-sm text-gray-500 dark:text-gray-400">
