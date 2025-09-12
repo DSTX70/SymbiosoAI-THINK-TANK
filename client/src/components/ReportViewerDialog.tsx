@@ -59,7 +59,7 @@ export function ReportViewerDialog({ report, open, onOpenChange }: ReportViewerD
   const typeInfo = REPORT_TYPE_INFO[report.reportType as keyof typeof REPORT_TYPE_INFO] || REPORT_TYPE_INFO.detailed;
   const IconComponent = typeInfo.icon;
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     setIsDownloading(true);
     
     try {
@@ -79,17 +79,48 @@ export function ReportViewerDialog({ report, open, onOpenChange }: ReportViewerD
         extension = ".json";
       }
 
-      const blob = new Blob([content], { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${report.title.replace(/[^a-z0-9]/gi, '_')}${extension}`;
-      link.click();
-      URL.revokeObjectURL(url);
+      const defaultFileName = `${report.title.replace(/[^a-z0-9]/gi, '_')}${extension}`;
+      
+      // Use File System Access API if available (Chrome, Edge, etc.)
+      if ('showSaveFilePicker' in window) {
+        try {
+          const fileHandle = await (window as any).showSaveFilePicker({
+            suggestedName: defaultFileName,
+            types: [{
+              description: `${report.format.toUpperCase()} files`,
+              accept: {
+                [mimeType]: [extension],
+              },
+            }],
+          });
 
-      toast({
-        description: "Report downloaded successfully!",
-      });
+          const writable = await fileHandle.createWritable();
+          await writable.write(content);
+          await writable.close();
+
+          toast({
+            description: "Report saved successfully to chosen location!",
+          });
+        } catch (saveError: any) {
+          // User cancelled or error occurred, fall back to default download
+          if (saveError.name !== 'AbortError') {
+            throw saveError;
+          }
+        }
+      } else {
+        // Fallback to traditional download for browsers that don't support File System Access API
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = defaultFileName;
+        link.click();
+        URL.revokeObjectURL(url);
+
+        toast({
+          description: "Report downloaded successfully!",
+        });
+      }
     } catch (error) {
       toast({
         title: "Download Failed",

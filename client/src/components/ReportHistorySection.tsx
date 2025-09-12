@@ -116,7 +116,7 @@ export function ReportHistorySection({ onViewReport }: ReportHistorySectionProps
     deleteMutation.mutate(reportId);
   };
 
-  const handleDownloadReport = (report: GeneratedReport) => {
+  const handleDownloadReport = async (report: GeneratedReport) => {
     try {
       let content = report.content;
       let mimeType = "text/plain";
@@ -134,17 +134,48 @@ export function ReportHistorySection({ onViewReport }: ReportHistorySectionProps
         extension = ".json";
       }
 
-      const blob = new Blob([content], { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${report.title.replace(/[^a-z0-9]/gi, '_')}${extension}`;
-      link.click();
-      URL.revokeObjectURL(url);
+      const defaultFileName = `${report.title.replace(/[^a-z0-9]/gi, '_')}${extension}`;
 
-      toast({
-        description: "Report downloaded successfully!",
-      });
+      // Use File System Access API if available (Chrome, Edge, etc.)
+      if ('showSaveFilePicker' in window) {
+        try {
+          const fileHandle = await (window as any).showSaveFilePicker({
+            suggestedName: defaultFileName,
+            types: [{
+              description: `${report.format.toUpperCase()} files`,
+              accept: {
+                [mimeType]: [extension],
+              },
+            }],
+          });
+
+          const writable = await fileHandle.createWritable();
+          await writable.write(content);
+          await writable.close();
+
+          toast({
+            description: "Report saved successfully to chosen location!",
+          });
+        } catch (saveError: any) {
+          // User cancelled or error occurred, fall back to default download
+          if (saveError.name !== 'AbortError') {
+            throw saveError;
+          }
+        }
+      } else {
+        // Fallback to traditional download for browsers that don't support File System Access API
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = defaultFileName;
+        link.click();
+        URL.revokeObjectURL(url);
+
+        toast({
+          description: "Report downloaded successfully!",
+        });
+      }
     } catch (error) {
       toast({
         title: "Download Failed",
@@ -298,7 +329,7 @@ export function ReportHistorySection({ onViewReport }: ReportHistorySectionProps
                               <div className="flex items-center gap-1">
                                 <Calendar className="h-3 w-3" />
                                 <span data-testid="text-generated-date">
-                                  {report.generatedAt ? formatDate(report.generatedAt) : 'Unknown'}
+                                  {report.generatedAt ? formatDate(typeof report.generatedAt === 'string' ? report.generatedAt : report.generatedAt.toString()) : 'Unknown'}
                                 </span>
                               </div>
                               {(report.metadata as any)?.wordCount && (
