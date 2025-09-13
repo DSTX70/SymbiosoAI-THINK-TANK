@@ -10,10 +10,12 @@ import GuidedPage from "@/pages/guided";
 import ExpertPage from "@/pages/expert";
 import AutomationPage from "@/pages/AutomationPage";
 import TemplatesPage from "@/pages/templates";
+import TutorialsPage from "@/pages/tutorials";
 import Landing from "@/pages/landing";
 import BottomNavigation from "@/components/BottomNavigation";
 import DesktopSidebar from "@/components/DesktopSidebar";
 import OfflineBanner from "@/components/OfflineBanner";
+import TutorialSystem from "@/components/TutorialSystem";
 import { registerServiceWorker } from "@/lib/swRegister";
 
 function Router() {
@@ -42,6 +44,7 @@ function Router() {
           <Route path="/expert" component={ExpertPage} />
           <Route path="/automation" component={AutomationPage} />
           <Route path="/templates" component={TemplatesPage} />
+          <Route path="/tutorials" component={TutorialsPage} />
           <Route component={() => <div>Page not found</div>} />
         </Switch>
       </div>
@@ -59,8 +62,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Router />
+        <TutorialSystem>
+          <Toaster />
+          <Router />
+        </TutorialSystem>
       </TooltipProvider>
     </QueryClientProvider>
   );

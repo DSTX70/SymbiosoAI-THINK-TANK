@@ -11,6 +11,7 @@ import Footer from "@/components/Footer";
 import TelemetryPanel from "@/components/TelemetryPanel";
 import ResultsSection from "@/components/ResultsSection";
 import LiveStreamingSection from "@/components/LiveStreamingSection";
+import TutorialHelpButton from "@/components/TutorialHelpButton";
 import { createStreamUrl } from "@/lib/streamUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -220,10 +221,18 @@ export default function SimplePage() {
             {/* Prompt Card */}
             <Card variant="elevated" className="gradient-bg mb-6">
               <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <Lightbulb className="text-primary" size={20} />
-                  Collaborative Prompt
-                  <div className={`status-indicator ${thinkMutation.isPending ? "status-processing" : results ? "status-complete" : "status-idle"}`} data-testid="status-simple"></div>
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Lightbulb className="text-primary" size={20} />
+                    Collaborative Prompt
+                    <div className={`status-indicator ${thinkMutation.isPending ? "status-processing" : results ? "status-complete" : "status-idle"}`} data-testid="status-simple"></div>
+                  </div>
+                  <TutorialHelpButton 
+                    feature="simple-mode"
+                    variant="minimal"
+                    size="sm"
+                    data-testid="tutorial-help-simple"
+                  />
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">

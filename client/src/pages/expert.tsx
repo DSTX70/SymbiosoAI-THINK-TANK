@@ -17,6 +17,7 @@ import ThinkToast from "@/components/ThinkToast";
 import { TemplateLibrary } from "@/components/TemplateLibrary";
 import { WorkspaceManagement } from "@/components/WorkspaceManagement";
 import LiveStreamingSection from "@/components/LiveStreamingSection";
+import TutorialHelpButton from "@/components/TutorialHelpButton";
 import { createStreamUrl } from "@/lib/streamUtils";
 import { LiveChat } from "@/components/LiveChat";
 import { SessionSharing } from "@/components/SessionSharing";
@@ -447,9 +448,17 @@ export default function ExpertPage() {
               {/* Agent Selection Section */}
               <Card variant="elevated" className="mb-6">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-3">
-                    <Users className="text-primary" size={20} />
-                    Agent Selection & Configuration
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Users className="text-primary" size={20} />
+                      Agent Selection & Configuration
+                    </div>
+                    <TutorialHelpButton 
+                      feature="expert-mode"
+                      variant="minimal"
+                      size="sm"
+                      data-testid="tutorial-help-expert"
+                    />
                   </CardTitle>
                 </CardHeader>
                 <CardContent>

@@ -14,6 +14,7 @@ import Footer from "@/components/Footer";
 import TelemetryPanel from "@/components/TelemetryPanel";
 import ResultsSection from "@/components/ResultsSection";
 import LiveStreamingSection from "@/components/LiveStreamingSection";
+import TutorialHelpButton from "@/components/TutorialHelpButton";
 import { SessionTransfer } from "@/components/SessionTransfer";
 import { createStreamUrl } from "@/lib/streamUtils";
 import { apiRequest } from "@/lib/queryClient";
@@ -323,9 +324,17 @@ export default function GuidedPage() {
         {/* Agent Selection Section */}
         <Card variant="elevated" className="mb-6">
           <CardHeader>
-            <CardTitle className="flex items-center gap-3">
-              <Users className="text-primary" size={20} />
-              Agent Selection & Configuration
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Users className="text-primary" size={20} />
+                Agent Selection & Configuration
+              </div>
+              <TutorialHelpButton 
+                feature="guided-mode"
+                variant="minimal"
+                size="sm"
+                data-testid="tutorial-help-guided"
+              />
             </CardTitle>
           </CardHeader>
           <CardContent>

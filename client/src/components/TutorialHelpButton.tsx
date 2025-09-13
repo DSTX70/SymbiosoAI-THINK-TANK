@@ -30,6 +30,19 @@ export const TutorialHelpButton: React.FC<TutorialHelpButtonProps> = ({
     shouldShowTutorial 
   } = useTutorial();
 
+  const getAriaLabel = () => {
+    if (tutorialId) {
+      const tutorial = activeTutorials.find(t => t.id === tutorialId);
+      return tutorial ? `Open help for ${tutorial.name}` : "Open tutorial";
+    }
+    
+    if (feature) {
+      return `Open help for ${feature.replace('-', ' ')}`;
+    }
+    
+    return "Open help tutorial";
+  };
+
   const handleClick = async () => {
     let targetTutorial = null;
 
@@ -87,6 +100,7 @@ export const TutorialHelpButton: React.FC<TutorialHelpButtonProps> = ({
             onClick={handleClick}
             className={cn("gap-2", className)}
             data-testid={testId || "tutorial-help-button"}
+            aria-label={getAriaLabel()}
           >
             <BookOpen className="h-4 w-4" />
             Get Help
@@ -101,6 +115,7 @@ export const TutorialHelpButton: React.FC<TutorialHelpButtonProps> = ({
             onClick={handleClick}
             className={cn("h-6 w-6 p-0 text-muted-foreground hover:text-primary", className)}
             data-testid={testId || "tutorial-help-minimal"}
+            aria-label={getAriaLabel()}
           >
             <HelpCircle className="h-4 w-4" />
           </Button>
@@ -120,6 +135,7 @@ export const TutorialHelpButton: React.FC<TutorialHelpButtonProps> = ({
               className
             )}
             data-testid={testId || "tutorial-help-icon"}
+            aria-label={getAriaLabel()}
           >
             <HelpCircle className={size === 'sm' ? "h-4 w-4" : "h-5 w-5"} />
           </Button>

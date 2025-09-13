@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Compass, Brain, Settings, FileText } from "lucide-react";
+import { Home, Compass, Brain, Settings, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -28,9 +28,9 @@ const navItems: NavItem[] = [
     icon: Brain,
   },
   {
-    href: "/templates",
-    label: "Templates",
-    icon: FileText,
+    href: "/tutorials",
+    label: "Tutorials",
+    icon: BookOpen,
   },
   {
     href: "/expert",

@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
-import { Home, Compass, Brain, Settings, FileText, Users, Zap, Workflow } from "lucide-react";
+import { Home, Compass, Brain, Settings, FileText, Users, Zap, Workflow, BookOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent } from "@/components/ui/card";
@@ -70,6 +70,12 @@ const navigationSections: NavSection[] = [
         label: "Workspace",
         icon: Users,
         description: "Team collaboration",
+      },
+      {
+        href: "/tutorials",
+        label: "Interactive Tutorials",
+        icon: BookOpen,
+        description: "Step-by-step guides",
       },
     ],
   },
