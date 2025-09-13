@@ -117,6 +117,36 @@ export const workspaceInvites = pgTable("workspace_invites", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Templates for AI thinking templates and analysis frameworks
+export const templates = pgTable("templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(), // User-facing template name
+  description: text("description"), // Brief description of template purpose
+  category: varchar("category").notNull(), // business, technology, education, research
+  tags: text("tags").array(), // Array of tags for categorization
+  content: jsonb("content").notNull(), // Template content structure and configuration
+  isPublic: boolean("is_public").default(true), // Whether template is publicly available
+  usageCount: integer("usage_count").default(0), // Track how many times template has been used
+  authorId: varchar("author_id"), // User who created the template
+  version: integer("version").default(1), // Template version for updates
+  metadata: jsonb("metadata").default({}), // Additional template metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Push notification subscriptions for web push support
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(), // User who owns this subscription
+  endpoint: text("endpoint").notNull(), // Push service endpoint URL
+  p256dh: text("p256dh").notNull(), // User agent public key for encryption
+  auth: text("auth").notNull(), // Authentication secret for encryption
+  userAgent: text("user_agent"), // Browser/device information
+  isActive: boolean("is_active").default(true), // Whether subscription is active
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 
 // Zod schemas for data validation
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -178,6 +208,35 @@ export const insertGeneratedReportSchema = createInsertSchema(generatedReports).
   format: true,
   metadata: true,
 });
+
+export const insertTemplateSchema = createInsertSchema(templates).pick({
+  name: true,
+  description: true,
+  category: true,
+  tags: true,
+  content: true,
+  isPublic: true,
+  authorId: true,
+  metadata: true,
+});
+
+export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).pick({
+  userId: true,
+  endpoint: true,
+  p256dh: true,
+  auth: true,
+  userAgent: true,
+  isActive: true,
+});
+
+// Template category validation
+export const templateCategorySchema = z.enum(["business", "technology", "education", "research"]);
+
+// Type definitions
+export type Template = typeof templates.$inferSelect;
+export type InsertTemplate = z.infer<typeof insertTemplateSchema>;
+export type PushSubscription = typeof pushSubscriptions.$inferSelect;
+export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
 
 // User preferences schema
 export const userPreferencesSchema = z.object({

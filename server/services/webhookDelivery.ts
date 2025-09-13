@@ -9,6 +9,7 @@ export type WebhookJob = {
   endpointUrl: string;
   secret: string;
   attempt?: number;
+  timestamp?: number;
 };
 
 // Connection state management
@@ -81,20 +82,93 @@ async function initializeRedisQueue(): Promise<void> {
   webhookQueue = new Queue<WebhookJob>('webhook-delivery', { connection });
 }
 
-function signPayload(body: string, secret: string): string {
-  return crypto.createHmac('sha256', secret).update(body).digest('hex');
+/**
+ * Generate a versioned HMAC signature for webhook payload
+ * Signature format: sha256=<hex_signature>
+ * Signed data: <timestamp>.<json_body>
+ * 
+ * For webhook receivers to verify signatures:
+ * 1. Extract timestamp from X-Webhook-Timestamp header
+ * 2. Verify timestamp is within acceptable tolerance (e.g., ±5 minutes)
+ * 3. Reconstruct signed payload: `${timestamp}.${body}`
+ * 4. Compute HMAC-SHA256 and compare with signature
+ */
+function signPayload(body: string, timestamp: string, secret: string): string {
+  const payload = `${timestamp}.${body}`;
+  const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+  return `sha256=${signature}`;
+}
+
+/**
+ * Validate webhook timestamp for replay protection
+ * Returns true if timestamp is within acceptable tolerance
+ */
+export function validateWebhookTimestamp(timestamp: string, toleranceMinutes: number = 5): boolean {
+  try {
+    const requestTime = parseInt(timestamp, 10) * 1000; // Convert to milliseconds
+    const currentTime = Date.now();
+    const tolerance = toleranceMinutes * 60 * 1000; // Convert to milliseconds
+    
+    return Math.abs(currentTime - requestTime) <= tolerance;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Verify webhook signature using the same algorithm as signPayload
+ * Example usage for webhook receivers:
+ * 
+ * const signature = req.headers['x-webhook-signature'];
+ * const timestamp = req.headers['x-webhook-timestamp'];
+ * const body = JSON.stringify(req.body);
+ * 
+ * if (!validateWebhookTimestamp(timestamp)) {
+ *   throw new Error('Request timestamp too old');
+ * }
+ * 
+ * if (!verifyWebhookSignature(body, timestamp, signature, secret)) {
+ *   throw new Error('Invalid signature');
+ * }
+ */
+export function verifyWebhookSignature(
+  body: string, 
+  timestamp: string, 
+  receivedSignature: string, 
+  secret: string
+): boolean {
+  try {
+    const expectedSignature = signPayload(body, timestamp, secret);
+    
+    // Use crypto.timingSafeEqual to prevent timing attacks
+    const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
+    const receivedBuffer = Buffer.from(receivedSignature, 'utf8');
+    
+    return expectedBuffer.length === receivedBuffer.length &&
+           crypto.timingSafeEqual(expectedBuffer, receivedBuffer);
+  } catch {
+    return false;
+  }
 }
 
 // Synchronous webhook delivery for development mode (no Redis)
 async function deliverWebhookSync(data: WebhookJob): Promise<void> {
+  // Validate that secret is provided
+  if (!data.secret || data.secret.trim() === '') {
+    throw new Error('Webhook secret is required but not provided');
+  }
+  
+  const timestamp = data.timestamp || Date.now();
+  const timestampStr = Math.floor(timestamp / 1000).toString();
+  
   const body = JSON.stringify({
     id: data.eventId,
     type: data.eventType,
     data: data.payload,
-    timestamp: Date.now()
+    timestamp
   });
   
-  const signature = signPayload(body, data.secret);
+  const signature = signPayload(body, timestampStr, data.secret);
   
   try {
     const response = await fetch(data.endpointUrl, {
@@ -102,6 +176,7 @@ async function deliverWebhookSync(data: WebhookJob): Promise<void> {
       headers: {
         'Content-Type': 'application/json',
         'X-Webhook-Signature': signature,
+        'X-Webhook-Timestamp': timestampStr,
         'X-Webhook-Id': data.eventId,
         'User-Agent': 'SymbiosoAI-Webhook/1.0'
       },
@@ -109,13 +184,15 @@ async function deliverWebhookSync(data: WebhookJob): Promise<void> {
     });
     
     if (!response.ok) {
-      throw new Error(`Webhook delivery failed: ${response.status} ${response.statusText}`);
+      const errorText = await response.text().catch(() => 'Unknown error');
+      throw new Error(`Webhook delivery failed: ${response.status} ${response.statusText} - ${errorText}`);
     }
     
-    console.log(`✅ [webhookDelivery] Successfully delivered webhook ${data.eventId} to ${data.endpointUrl} (sync mode)`);
+    console.log(`✅ [webhookDelivery] Successfully delivered webhook ${data.eventId} to ${data.endpointUrl} (${redisState === RedisState.AVAILABLE ? 'queue' : 'sync'} mode)`);
   } catch (error: any) {
     console.error(`❌ [webhookDelivery] Failed to deliver webhook ${data.eventId}:`, error.message);
-    // In development mode, we just log the error and continue
+    // Re-throw the error so BullMQ can detect the failure and trigger retries
+    throw error;
   }
 }
 
@@ -134,7 +211,13 @@ export async function enqueueWebhookDelivery(
     if (webhookQueue) {
       await webhookQueue.add('deliver', data, {
         removeOnComplete: true,
-        attempts: 1,
+        attempts: Number(process.env.WEBHOOK_MAX_RETRIES || 6),
+        backoff: {
+          type: 'exponential',
+          settings: {
+            delay: 2000, // Start with 2s delay
+          },
+        },
         ...opts
       });
       console.log(`📤 [webhookDelivery] Queued webhook ${data.eventId} for delivery`);

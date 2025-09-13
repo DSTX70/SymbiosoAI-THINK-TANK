@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -8,9 +9,12 @@ import SimplePage from "@/pages/simple";
 import GuidedPage from "@/pages/guided";
 import ExpertPage from "@/pages/expert";
 import AutomationPage from "@/pages/AutomationPage";
+import TemplatesPage from "@/pages/templates";
 import Landing from "@/pages/landing";
 import BottomNavigation from "@/components/BottomNavigation";
 import DesktopSidebar from "@/components/DesktopSidebar";
+import OfflineBanner from "@/components/OfflineBanner";
+import { registerServiceWorker } from "@/lib/swRegister";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -30,12 +34,14 @@ function Router() {
     <div className="min-h-screen bg-background">
       <DesktopSidebar />
       <div className="pb-16 md:pb-0"> {/* Add bottom padding for mobile navigation */}
+        <OfflineBanner />
         <Switch>
           <Route path="/" component={Landing} />
           <Route path="/simple" component={SimplePage} />
           <Route path="/guided" component={GuidedPage} />
           <Route path="/expert" component={ExpertPage} />
           <Route path="/automation" component={AutomationPage} />
+          <Route path="/templates" component={TemplatesPage} />
           <Route component={() => <div>Page not found</div>} />
         </Switch>
       </div>
@@ -45,6 +51,11 @@ function Router() {
 }
 
 function App() {
+  // Register service worker on app startup
+  useEffect(() => {
+    registerServiceWorker().catch(console.error);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

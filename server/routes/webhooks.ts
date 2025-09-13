@@ -7,6 +7,22 @@ const router = Router();
 // Webhook test endpoint - allows testing webhook delivery
 router.post('/webhooks/test', async (req, res) => {
   try {
+    // Ensure webhook secret is configured for production safety
+    const webhookSecret = process.env.WEBHOOK_SECRET;
+    if (!webhookSecret || webhookSecret.trim() === '') {
+      return res.status(500).json({ 
+        error: 'Server configuration error', 
+        message: 'WEBHOOK_SECRET environment variable is required but not set' 
+      });
+    }
+    
+    if (!req.body.endpointUrl) {
+      return res.status(400).json({ 
+        error: 'Validation error', 
+        message: 'endpointUrl is required' 
+      });
+    }
+    
     const eventId = req.body.idempotencyKey || crypto.randomUUID();
     
     await enqueueWebhookDelivery({
@@ -14,7 +30,8 @@ router.post('/webhooks/test', async (req, res) => {
       eventType: req.body.event || 'test',
       payload: req.body.payload || {},
       endpointUrl: req.body.endpointUrl,
-      secret: process.env.WEBHOOK_SECRET || 'change_me'
+      secret: webhookSecret,
+      timestamp: Date.now()
     });
     
     res.json({ enqueued: true, eventId });

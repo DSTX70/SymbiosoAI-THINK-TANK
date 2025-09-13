@@ -60,7 +60,7 @@ const navigationSections: NavSection[] = [
         description: "AI debate configuration",
       },
       {
-        href: "/expert?tab=templates",
+        href: "/templates",
         label: "Template Library",
         icon: FileText,
         description: "Pre-built analysis templates",

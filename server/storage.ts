@@ -3,8 +3,10 @@ import {
   type Workspace, type InsertWorkspace, type WorkspaceMember, type InsertWorkspaceMember,
   type WorkspaceInvite, type InsertWorkspaceInvite, type UserPreferences,
   type GeneratedReport, type InsertGeneratedReport,
+  type Template, type InsertTemplate,
   type SessionCode, type InsertSessionCode, type SessionParticipant, type InsertSessionParticipant,
   type ChatMessage, type InsertChatMessage,
+  type PushSubscription, type InsertPushSubscription,
   // Enterprise types
   type Organization, type InsertOrganization, type OrganizationMember, type InsertOrganizationMember,
   type Team, type InsertTeam, type TeamMember, type InsertTeamMember,
@@ -15,7 +17,7 @@ import {
   // Sprint 1 types
   type DebateRun, type InsertDebateRun, type ExportLog, type InsertExportLog,
   users, analysisSessions, workspaces, workspaceMembers, workspaceInvites, generatedReports,
-  sessionCodes, sessionParticipants, chatMessages,
+  templates, sessionCodes, sessionParticipants, chatMessages, pushSubscriptions,
   organizations, organizationMembers, teams, teamMembers, auditLogs, securityEvents,
   usageMetrics, rateLimitRules, performanceMetrics, errorLogs, healthChecks,
   debateRuns, exportLogs
@@ -94,6 +96,25 @@ export interface IStorage {
   getUserGeneratedReports(userId: string): Promise<GeneratedReport[]>;
   deleteGeneratedReport(id: string): Promise<boolean>;
   getSessionReports(sessionId: string): Promise<GeneratedReport[]>;
+
+  // Template operations for AI thinking templates
+  createTemplate(template: InsertTemplate): Promise<Template>;
+  getTemplate(id: string): Promise<Template | undefined>;
+  getAllTemplates(): Promise<Template[]>;
+  getTemplatesByCategory(category: string): Promise<Template[]>;
+  getPublicTemplates(): Promise<Template[]>;
+  getUserTemplates(userId: string): Promise<Template[]>;
+  updateTemplate(id: string, updates: Partial<Template>): Promise<Template | undefined>;
+  deleteTemplate(id: string): Promise<boolean>;
+  incrementTemplateUsage(id: string): Promise<Template | undefined>;
+
+  // Push notification subscription operations for web push support
+  createPushSubscription(subscription: InsertPushSubscription): Promise<PushSubscription>;
+  getPushSubscription(id: string): Promise<PushSubscription | undefined>;
+  getUserPushSubscriptions(userId: string): Promise<PushSubscription[]>;
+  deletePushSubscription(id: string): Promise<boolean>;
+  deletePushSubscriptionByEndpoint(endpoint: string, userId: string): Promise<boolean>;
+  updatePushSubscription(id: string, updates: Partial<PushSubscription>): Promise<PushSubscription | undefined>;
 
   // ============================================
   // ENTERPRISE FEATURES - Organization Management
@@ -196,6 +217,7 @@ export class MemStorage implements IStorage {
   private sessionCodes: Map<string, SessionCode>;
   private sessionParticipants: Map<string, SessionParticipant>;
   private chatMessages: Map<string, ChatMessage>;
+  private pushSubscriptions: Map<string, PushSubscription>;
 
   constructor() {
     this.users = new Map();
@@ -207,6 +229,7 @@ export class MemStorage implements IStorage {
     this.sessionCodes = new Map();
     this.sessionParticipants = new Map();
     this.chatMessages = new Map();
+    this.pushSubscriptions = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -1475,6 +1498,45 @@ export class DatabaseStorage implements IStorage {
     }
     
     return await query.orderBy(exportLogs.createdAt);
+  }
+
+  // ============================================
+  // PUSH NOTIFICATION SUBSCRIPTIONS
+  // ============================================
+  
+  async createPushSubscription(subscription: InsertPushSubscription): Promise<PushSubscription> {
+    const [pushSubscription] = await db.insert(pushSubscriptions).values(subscription).returning();
+    return pushSubscription;
+  }
+
+  async getPushSubscription(id: string): Promise<PushSubscription | undefined> {
+    const [pushSubscription] = await db.select().from(pushSubscriptions).where(eq(pushSubscriptions.id, id));
+    return pushSubscription || undefined;
+  }
+
+  async getUserPushSubscriptions(userId: string): Promise<PushSubscription[]> {
+    return await db.select().from(pushSubscriptions)
+      .where(and(eq(pushSubscriptions.userId, userId), eq(pushSubscriptions.isActive, true)))
+      .orderBy(pushSubscriptions.createdAt);
+  }
+
+  async deletePushSubscription(id: string): Promise<boolean> {
+    const result = await db.delete(pushSubscriptions).where(eq(pushSubscriptions.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async deletePushSubscriptionByEndpoint(endpoint: string, userId: string): Promise<boolean> {
+    const result = await db.delete(pushSubscriptions)
+      .where(and(eq(pushSubscriptions.endpoint, endpoint), eq(pushSubscriptions.userId, userId)));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async updatePushSubscription(id: string, updates: Partial<PushSubscription>): Promise<PushSubscription | undefined> {
+    const [pushSubscription] = await db.update(pushSubscriptions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(pushSubscriptions.id, id))
+      .returning();
+    return pushSubscription || undefined;
   }
 }
 
