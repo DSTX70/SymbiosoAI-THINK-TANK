@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,34 @@ import {
   GraduationCap,
   FlaskConical
 } from "lucide-react";
+
+interface ServerTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: "business" | "technology" | "education" | "research";
+  tags: string[];
+  content: {
+    prompt: string;
+    agents: string[];
+    domainExperts: string[];
+    reasoningFramework: string;
+    debateRounds: number;
+    requireCitations: boolean;
+    enableFactCheck: boolean;
+    enableLiveWeb: boolean;
+    rating: number;
+    uses: number;
+    complexity: "low" | "medium" | "high";
+  };
+  isPublic: boolean;
+  usageCount: number;
+  authorId: string;
+  version: number;
+  metadata: any;
+  createdAt: string;
+  updatedAt: string;
+}
 
 interface Template {
   id: string;
@@ -48,128 +77,29 @@ interface TemplateLibraryProps {
   onClearTemplate?: () => void;
 }
 
-const sampleTemplates: Template[] = [
-  {
-    id: "business-strategy",
-    title: "Business Strategy Analysis",
-    description: "Comprehensive analysis of business strategies and market positioning",
-    category: "business",
-    rating: 4.8,
-    uses: 245,
-    complexity: "high",
-    tags: ["strategy", "market-analysis", "competition"],
+// Transform server template to client template format
+function transformServerTemplate(serverTemplate: ServerTemplate): Template {
+  return {
+    id: serverTemplate.id,
+    title: serverTemplate.name,
+    description: serverTemplate.description,
+    category: serverTemplate.category,
+    rating: serverTemplate.content.rating,
+    uses: serverTemplate.content.uses,
+    complexity: serverTemplate.content.complexity,
+    tags: serverTemplate.tags || [],
     config: {
-      prompt: "Analyze the business strategy and competitive positioning of [Company/Industry]. Consider market dynamics, competitive advantages, potential risks, and strategic recommendations for growth.",
-      agents: ["analyst", "pragmatist", "critic"],
-      domainExperts: ["financial-analyst", "brand-strategist"],
-      reasoningFramework: "strategic_thinking",
-      debateRounds: 6,
-      requireCitations: true,
-      enableFactCheck: true,
-      enableLiveWeb: true
+      prompt: serverTemplate.content.prompt,
+      agents: serverTemplate.content.agents,
+      domainExperts: serverTemplate.content.domainExperts,
+      reasoningFramework: serverTemplate.content.reasoningFramework,
+      debateRounds: serverTemplate.content.debateRounds,
+      requireCitations: serverTemplate.content.requireCitations,
+      enableFactCheck: serverTemplate.content.enableFactCheck,
+      enableLiveWeb: serverTemplate.content.enableLiveWeb
     }
-  },
-  {
-    id: "technical-architecture",
-    title: "Technical Architecture Review",
-    description: "In-depth review of technical systems and engineering decisions",
-    category: "technology", 
-    rating: 4.6,
-    uses: 189,
-    complexity: "high",
-    tags: ["architecture", "engineering", "systems"],
-    config: {
-      prompt: "Review the technical architecture of [System/Application]. Evaluate scalability, security, maintainability, and performance. Identify potential improvements and architectural trade-offs.",
-      agents: ["analyst", "critic", "thoughtful"],
-      domainExperts: ["tech-architect", "devops-engineer"],
-      reasoningFramework: "systems_thinking",
-      debateRounds: 7,
-      requireCitations: false,
-      enableFactCheck: false,
-      enableLiveWeb: false
-    }
-  },
-  {
-    id: "market-research",
-    title: "Market Research Framework",
-    description: "Systematic approach to market research and consumer insights",
-    category: "business",
-    rating: 4.7,
-    uses: 156,
-    complexity: "medium",
-    tags: ["research", "market", "insights"],
-    config: {
-      prompt: "Conduct comprehensive market research for [Product/Service/Market]. Analyze target demographics, market size, competitive landscape, pricing strategies, and consumer behavior patterns.",
-      agents: ["analyst", "pragmatist", "innovator"],
-      domainExperts: ["research-scientist"],
-      reasoningFramework: "analytical_framework",
-      debateRounds: 5,
-      requireCitations: true,
-      enableFactCheck: true,
-      enableLiveWeb: true
-    }
-  },
-  {
-    id: "ai-ethics",
-    title: "AI Ethics Discussion",
-    description: "Comprehensive framework for analyzing AI ethical implications",
-    category: "research",
-    rating: 4.9,
-    uses: 98,
-    complexity: "high",
-    tags: ["ai", "ethics", "philosophy"],
-    config: {
-      prompt: "Examine the ethical implications of [AI Technology/Application]. Consider bias, fairness, privacy, transparency, accountability, and societal impact. Provide balanced perspectives on responsible AI development.",
-      agents: ["thoughtful", "critic", "analyst"],
-      domainExperts: ["behavioral-analyst"],
-      reasoningFramework: "ethical_framework",
-      debateRounds: 8,
-      requireCitations: true,
-      enableFactCheck: true,
-      enableLiveWeb: false
-    }
-  },
-  {
-    id: "product-launch",
-    title: "Product Launch Strategy",
-    description: "Strategic planning for new product introductions",
-    category: "business",
-    rating: 4.5,
-    uses: 203,
-    complexity: "medium",
-    tags: ["product", "launch", "strategy"],
-    config: {
-      prompt: "Develop a comprehensive product launch strategy for [Product]. Consider target market, pricing, distribution channels, marketing campaigns, competitive positioning, and success metrics.",
-      agents: ["innovator", "pragmatist", "analyst"],
-      domainExperts: ["brand-strategist"],
-      reasoningFramework: "strategic_thinking",
-      debateRounds: 5,
-      requireCitations: false,
-      enableFactCheck: true,
-      enableLiveWeb: true
-    }
-  },
-  {
-    id: "security-audit",
-    title: "Security Assessment Framework",
-    description: "Comprehensive security analysis and risk evaluation",
-    category: "technology",
-    rating: 4.8,
-    uses: 134,
-    complexity: "high",
-    tags: ["security", "audit", "risk"],
-    config: {
-      prompt: "Conduct a comprehensive security assessment of [System/Application/Infrastructure]. Identify vulnerabilities, assess risk levels, and recommend security improvements and best practices.",
-      agents: ["critic", "analyst", "thoughtful"],
-      domainExperts: ["tech-architect"],
-      reasoningFramework: "risk_assessment",
-      debateRounds: 6,
-      requireCitations: false,
-      enableFactCheck: false,
-      enableLiveWeb: false
-    }
-  }
-];
+  };
+}
 
 const categoryIcons = {
   business: Briefcase,
@@ -194,7 +124,15 @@ export function TemplateLibrary({
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredTemplates = sampleTemplates.filter(template => {
+  // Fetch templates from the API
+  const { data: serverTemplates = [], isLoading, error } = useQuery<ServerTemplate[]>({
+    queryKey: ['/api/templates'],
+  });
+
+  // Transform server templates to client format
+  const templates = serverTemplates.map(transformServerTemplate);
+
+  const filteredTemplates = templates.filter(template => {
     const matchesCategory = activeCategory === "all" || template.category === activeCategory;
     const matchesSearch = template.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          template.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -264,8 +202,20 @@ export function TemplateLibrary({
 
         <TabsContent value={activeCategory} className="mt-6">
           <ScrollArea className="h-[600px]">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredTemplates.map((template) => {
+            {isLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading templates...</p>
+              </div>
+            ) : error ? (
+              <div className="text-center py-12">
+                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h4 className="text-lg font-medium mb-2">Error loading templates</h4>
+                <p className="text-muted-foreground">Please try again later</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredTemplates.map((template) => {
                 const IconComponent = categoryIcons[template.category];
                 return (
                   <Card key={template.id} className="hover:shadow-md transition-shadow">
@@ -353,9 +303,10 @@ export function TemplateLibrary({
                   </Card>
                 );
               })}
-            </div>
+              </div>
+            )}
 
-            {filteredTemplates.length === 0 && (
+            {!isLoading && !error && filteredTemplates.length === 0 && (
               <div className="text-center py-12">
                 <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h4 className="text-lg font-medium mb-2">No templates found</h4>

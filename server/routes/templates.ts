@@ -15,8 +15,17 @@ const templateStore: Record<string, Template> = {
     category: 'business',
     tags: ['strategy', 'market-analysis', 'competition'],
     content: {
-      sections: ['Problem Definition', 'Market Analysis', 'Strategic Options', 'Risk Assessment'],
-      prompts: ['Analyze the competitive landscape', 'Define strategic priorities', 'Assess market opportunities']
+      prompt: "Analyze the business strategy and competitive positioning of [Company/Industry]. Consider market dynamics, competitive advantages, potential risks, and strategic recommendations for growth.",
+      agents: ["analyst", "pragmatist", "critic"],
+      domainExperts: ["financial-analyst", "brand-strategist"],
+      reasoningFramework: "strategic_thinking",
+      debateRounds: 6,
+      requireCitations: true,
+      enableFactCheck: true,
+      enableLiveWeb: true,
+      rating: 4.8,
+      uses: 245,
+      complexity: "high"
     },
     isPublic: true,
     usageCount: 245,
@@ -33,8 +42,17 @@ const templateStore: Record<string, Template> = {
     category: 'technology',
     tags: ['architecture', 'engineering', 'systems'],
     content: {
-      sections: ['System Overview', 'Technology Stack', 'Scalability Analysis', 'Security Review'],
-      prompts: ['Evaluate system architecture', 'Assess scalability concerns', 'Review security implications']
+      prompt: "Review the technical architecture of [System/Application]. Evaluate scalability, security, maintainability, and performance. Identify potential improvements and architectural trade-offs.",
+      agents: ["analyst", "critic", "thoughtful"],
+      domainExperts: ["tech-architect", "devops-engineer"],
+      reasoningFramework: "systems_thinking",
+      debateRounds: 7,
+      requireCitations: false,
+      enableFactCheck: false,
+      enableLiveWeb: false,
+      rating: 4.6,
+      uses: 189,
+      complexity: "high"
     },
     isPublic: true,
     usageCount: 189,
@@ -51,8 +69,17 @@ const templateStore: Record<string, Template> = {
     category: 'business',
     tags: ['research', 'market', 'insights'],
     content: {
-      sections: ['Market Size Analysis', 'Customer Segmentation', 'Competitive Analysis', 'Trend Analysis'],
-      prompts: ['Define target market', 'Analyze customer needs', 'Evaluate market opportunities']
+      prompt: "Conduct comprehensive market research for [Product/Service/Market]. Analyze target demographics, market size, competitive landscape, pricing strategies, and consumer behavior patterns.",
+      agents: ["analyst", "pragmatist", "innovator"],
+      domainExperts: ["research-scientist"],
+      reasoningFramework: "analytical_framework",
+      debateRounds: 5,
+      requireCitations: true,
+      enableFactCheck: true,
+      enableLiveWeb: true,
+      rating: 4.7,
+      uses: 156,
+      complexity: "medium"
     },
     isPublic: true,
     usageCount: 156,
@@ -61,6 +88,87 @@ const templateStore: Record<string, Template> = {
     metadata: { complexity: 'medium', estimatedTime: 25 },
     createdAt: new Date('2024-02-01'),
     updatedAt: new Date('2024-02-01')
+  },
+  'ai-ethics': {
+    id: 'ai-ethics',
+    name: 'AI Ethics Discussion',
+    description: 'Comprehensive framework for analyzing AI ethical implications',
+    category: 'research',
+    tags: ['ai', 'ethics', 'philosophy'],
+    content: {
+      prompt: "Examine the ethical implications of [AI Technology/Application]. Consider bias, fairness, privacy, transparency, accountability, and societal impact. Provide balanced perspectives on responsible AI development.",
+      agents: ["thoughtful", "critic", "analyst"],
+      domainExperts: ["behavioral-analyst"],
+      reasoningFramework: "ethical_framework",
+      debateRounds: 8,
+      requireCitations: true,
+      enableFactCheck: true,
+      enableLiveWeb: false,
+      rating: 4.9,
+      uses: 98,
+      complexity: "high"
+    },
+    isPublic: true,
+    usageCount: 98,
+    authorId: 'system',
+    version: 1,
+    metadata: { complexity: 'high', estimatedTime: 40 },
+    createdAt: new Date('2024-02-05'),
+    updatedAt: new Date('2024-02-05')
+  },
+  'product-launch': {
+    id: 'product-launch',
+    name: 'Product Launch Strategy',
+    description: 'Strategic planning for new product introductions',
+    category: 'business',
+    tags: ['product', 'launch', 'strategy'],
+    content: {
+      prompt: "Develop a comprehensive product launch strategy for [Product]. Consider target market, pricing, distribution channels, marketing campaigns, competitive positioning, and success metrics.",
+      agents: ["innovator", "pragmatist", "analyst"],
+      domainExperts: ["brand-strategist"],
+      reasoningFramework: "strategic_thinking",
+      debateRounds: 5,
+      requireCitations: false,
+      enableFactCheck: true,
+      enableLiveWeb: true,
+      rating: 4.5,
+      uses: 203,
+      complexity: "medium"
+    },
+    isPublic: true,
+    usageCount: 203,
+    authorId: 'system',
+    version: 1,
+    metadata: { complexity: 'medium', estimatedTime: 25 },
+    createdAt: new Date('2024-02-10'),
+    updatedAt: new Date('2024-02-10')
+  },
+  'security-audit': {
+    id: 'security-audit',
+    name: 'Security Assessment Framework',
+    description: 'Comprehensive security analysis and risk evaluation',
+    category: 'technology',
+    tags: ['security', 'audit', 'risk'],
+    content: {
+      prompt: "Conduct a comprehensive security assessment of [System/Application/Infrastructure]. Identify vulnerabilities, assess risk levels, and recommend security improvements and best practices.",
+      agents: ["critic", "analyst", "thoughtful"],
+      domainExperts: ["tech-architect"],
+      reasoningFramework: "risk_assessment",
+      debateRounds: 6,
+      requireCitations: false,
+      enableFactCheck: false,
+      enableLiveWeb: false,
+      rating: 4.8,
+      uses: 134,
+      complexity: "high"
+    },
+    isPublic: true,
+    usageCount: 134,
+    authorId: 'system',
+    version: 1,
+    metadata: { complexity: 'high', estimatedTime: 35 },
+    createdAt: new Date('2024-02-15'),
+    updatedAt: new Date('2024-02-15')
   }
 };
 
@@ -131,7 +239,7 @@ router.patch('/templates/:id', (req, res) => {
     const updatedTemplate: Template = {
       ...template,
       ...validatedData,
-      version: template.version + 1,
+      version: (template.version || 1) + 1,
       updatedAt: new Date()
     };
     
@@ -155,7 +263,7 @@ router.post('/templates/:id/use', (req, res) => {
     return res.status(404).json({ error: 'Template not found' });
   }
   
-  template.usageCount += 1;
+  template.usageCount = (template.usageCount || 0) + 1;
   template.updatedAt = new Date();
   
   res.json(template);
