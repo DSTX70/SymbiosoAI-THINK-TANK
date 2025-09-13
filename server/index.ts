@@ -8,6 +8,13 @@ import { demoGate } from "./middleware/auth";
 import { startDebateWorker } from "./queue/queue";
 import debatesAsyncRouter from "./routes/debates-async";
 import exportRouter from "./routes/export";
+// Sprint 2: New API routes
+import pushRouter from "./routes/push";
+import webhooksRouter from "./routes/webhooks";
+import templatesRouter from "./routes/templates";
+// Sprint 2: Webhook delivery and observability
+import { startWebhookWorker } from "./services/webhookDelivery";
+import { initObservability } from "./services/observability";
 
 // Set BYPASS_AUTH for development testing - commented out to show login flow
 // if (process.env.NODE_ENV === 'development') {
@@ -84,9 +91,16 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Sprint 2: Initialize observability monitoring first
+  console.log("🚀 Starting Sprint 2 infrastructure...");
+  initObservability();
+  
   // Sprint 1: Start the debate worker
   console.log("🚀 Starting Sprint 1 features...");
   startDebateWorker();
+  
+  // Sprint 2: Start the webhook delivery worker
+  await startWebhookWorker();
   
   // Register main routes first (includes session setup)
   const server = await registerRoutes(app);
@@ -94,6 +108,11 @@ app.use((req, res, next) => {
   // Mount Sprint 1 routes AFTER session setup
   app.use('/api', debatesAsyncRouter);
   app.use('/api', exportRouter);
+  
+  // Mount Sprint 2 routes
+  app.use('/api', pushRouter);
+  app.use('/api', webhooksRouter);
+  app.use('/api', templatesRouter);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
