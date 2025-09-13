@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSE Integration Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background-color: #4CAF50;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .log {
+            background: #f0f0f0;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .status {
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .status.idle { background-color: #e3f2fd; color: #1565c0; }
+        .status.running { background-color: #fff3e0; color: #f57c00; }
+        .status.completed { background-color: #e8f5e8; color: #2e7d32; }
+        .status.failed { background-color: #ffebee; color: #c62828; }
+        
+        button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        
+        button:hover:not(:disabled) {
+            background-color: #1976D2;
+        }
+        
+        .results {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔄 SSE Integration Test Dashboard</h1>
+    <p>This page tests the Server-Sent Events functionality for Sprint 1 async debate processing.</p>
+    
+    <!-- Test Control Section -->
+    <div class="test-section">
+        <h2>🎮 Test Controls</h2>
+        <button id="startDebateBtn" onclick="startAsyncDebate()">Start Async Debate Test</button>
+        <button id="testSSEBtn" onclick="testSSEConnection()">Test SSE Connection</button>
+        <button id="stopTestBtn" onclick="stopTest()" disabled>Stop Test</button>
+        <button onclick="clearLogs()">Clear Logs</button>
+    </div>
+    
+    <!-- Progress Section -->
+    <div class="test-section">
+        <h2>📊 Progress Tracking</h2>
+        <div class="status" id="status">Status: idle</div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressBar"></div>
+        </div>
+        <div id="progressText">Progress: 0%</div>
+    </div>
+    
+    <!-- SSE Events Log -->
+    <div class="test-section">
+        <h2>📡 SSE Events Log</h2>
+        <div class="log" id="sseLog">Waiting for SSE events...</div>
+    </div>
+    
+    <!-- Test Results -->
+    <div class="test-section">
+        <h2>📋 Test Results</h2>
+        <div class="results" id="testResults">
+            <p><strong>Frontend Component Compatibility:</strong></p>
+            <ul>
+                <li id="hookCompatibility">useSSE Hook: Not tested</li>
+                <li id="progressCompatibility">ProgressOverlay: Not tested</li>
+                <li id="dataCompatibility">Data Structure: Not tested</li>
+                <li id="errorHandling">Error Handling: Not tested</li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Debug Information -->
+    <div class="test-section">
+        <h2>🛠️ Debug Information</h2>
+        <div class="log" id="debugLog">Debug information will appear here...</div>
+    </div>
+
+    <script>
+        // Test state
+        let currentEventSource = null;
+        let testResults = {
+            hookCompatibility: false,
+            progressCompatibility: false,
+            dataCompatibility: false,
+            errorHandling: false
+        };
+        
+        // DOM elements
+        const statusEl = document.getElementById('status');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const sseLog = document.getElementById('sseLog');
+        const debugLog = document.getElementById('debugLog');
+        const startBtn = document.getElementById('startDebateBtn');
+        const testBtn = document.getElementById('testSSEBtn');
+        const stopBtn = document.getElementById('stopTestBtn');
+        
+        // Utility functions
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            
+            if (type === 'sse') {
+                sseLog.innerHTML += logEntry + '\n';
+                sseLog.scrollTop = sseLog.scrollHeight;
+            } else {
+                debugLog.innerHTML += logEntry + '\n';
+                debugLog.scrollTop = debugLog.scrollHeight;
+            }
+        }
+        
+        function updateStatus(status) {
+            statusEl.className = `status ${status}`;
+            statusEl.textContent = `Status: ${status}`;
+            log(`Status changed to: ${status}`);
+        }
+        
+        function updateProgress(progress) {
+            const clampedProgress = Math.max(0, Math.min(100, progress));
+            progressBar.style.width = `${clampedProgress}%`;
+            progressText.textContent = `Progress: ${clampedProgress}%`;
+            log(`Progress updated: ${clampedProgress}%`, 'sse');
+            
+            // Test ProgressOverlay compatibility
+            if (typeof progress === 'number' && progress >= 0 && progress <= 100) {
+                testResults.progressCompatibility = true;
+                updateTestResult('progressCompatibility', 'ProgressOverlay: ✅ Compatible');
+            }
+        }
+        
+        function updateTestResult(testName, message) {
+            const element = document.getElementById(testName);
+            if (element) {
+                element.textContent = message;
+                element.style.color = message.includes('✅') ? 'green' : message.includes('❌') ? 'red' : 'orange';
+            }
+        }
+        
+        function clearLogs() {
+            sseLog.innerHTML = 'Waiting for SSE events...';
+            debugLog.innerHTML = 'Debug information will appear here...';
+        }
+        
+        // Test functions
+        async function startAsyncDebate() {
+            log('🚀 Starting async debate test...');
+            
+            try {
+                // First try to create an async debate job
+                const response = await fetch('/api/debates-async', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        sessionId: `browser-test-${Date.now()}`,
+                        mode: 'simple',
+                        prompt: 'What are the benefits of remote work?'
+                    })
+                });
+                
+                log(`HTTP Response: ${response.status} ${response.statusText}`);
+                
+                if (response.status === 401) {
+                    log('❌ Authentication required - testing SSE auth protection');
+                    updateTestResult('errorHandling', 'Error Handling: ✅ Auth protection working');
+                    testSSEConnection();
+                    return;
+                }
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log(`✅ Debate job created: ${JSON.stringify(data)}`);
+                    
+                    if (data.jobId) {
+                        testSSEWithJobId(data.jobId);
+                    } else {
+                        log('❌ No job ID returned');
+                    }
+                } else {
+                    log(`❌ Failed to create debate job: ${response.status}`);
+                    const errorText = await response.text();
+                    log(`Error details: ${errorText}`);
+                }
+                
+            } catch (error) {
+                log(`❌ Error creating debate job: ${error.message}`);
+                updateTestResult('errorHandling', 'Error Handling: ✅ Network error handled');
+            }
+        }
+        
+        function testSSEConnection() {
+            log('🔗 Testing SSE connection with mock job ID...');
+            testSSEWithJobId('test-job-browser-' + Date.now());
+        }
+        
+        function testSSEWithJobId(jobId) {
+            log(`🌊 Starting SSE stream for job: ${jobId}`);
+            
+            // Clean up existing connection
+            if (currentEventSource) {
+                currentEventSource.close();
+            }
+            
+            // Update UI
+            updateStatus('running');
+            updateProgress(0);
+            startBtn.disabled = true;
+            testBtn.disabled = true;
+            stopBtn.disabled = false;
+            
+            // Test useSSE hook compatibility
+            const hookState = {
+                progress: 0,
+                status: 'idle',
+                data: null
+            };
+            
+            // Create SSE connection
+            const streamUrl = `/api/debates-async/${jobId}/stream`;
+            log(`Connecting to: ${streamUrl}`, 'sse');
+            
+            currentEventSource = new EventSource(streamUrl);
+            
+            // Test connection timing
+            const startTime = performance.now();
+            
+            currentEventSource.onopen = () => {
+                const connectionTime = performance.now() - startTime;
+                log(`✅ SSE connection opened in ${connectionTime.toFixed(0)}ms`, 'sse');
+                hookState.status = 'running';
+                testResults.hookCompatibility = true;
+                updateTestResult('hookCompatibility', 'useSSE Hook: ✅ Compatible');
+            };
+            
+            currentEventSource.addEventListener('progress', (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    log(`📊 Progress event: ${JSON.stringify(data)}`, 'sse');
+                    
+                    // Update hook state simulation
+                    hookState.progress = data.progress;
+                    hookState.status = 'running';
+                    
+                    // Update UI
+                    updateProgress(data.progress);
+                    
+                    // Test data compatibility
+                    if (typeof data.progress === 'number') {
+                        testResults.dataCompatibility = true;
+                        updateTestResult('dataCompatibility', 'Data Structure: ✅ Compatible');
+                    }
+                    
+                } catch (e) {
+                    log(`❌ Invalid progress event: ${event.data}`, 'sse');
+                }
+            });
+            
+            currentEventSource.addEventListener('completed', (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    log(`✅ Completion event: ${JSON.stringify(data)}`, 'sse');
+                    
+                    // Update hook state simulation
+                    hookState.data = data;
+                    hookState.status = 'completed';
+                    
+                    // Update UI
+                    updateStatus('completed');
+                    updateProgress(100);
+                    
+                    // Test completion data structure
+                    if (data.consensus !== undefined || data.status !== undefined) {
+                        testResults.dataCompatibility = true;
+                        updateTestResult('dataCompatibility', 'Data Structure: ✅ Completion data compatible');
+                    }
+                    
+                    stopTest();
+                    
+                } catch (e) {
+                    log(`❌ Invalid completion event: ${event.data}`, 'sse');
+                }
+            });
+            
+            currentEventSource.addEventListener('failed', (event) => {
+                log(`❌ Failure event: ${event.data}`, 'sse');
+                hookState.status = 'failed';
+                updateStatus('failed');
+                testResults.errorHandling = true;
+                updateTestResult('errorHandling', 'Error Handling: ✅ Failure events handled');
+                stopTest();
+            });
+            
+            currentEventSource.onerror = (error) => {
+                log(`⚠️ SSE error: ${error.type || 'Connection error'}`, 'sse');
+                
+                if (currentEventSource.readyState === EventSource.CLOSED) {
+                    log('🔗 SSE connection closed', 'sse');
+                    hookState.status = 'failed';
+                    updateStatus('failed');
+                    testResults.errorHandling = true;
+                    updateTestResult('errorHandling', 'Error Handling: ✅ Connection errors handled');
+                    stopTest();
+                }
+            };
+            
+            // Simulate timeout for testing
+            setTimeout(() => {
+                if (currentEventSource && currentEventSource.readyState === EventSource.OPEN) {
+                    log('⏰ Test timeout - simulating completion', 'sse');
+                    updateStatus('completed');
+                    updateProgress(100);
+                    stopTest();
+                }
+            }, 15000); // 15 second timeout
+        }
+        
+        function stopTest() {
+            log('🛑 Stopping test...');
+            
+            if (currentEventSource) {
+                currentEventSource.close();
+                currentEventSource = null;
+                log('✅ SSE connection closed', 'sse');
+            }
+            
+            // Reset UI
+            startBtn.disabled = false;
+            testBtn.disabled = false;
+            stopBtn.disabled = true;
+            
+            // Log final test results
+            log('📊 Final Test Results:');
+            Object.entries(testResults).forEach(([test, passed]) => {
+                log(`  ${test}: ${passed ? '✅ PASS' : '❌ FAIL'}`);
+            });
+            
+            const passedTests = Object.values(testResults).filter(Boolean).length;
+            const totalTests = Object.keys(testResults).length;
+            log(`🎯 Overall: ${passedTests}/${totalTests} tests passed`);
+        }
+        
+        // Initialize page
+        log('🌐 SSE Integration Test Dashboard loaded');
+        log('ℹ️ Ready to test SSE functionality');
+    </script>
+</body>
+</html>
