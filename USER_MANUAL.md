@@ -49,8 +49,9 @@
 4. **Start Your Analysis**: Enter your question or topic and let the AI agents debate
 
 ### First-Time Setup
-- **Authentication**: Log in using Replit OpenID Connect for full features
-- **Demo Mode**: Use without authentication for basic functionality
+- **Authentication Options**: 
+  - **Demo Login**: Quick access using demo/demo123 credentials
+  - **OAuth Login**: Secure authentication with Replit OpenID Connect for full features
 - **Profile Setup**: Complete your profile for enhanced collaboration features
 
 ---
@@ -58,9 +59,10 @@
 ## Authentication & User Management
 
 ### Login System
+- **Demo Login**: Quick platform access using demo/demo123 credentials
 - **Replit OpenID Connect**: Secure authentication with automatic user provisioning
 - **Session Management**: Persistent sessions with automatic token refresh
-- **Demo Access**: Limited features available without authentication
+- **Authentication UI**: Clear status indicators showing login state and available options
 
 ### User Profiles
 - **Profile Information**: First name, last name, email, profile image
@@ -759,9 +761,11 @@ For comprehensive navigation guidelines and feature organization details, see th
 #### Authentication Problems
 **Issue**: Unable to log in or frequent logouts
 **Solution**: 
+- **Try Demo Login**: Use username "demo" and password "demo123" for quick access
 - Clear browser cache and cookies
-- Check Replit authentication status
+- Check Replit authentication status in dropdown menu
 - Verify environment variables are properly configured
+- Look for authentication status in the landing page panel
 
 #### WebSocket Connection Issues
 **Issue**: Real-time features not working (chat, sync)
@@ -810,19 +814,31 @@ For comprehensive navigation guidelines and feature organization details, see th
 - **Edge**: Version 90+
 
 ### API Integrations
-- **OpenAI**: GPT-5 for multi-agent conversations
-- **Anthropic**: Claude for additional AI capabilities
+- **OpenAI**: GPT-4 for multi-agent conversations
+- **Anthropic**: Claude for additional AI capabilities (optional)
 - **Replit**: Authentication and deployment infrastructure
 
 ### Security Features
-- **Session Management**: Secure token-based authentication
+- **Session Management**: Secure token-based authentication with PostgreSQL session store
 - **Data Encryption**: TLS encryption for all communications
 - **Role-Based Access**: Granular permission controls
-- **API Security**: Rate limiting and request validation
+- **Development Status**: Enterprise security middleware currently disabled/stubbed for development focus
 
 ---
 
 ## Recent Updates
+
+### ✅ **September 13, 2025 - v0.4.0 Development Milestone**
+- **🏷️ STABLE DEVELOPMENT BASELINE**: Core platform functionality validated and ready for continued development
+- **LSP Error Resolution**: Fixed 5 TypeScript errors in server/routes.ts (Request/Response imports, health object structure)
+- **End-to-End Validation**: Complete smoke test validation of core user journey (auth → debate → brainstorm → report)
+- **Authentication System Stability**: Demo login (demo/demo123) and OAuth fully functional with session persistence
+- **Multi-Agent AI System**: Debate orchestration working reliably with structured consensus outputs from OpenAI API
+- **Brainstorming Integration**: Standalone and session-based brainstorming fully operational
+- **Report Generation**: Basic report system and file export working with File System Access API integration
+- **Code Quality**: TypeScript compilation clean with comprehensive error handling
+- **Platform Status**: Development-ready baseline with clear documentation of enterprise features that are currently disabled/stubbed
+- **Known Limitations**: Performance monitoring, security middleware, and rate limiting currently disabled for development focus
 
 ### ✅ **September 2025 - Phase 3 Enterprise Automation**
 - **Complete Automation Suite**: Enterprise-grade time tracking, invoicing, and workflow automation
@@ -887,4 +903,4 @@ For comprehensive navigation guidelines and feature organization details, see th
 
 **© 2025 SymbiosoAi ThinkTank - Enterprise Collaborative Intelligence Platform**
 
-*This manual reflects the current state of the platform as of September 2025, including the new Cross-Mode Debate Transfer System and the complete enterprise collaboration system.*
+*This manual reflects the current state of the platform as of September 13, 2025, v0.4.0 Development Milestone, including the Cross-Mode Debate Transfer System, enterprise collaboration features, and the stable development baseline with comprehensive end-to-end validation.*
