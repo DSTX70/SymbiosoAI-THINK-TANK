@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { storage } from "@server/storage";
+import { storage } from "../storage";
 import { 
   insertTutorialSchema, insertTutorialStepSchema, insertTutorialProgressSchema, 
   insertTutorialSettingsSchema, tutorialCategorySchema, tutorialStatusSchema
