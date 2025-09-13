@@ -4,3 +4,35 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Security: Session and authentication files
+cookies*.txt
+*.cookie
+session-data*
+test-cookies*
+auth-tokens*
+
+# Security: Environment and configuration files with potential secrets
+.env*
+!.env.example
+.environment
+secrets.json
+config/secrets.json
+
+# Security: Key and certificate files
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cert
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
+
+# Security: Temporary files that might contain sensitive data
+temp_*
+tmp_*
+debug.log
+*.dump

@@ -57,8 +57,7 @@ export function startDebateWorker() {
       }
 
       // Call actual AI service to run the debate
-      const result = await runMultiAgentDebate({
-        question: job.data.prompt,
+      const result = await runMultiAgentDebate(job.data.prompt, {
         mode: job.data.mode,
         rounds: job.data.mode === 'simple' ? 3 : job.data.mode === 'guided' ? 5 : 7,
         domain_expert: null,
@@ -100,8 +99,7 @@ export async function enqueueDebate(data: DebateJobData, opts: JobsOptions = {})
   if (!debateQueue) {
     // Fallback: run synchronously if no Redis
     const { runMultiAgentDebate } = await import('../ai-service');
-    const result = await runMultiAgentDebate({
-      question: data.prompt,
+    const result = await runMultiAgentDebate(data.prompt, {
       mode: data.mode,
       rounds: data.mode === 'simple' ? 3 : data.mode === 'guided' ? 5 : 7,
       domain_expert: null,
