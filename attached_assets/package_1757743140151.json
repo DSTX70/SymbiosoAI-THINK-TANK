@@ -1,0 +1,11 @@
+{
+  "name": "symbiosoai-sprint2-playwright",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@playwright/test": "^1.48.0"
+  },
+  "scripts": {
+    "test:ui": "playwright test"
+  }
+}

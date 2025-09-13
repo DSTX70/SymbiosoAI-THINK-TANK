@@ -1,0 +1,1 @@
+import React from 'react'; export default function DraftsManager(){return <div data-testid='drafts-manager'>Drafts</div>; }

@@ -1,0 +1,1 @@
+export async function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open('symbiosoai',1); r.onupgradeneeded=()=>{const db=r.result; if(!db.objectStoreNames.contains('drafts')) db.createObjectStore('drafts',{keyPath:'id'});}; r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);});}

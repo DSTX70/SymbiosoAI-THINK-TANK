@@ -1,0 +1,1 @@
+import { test, expect } from '@playwright/test'; test('Browse', async ({ page })=>{ await page.goto('/templates'); await expect(page.locator('[data-testid="templates-browse"]')).toBeVisible();});

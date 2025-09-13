@@ -1,0 +1,1 @@
+import React from 'react'; export default function TemplateDetail(){return <div data-testid='templates-detail'><button data-testid='use-template'>Use Template</button></div>}
