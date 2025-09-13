@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Brain, Save, Play, Lightbulb, Settings, Users, UserCheck, BookOpen, Briefcase, Zap } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import TelemetryPanel from "@/components/TelemetryPanel";
@@ -54,6 +55,7 @@ export default function ExpertPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [brainstormResults, setBrainstormResults] = useState<BrainstormResponse | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
@@ -88,6 +90,9 @@ export default function ExpertPage() {
 
       // Mark this template as selected
       setSelectedTemplateId(template.id);
+
+      // Close the modal
+      setIsTemplateModalOpen(false);
 
       toast({
         title: "Template Applied",
@@ -497,12 +502,11 @@ export default function ExpertPage() {
         {/* Center (fills remaining width) */}
         <section className="min-w-0 overflow-y-auto px-4 md:px-6 py-6">
           <Tabs defaultValue="analysis" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 gap-1">
+            <TabsList className="grid w-full grid-cols-5 gap-1">
               <TabsTrigger value="analysis" data-testid="tab-analysis">Analysis</TabsTrigger>
               <TabsTrigger value="ai-capabilities" data-testid="tab-ai-capabilities">AI Capabilities</TabsTrigger>
               <TabsTrigger value="integrations" data-testid="tab-integrations">Integrations</TabsTrigger>
               <TabsTrigger value="analytics" data-testid="tab-analytics">Analytics</TabsTrigger>
-              <TabsTrigger value="templates" data-testid="tab-templates">Templates</TabsTrigger>
               <TabsTrigger value="workspace" data-testid="tab-workspace">Workspace</TabsTrigger>
             </TabsList>
 
@@ -515,12 +519,24 @@ export default function ExpertPage() {
                       <Users className="text-primary" size={20} />
                       Agent Selection & Configuration
                     </div>
-                    <TutorialHelpButton 
-                      feature="expert-mode"
-                      variant="minimal"
-                      size="sm"
-                      data-testid="tutorial-help-expert"
-                    />
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsTemplateModalOpen(true)}
+                        data-testid="open-templates-modal"
+                        className="flex items-center gap-2"
+                      >
+                        <BookOpen size={16} />
+                        Templates
+                      </Button>
+                      <TutorialHelpButton 
+                        feature="expert-mode"
+                        variant="minimal"
+                        size="sm"
+                        data-testid="tutorial-help-expert"
+                      />
+                    </div>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -1016,18 +1032,6 @@ export default function ExpertPage() {
               )}
             </TabsContent>
 
-            <TabsContent value="templates" className="space-y-6">
-              <Card variant="elevated">
-                <CardContent className="p-6">
-                  <TemplateLibrary 
-                    onUseTemplate={handleUseTemplate}
-                    onPreviewTemplate={handlePreviewTemplate}
-                    selectedTemplateId={selectedTemplateId}
-                    onClearTemplate={handleClearTemplate}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
 
             <TabsContent value="workspace" className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1085,6 +1089,26 @@ export default function ExpertPage() {
           participantCount={participantCount}
         />
       )}
+
+      {/* Template Library Modal */}
+      <Dialog open={isTemplateModalOpen} onOpenChange={setIsTemplateModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpen size={20} />
+              Template Library
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto">
+            <TemplateLibrary 
+              onUseTemplate={handleUseTemplate}
+              onPreviewTemplate={handlePreviewTemplate}
+              selectedTemplateId={selectedTemplateId}
+              onClearTemplate={handleClearTemplate}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
       
       <Footer />
     </div>
