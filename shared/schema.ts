@@ -147,6 +147,105 @@ export const pushSubscriptions = pgTable("push_subscriptions", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// ============================================
+// TUTORIAL SYSTEM - Interactive User Guidance
+// ============================================
+
+// Tutorial definitions with steps and configuration
+export const tutorials = pgTable("tutorials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(), // Tutorial name (e.g. "Getting Started", "Expert Mode Guide")
+  description: text("description"), // Brief description of what tutorial covers
+  category: varchar("category").notNull(), // onboarding, feature, advanced, troubleshooting
+  targetFeature: varchar("target_feature"), // Which feature this tutorial covers (simple, guided, expert, templates, etc.)
+  targetUserLevel: varchar("target_user_level").notNull().default("beginner"), // beginner, intermediate, expert, all
+  isActive: boolean("is_active").default(true), // Whether tutorial is available
+  estimatedDuration: integer("estimated_duration"), // Estimated time in minutes
+  priority: integer("priority").default(0), // Display priority (higher = shown first)
+  triggerConditions: jsonb("trigger_conditions").default([]), // Conditions that trigger auto-start
+  completionRewards: jsonb("completion_rewards").default({}), // Badges, points, unlocks
+  metadata: jsonb("metadata").default({}), // Additional configuration
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("tutorials_category_idx").on(table.category),
+  index("tutorials_active_priority_idx").on(table.isActive, table.priority),
+  index("tutorials_feature_idx").on(table.targetFeature),
+]);
+
+// Individual tutorial steps with positioning and interactions
+export const tutorialSteps = pgTable("tutorial_steps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tutorialId: varchar("tutorial_id").notNull(), // Parent tutorial
+  stepNumber: integer("step_number").notNull(), // Order within tutorial
+  title: text("title").notNull(), // Step title
+  content: text("content").notNull(), // Step description/instructions
+  targetElement: varchar("target_element"), // CSS selector or data-testid for highlighting
+  targetPage: varchar("target_page"), // Page route this step appears on
+  position: varchar("position").default("bottom"), // tooltip position: top, bottom, left, right, center
+  stepType: varchar("step_type").notNull().default("tooltip"), // tooltip, modal, highlight, interaction, wait
+  interactionType: varchar("interaction_type"), // click, input, scroll, none
+  nextCondition: varchar("next_condition"), // Condition to proceed to next step
+  skipAllowed: boolean("skip_allowed").default(true), // Whether step can be skipped
+  autoAdvance: boolean("auto_advance").default(false), // Auto-proceed after interaction
+  delayMs: integer("delay_ms").default(0), // Delay before showing step
+  styling: jsonb("styling").default({}), // Custom CSS styles
+  validation: jsonb("validation").default({}), // Validation rules for interactions
+  metadata: jsonb("metadata").default({}), // Additional step configuration
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("tutorial_steps_tutorial_idx").on(table.tutorialId),
+  index("tutorial_steps_order_idx").on(table.tutorialId, table.stepNumber),
+  index("tutorial_steps_page_idx").on(table.targetPage),
+]);
+
+// User tutorial progress and completion tracking
+export const tutorialProgress = pgTable("tutorial_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(), // User taking tutorial
+  tutorialId: varchar("tutorial_id").notNull(), // Tutorial being taken
+  status: varchar("status").notNull().default("not_started"), // not_started, in_progress, completed, skipped, abandoned
+  currentStep: integer("current_step").default(1), // Current step number
+  completedSteps: jsonb("completed_steps").default([]), // Array of completed step numbers
+  skippedSteps: jsonb("skipped_steps").default([]), // Array of skipped step numbers
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  lastInteractionAt: timestamp("last_interaction_at").defaultNow(),
+  timeSpentMinutes: integer("time_spent_minutes").default(0), // Total time spent
+  helpRequestsCount: integer("help_requests_count").default(0), // Times user requested help
+  metadata: jsonb("metadata").default({}), // Progress analytics and notes
+}, (table) => [
+  index("tutorial_progress_user_idx").on(table.userId),
+  index("tutorial_progress_tutorial_idx").on(table.tutorialId),
+  index("tutorial_progress_status_idx").on(table.status),
+  index("tutorial_progress_user_tutorial_idx").on(table.userId, table.tutorialId),
+]);
+
+// User tutorial preferences and settings
+export const tutorialSettings = pgTable("tutorial_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(), // User these settings belong to
+  autoStartTutorials: boolean("auto_start_tutorials").default(true), // Auto-start relevant tutorials
+  showTooltips: boolean("show_tooltips").default(true), // Show contextual tooltips
+  tutorialSpeed: varchar("tutorial_speed").default("normal"), // slow, normal, fast
+  preferredPosition: varchar("preferred_position").default("bottom"), // Default tooltip position
+  disabledCategories: jsonb("disabled_categories").default([]), // Tutorial categories to skip
+  notificationPreferences: jsonb("notification_preferences").default({
+    completion_rewards: true,
+    progress_reminders: true,
+    new_tutorials: true
+  }),
+  lastDismissedTutorial: varchar("last_dismissed_tutorial"), // Last tutorial user dismissed
+  dismissedAt: timestamp("dismissed_at"),
+  experienceLevel: varchar("experience_level").default("beginner"), // User-set experience level
+  completedTutorialCount: integer("completed_tutorial_count").default(0), // Count of completed tutorials
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("tutorial_settings_user_idx").on(table.userId),
+]);
+
 
 // Zod schemas for data validation
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -229,14 +328,101 @@ export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions
   isActive: true,
 });
 
+// Tutorial system schemas
+export const insertTutorialSchema = createInsertSchema(tutorials).pick({
+  name: true,
+  description: true,
+  category: true,
+  targetFeature: true,
+  targetUserLevel: true,
+  isActive: true,
+  estimatedDuration: true,
+  priority: true,
+  triggerConditions: true,
+  completionRewards: true,
+  metadata: true,
+});
+
+export const insertTutorialStepSchema = createInsertSchema(tutorialSteps).pick({
+  tutorialId: true,
+  stepNumber: true,
+  title: true,
+  content: true,
+  targetElement: true,
+  targetPage: true,
+  position: true,
+  stepType: true,
+  interactionType: true,
+  nextCondition: true,
+  skipAllowed: true,
+  autoAdvance: true,
+  delayMs: true,
+  styling: true,
+  validation: true,
+  metadata: true,
+});
+
+export const insertTutorialProgressSchema = createInsertSchema(tutorialProgress).pick({
+  userId: true,
+  tutorialId: true,
+  status: true,
+  currentStep: true,
+  completedSteps: true,
+  skippedSteps: true,
+  startedAt: true,
+  completedAt: true,
+  timeSpentMinutes: true,
+  helpRequestsCount: true,
+  metadata: true,
+});
+
+export const insertTutorialSettingsSchema = createInsertSchema(tutorialSettings).pick({
+  userId: true,
+  autoStartTutorials: true,
+  showTooltips: true,
+  tutorialSpeed: true,
+  preferredPosition: true,
+  disabledCategories: true,
+  notificationPreferences: true,
+  experienceLevel: true,
+});
+
 // Template category validation
 export const templateCategorySchema = z.enum(["business", "technology", "education", "research"]);
+
+// Tutorial system validation schemas
+export const tutorialCategorySchema = z.enum(["onboarding", "feature", "advanced", "troubleshooting"]);
+export const tutorialUserLevelSchema = z.enum(["beginner", "intermediate", "expert", "all"]);
+export const tutorialStatusSchema = z.enum(["not_started", "in_progress", "completed", "skipped", "abandoned"]);
+export const tutorialStepTypeSchema = z.enum(["tooltip", "modal", "highlight", "interaction", "wait"]);
+export const tutorialPositionSchema = z.enum(["top", "bottom", "left", "right", "center"]);
+export const tutorialSpeedSchema = z.enum(["slow", "normal", "fast"]);
+export const interactionTypeSchema = z.enum(["click", "input", "scroll", "none"]);
 
 // Type definitions
 export type Template = typeof templates.$inferSelect;
 export type InsertTemplate = z.infer<typeof insertTemplateSchema>;
 export type PushSubscription = typeof pushSubscriptions.$inferSelect;
 export type InsertPushSubscription = z.infer<typeof insertPushSubscriptionSchema>;
+
+// Tutorial system types
+export type Tutorial = typeof tutorials.$inferSelect;
+export type InsertTutorial = z.infer<typeof insertTutorialSchema>;
+export type TutorialStep = typeof tutorialSteps.$inferSelect;
+export type InsertTutorialStep = z.infer<typeof insertTutorialStepSchema>;
+export type TutorialProgress = typeof tutorialProgress.$inferSelect;
+export type InsertTutorialProgress = z.infer<typeof insertTutorialProgressSchema>;
+export type TutorialSettings = typeof tutorialSettings.$inferSelect;
+export type InsertTutorialSettings = z.infer<typeof insertTutorialSettingsSchema>;
+
+// Tutorial enum types
+export type TutorialCategory = z.infer<typeof tutorialCategorySchema>;
+export type TutorialUserLevel = z.infer<typeof tutorialUserLevelSchema>;
+export type TutorialStatus = z.infer<typeof tutorialStatusSchema>;
+export type TutorialStepType = z.infer<typeof tutorialStepTypeSchema>;
+export type TutorialPosition = z.infer<typeof tutorialPositionSchema>;
+export type TutorialSpeed = z.infer<typeof tutorialSpeedSchema>;
+export type InteractionType = z.infer<typeof interactionTypeSchema>;
 
 // User preferences schema
 export const userPreferencesSchema = z.object({
