@@ -1,0 +1,1 @@
+import React from 'react'; export default function TemplateBrowse(){return <div data-testid='templates-browse'>Browse</div>;}

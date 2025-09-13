@@ -88,11 +88,12 @@ app.use((req, res, next) => {
   console.log("🚀 Starting Sprint 1 features...");
   startDebateWorker();
   
-  // Mount Sprint 1 routes
+  // Register main routes first (includes session setup)
+  const server = await registerRoutes(app);
+  
+  // Mount Sprint 1 routes AFTER session setup
   app.use('/api', debatesAsyncRouter);
   app.use('/api', exportRouter);
-  
-  const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

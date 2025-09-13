@@ -1,0 +1,1 @@
+import { Router } from 'express'; import webpush from 'web-push'; const r=Router(); r.post('/push/subscribe',(req,res)=>{return res.status(201).json({ok:true});}); export default r;

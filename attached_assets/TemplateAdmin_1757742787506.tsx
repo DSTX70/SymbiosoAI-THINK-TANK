@@ -1,0 +1,1 @@
+import React from 'react'; export default function TemplateAdmin(){return <div data-testid='templates-admin'>Admin</div>}

@@ -16,8 +16,8 @@ export function demoGate(req: Request, res: Response, next: NextFunction) {
  */
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   try {
-    // Check existing auth from our current system
-    if ((req as any).user || (req as any).session?.user) {
+    // Check existing auth from our current system (supports both patterns)
+    if ((req as any).user?.claims?.sub || (req as any).session?.user) {
       return next();
     }
     

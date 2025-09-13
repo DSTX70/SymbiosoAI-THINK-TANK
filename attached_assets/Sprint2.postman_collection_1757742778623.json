@@ -1,0 +1,81 @@
+{
+  "info": {
+    "name": "SymbiosoAi Sprint 2",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Push Subscribe",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/push/subscribe",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "push",
+            "subscribe"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"endpoint\": \"https://example.com/endpoint\", \"keys\": {\"p256dh\": \"abc\", \"auth\": \"xyz\"}}"
+        }
+      }
+    },
+    {
+      "name": "Webhook Test",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/webhooks/test",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "webhooks",
+            "test"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"event\": \"debate.completed\", \"payload\": {\"ok\": true}, \"endpointUrl\": \"https://webhook.site/your-id\"}"
+        }
+      }
+    },
+    {
+      "name": "Templates List",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/templates",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "templates"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
+  ]
+}
