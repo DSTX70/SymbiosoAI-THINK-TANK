@@ -1,16 +1,16 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-import { Tutorial, TutorialProgress, TutorialSettings } from './TutorialOverlay';
+import type { SelectTutorial, SelectTutorialProgress, SelectTutorialSettings } from '@shared/schema';
 
 interface TutorialContextType {
   // Tutorial data
-  tutorials: Tutorial[];
-  activeTutorials: Tutorial[];
-  recommendations: Tutorial[];
-  currentTutorial: Tutorial | null;
-  tutorialProgress: TutorialProgress[];
-  settings: TutorialSettings | null;
+  tutorials: SelectTutorial[];
+  activeTutorials: SelectTutorial[];
+  recommendations: SelectTutorial[];
+  currentTutorial: SelectTutorial | null;
+  tutorialProgress: SelectTutorialProgress[];
+  settings: SelectTutorialSettings | null;
   
   // Loading states
   isLoadingTutorials: boolean;
@@ -22,34 +22,17 @@ interface TutorialContextType {
   completeTutorial: (tutorialId: string, totalTimeSpent?: number) => Promise<void>;
   completeStep: (tutorialId: string, stepNumber: number, timeSpent?: number) => Promise<void>;
   skipTutorial: (tutorialId: string) => Promise<void>;
-  updateSettings: (updates: Partial<TutorialSettings>) => Promise<void>;
+  updateSettings: (updates: Partial<SelectTutorialSettings>) => Promise<void>;
   resetSettings: () => Promise<void>;
   
   // UI State
-  showTutorial: (tutorial: Tutorial) => void;
+  showTutorial: (tutorial: SelectTutorial) => void;
   hideTutorial: () => void;
   isTutorialVisible: boolean;
   
   // Utility functions
-  getTutorialProgress: (tutorialId: string) => TutorialProgress | undefined;
+  getTutorialProgress: (tutorialId: string) => SelectTutorialProgress | undefined;
   shouldShowTutorial: (tutorialId: string) => boolean;
-}
-
-interface TutorialSettings {
-  id?: string;
-  userId: string;
-  autoStartTutorials: boolean;
-  showTooltips: boolean;
-  tutorialSpeed: 'slow' | 'normal' | 'fast';
-  preferredPosition: 'top' | 'bottom' | 'left' | 'right' | 'center';
-  disabledCategories: string[];
-  notificationPreferences: {
-    completion_rewards: boolean;
-    progress_reminders: boolean;
-    new_tutorials: boolean;
-  };
-  experienceLevel: 'beginner' | 'intermediate' | 'expert';
-  completedTutorialCount: number;
 }
 
 const TutorialContext = createContext<TutorialContextType | undefined>(undefined);
@@ -67,7 +50,7 @@ interface TutorialProviderProps {
 }
 
 export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) => {
-  const [currentTutorial, setCurrentTutorial] = useState<Tutorial | null>(null);
+  const [currentTutorial, setCurrentTutorial] = useState<SelectTutorial | null>(null);
   const [isTutorialVisible, setIsTutorialVisible] = useState(false);
   const queryClient = useQueryClient();
   
@@ -156,7 +139,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
 
   // Update settings mutation
   const updateSettingsMutation = useMutation({
-    mutationFn: async (updates: Partial<TutorialSettings>) => {
+    mutationFn: async (updates: Partial<SelectTutorialSettings>) => {
       return apiRequest('/api/tutorials/settings/my', {
         method: 'PUT',
         body: JSON.stringify(updates),
@@ -195,7 +178,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
     }
   }, [settings, recommendations, currentTutorial]);
 
-  const getTutorialProgress = (tutorialId: string): TutorialProgress | undefined => {
+  const getTutorialProgress = (tutorialId: string): SelectTutorialProgress | undefined => {
     return tutorialProgress.find(p => p.tutorialId === tutorialId);
   };
 
@@ -216,7 +199,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
     return true;
   };
 
-  const showTutorial = (tutorial: Tutorial) => {
+  const showTutorial = (tutorial: SelectTutorial) => {
     setCurrentTutorial(tutorial);
     setIsTutorialVisible(true);
     if (!getTutorialProgress(tutorial.id)) {
@@ -251,7 +234,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
     hideTutorial();
   };
 
-  const updateSettings = async (updates: Partial<TutorialSettings>) => {
+  const updateSettings = async (updates: Partial<SelectTutorialSettings>) => {
     await updateSettingsMutation.mutateAsync(updates);
   };
 

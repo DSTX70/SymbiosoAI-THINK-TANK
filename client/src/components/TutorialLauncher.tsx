@@ -15,13 +15,13 @@ import {
 } from 'lucide-react';
 import { useTutorial } from './TutorialProvider';
 import { cn } from '@/lib/utils';
-import { Tutorial, TutorialProgress } from './TutorialOverlay';
+import type { SelectTutorial, SelectTutorialProgress } from '@shared/schema';
 
 interface TutorialCardProps {
-  tutorial: Tutorial;
-  progress?: TutorialProgress;
-  onStart: (tutorial: Tutorial) => void;
-  onResume: (tutorial: Tutorial) => void;
+  tutorial: SelectTutorial;
+  progress?: SelectTutorialProgress;
+  onStart: (tutorial: SelectTutorial) => void;
+  onResume: (tutorial: SelectTutorial) => void;
   className?: string;
 }
 
@@ -51,7 +51,8 @@ const TutorialCard: React.FC<TutorialCardProps> = ({
 
   const statusInfo = getStatusInfo();
   const completedSteps = progress?.completedSteps?.length || 0;
-  const totalSteps = tutorial.steps?.length || 0;
+  const steps = Array.isArray(tutorial.steps) ? tutorial.steps : [];
+  const totalSteps = steps.length;
   const progressPercentage = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
 
   const handleAction = () => {
@@ -315,11 +316,11 @@ export const TutorialLauncher: React.FC<TutorialLauncherProps> = ({ className })
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const handleStartTutorial = (tutorial: Tutorial) => {
+  const handleStartTutorial = (tutorial: SelectTutorial) => {
     showTutorial(tutorial);
   };
 
-  const handleResumeTutorial = (tutorial: Tutorial) => {
+  const handleResumeTutorial = (tutorial: SelectTutorial) => {
     showTutorial(tutorial);
   };
 

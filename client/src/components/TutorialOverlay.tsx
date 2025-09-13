@@ -5,53 +5,11 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { X, ChevronRight, ChevronLeft, SkipForward, HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-export interface TutorialStep {
-  id: string;
-  stepNumber: number;
-  title: string;
-  content: string;
-  targetElement?: string;
-  targetPage?: string;
-  position?: 'top' | 'bottom' | 'left' | 'right' | 'center';
-  stepType?: 'tooltip' | 'modal' | 'highlight' | 'interaction' | 'wait';
-  interactionType?: 'click' | 'input' | 'scroll' | 'none';
-  nextCondition?: string;
-  skipAllowed?: boolean;
-  autoAdvance?: boolean;
-  delayMs?: number;
-  styling?: Record<string, any>;
-  validation?: Record<string, any>;
-  metadata?: Record<string, any>;
-}
-
-export interface Tutorial {
-  id: string;
-  name: string;
-  description?: string;
-  category: string;
-  targetFeature?: string;
-  targetUserLevel: string;
-  estimatedDuration?: number;
-  priority?: number;
-  steps: TutorialStep[];
-  isActive: boolean;
-}
-
-export interface TutorialProgress {
-  id: string;
-  userId: string;
-  tutorialId: string;
-  status: 'not_started' | 'in_progress' | 'completed' | 'skipped' | 'abandoned';
-  currentStep: number;
-  completedSteps: number[];
-  skippedSteps: number[];
-  timeSpentMinutes?: number;
-}
+import type { SelectTutorial, SelectTutorialStep, SelectTutorialProgress } from '@shared/schema';
 
 interface TutorialOverlayProps {
-  tutorial: Tutorial;
-  progress?: TutorialProgress;
+  tutorial: SelectTutorial;
+  progress?: SelectTutorialProgress;
   isVisible: boolean;
   onComplete: (tutorialId: string, stepNumber?: number) => void;
   onSkip: (tutorialId: string) => void;
@@ -61,9 +19,9 @@ interface TutorialOverlayProps {
 }
 
 interface TutorialTooltipProps {
-  step: TutorialStep;
-  tutorial: Tutorial;
-  progress?: TutorialProgress;
+  step: SelectTutorialStep;
+  tutorial: SelectTutorial;
+  progress?: SelectTutorialProgress;
   onNext: () => void;
   onPrev: () => void;
   onSkip: () => void;
@@ -371,10 +329,11 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({
 
   if (!isVisible || !tutorial.steps.length) return null;
 
-  const currentStep = tutorial.steps[currentStepIndex];
+  const steps = Array.isArray(tutorial.steps) ? tutorial.steps : [];
+  const currentStep = steps[currentStepIndex];
   const canGoBack = currentStepIndex > 0;
-  const canGoNext = currentStepIndex < tutorial.steps.length - 1;
-  const isLastStep = currentStepIndex === tutorial.steps.length - 1;
+  const canGoNext = currentStepIndex < steps.length - 1;
+  const isLastStep = currentStepIndex === steps.length - 1;
 
   const handleNext = () => {
     const timeSpent = Math.floor((Date.now() - stepStartTime) / 60000); // Convert to minutes
@@ -416,7 +375,7 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({
         onClose={handleClose}
         canGoBack={canGoBack}
         canGoNext={true} // Allow next unless specifically disabled by step
-        totalSteps={tutorial.steps.length}
+        totalSteps={steps.length}
       />
     </div>
   );
