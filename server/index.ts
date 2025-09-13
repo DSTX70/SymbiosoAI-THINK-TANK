@@ -12,6 +12,7 @@ import exportRouter from "./routes/export";
 import pushRouter from "./routes/push";
 import webhooksRouter from "./routes/webhooks";
 import templatesRouter from "./routes/templates";
+import tutorialsRouter from "./routes/tutorials";
 // Sprint 2: Webhook delivery and observability
 import { startWebhookWorker } from "./services/webhookDelivery";
 import { initObservability } from "./services/observability";
@@ -113,6 +114,7 @@ app.use((req, res, next) => {
   app.use('/api', pushRouter);
   app.use('/api', webhooksRouter);
   app.use('/api', templatesRouter);
+  app.use('/api/tutorials', tutorialsRouter);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

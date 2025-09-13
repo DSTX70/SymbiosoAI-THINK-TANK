@@ -7,6 +7,9 @@ import {
   type SessionCode, type InsertSessionCode, type SessionParticipant, type InsertSessionParticipant,
   type ChatMessage, type InsertChatMessage,
   type PushSubscription, type InsertPushSubscription,
+  // Tutorial system types
+  type Tutorial, type InsertTutorial, type TutorialStep, type InsertTutorialStep,
+  type TutorialProgress, type InsertTutorialProgress, type TutorialSettings, type InsertTutorialSettings,
   // Enterprise types
   type Organization, type InsertOrganization, type OrganizationMember, type InsertOrganizationMember,
   type Team, type InsertTeam, type TeamMember, type InsertTeamMember,
@@ -18,6 +21,7 @@ import {
   type DebateRun, type InsertDebateRun, type ExportLog, type InsertExportLog,
   users, analysisSessions, workspaces, workspaceMembers, workspaceInvites, generatedReports,
   templates, sessionCodes, sessionParticipants, chatMessages, pushSubscriptions,
+  tutorials, tutorialSteps, tutorialProgress, tutorialSettings,
   organizations, organizationMembers, teams, teamMembers, auditLogs, securityEvents,
   usageMetrics, rateLimitRules, performanceMetrics, errorLogs, healthChecks,
   debateRuns, exportLogs
@@ -115,6 +119,43 @@ export interface IStorage {
   deletePushSubscription(id: string): Promise<boolean>;
   deletePushSubscriptionByEndpoint(endpoint: string, userId: string): Promise<boolean>;
   updatePushSubscription(id: string, updates: Partial<PushSubscription>): Promise<PushSubscription | undefined>;
+
+  // ============================================
+  // TUTORIAL SYSTEM - Interactive User Guidance
+  // ============================================
+  
+  // Tutorial management operations
+  createTutorial(tutorial: InsertTutorial): Promise<Tutorial>;
+  getTutorial(id: string): Promise<Tutorial | undefined>;
+  getAllTutorials(): Promise<Tutorial[]>;
+  getTutorialsByCategory(category: string): Promise<Tutorial[]>;
+  getActiveTutorials(): Promise<Tutorial[]>;
+  updateTutorial(id: string, updates: Partial<Tutorial>): Promise<Tutorial | undefined>;
+  deleteTutorial(id: string): Promise<boolean>;
+  
+  // Tutorial step management operations
+  createTutorialStep(step: InsertTutorialStep): Promise<TutorialStep>;
+  getTutorialStep(id: string): Promise<TutorialStep | undefined>;
+  getTutorialSteps(tutorialId: string): Promise<TutorialStep[]>;
+  updateTutorialStep(id: string, updates: Partial<TutorialStep>): Promise<TutorialStep | undefined>;
+  deleteTutorialStep(id: string): Promise<boolean>;
+  deleteTutorialSteps(tutorialId: string): Promise<boolean>;
+  
+  // Tutorial progress tracking operations
+  createTutorialProgress(progress: InsertTutorialProgress): Promise<TutorialProgress>;
+  getTutorialProgress(id: string): Promise<TutorialProgress | undefined>;
+  getUserTutorialProgress(userId: string, tutorialId: string): Promise<TutorialProgress | undefined>;
+  getUserAllTutorialProgress(userId: string): Promise<TutorialProgress[]>;
+  updateTutorialProgress(id: string, updates: Partial<TutorialProgress>): Promise<TutorialProgress | undefined>;
+  deleteTutorialProgress(id: string): Promise<boolean>;
+  markTutorialStepCompleted(userId: string, tutorialId: string, stepNumber: number): Promise<TutorialProgress | undefined>;
+  markTutorialCompleted(userId: string, tutorialId: string): Promise<TutorialProgress | undefined>;
+  
+  // Tutorial settings management operations
+  createTutorialSettings(settings: InsertTutorialSettings): Promise<TutorialSettings>;
+  getTutorialSettings(userId: string): Promise<TutorialSettings | undefined>;
+  updateTutorialSettings(userId: string, updates: Partial<TutorialSettings>): Promise<TutorialSettings | undefined>;
+  resetTutorialSettings(userId: string): Promise<TutorialSettings | undefined>;
 
   // ============================================
   // ENTERPRISE FEATURES - Organization Management
@@ -1537,6 +1578,244 @@ export class DatabaseStorage implements IStorage {
       .where(eq(pushSubscriptions.id, id))
       .returning();
     return pushSubscription || undefined;
+  }
+
+  // ============================================
+  // TUTORIAL SYSTEM IMPLEMENTATIONS
+  // ============================================
+  
+  // Tutorial management operations
+  async createTutorial(tutorial: InsertTutorial): Promise<Tutorial> {
+    const [newTutorial] = await db.insert(tutorials).values(tutorial).returning();
+    return newTutorial;
+  }
+
+  async getTutorial(id: string): Promise<Tutorial | undefined> {
+    const [tutorial] = await db.select().from(tutorials).where(eq(tutorials.id, id));
+    return tutorial || undefined;
+  }
+
+  async getAllTutorials(): Promise<Tutorial[]> {
+    return await db.select().from(tutorials).orderBy(tutorials.priority, tutorials.name);
+  }
+
+  async getTutorialsByCategory(category: string): Promise<Tutorial[]> {
+    return await db.select().from(tutorials)
+      .where(eq(tutorials.category, category))
+      .orderBy(tutorials.priority, tutorials.name);
+  }
+
+  async getActiveTutorials(): Promise<Tutorial[]> {
+    return await db.select().from(tutorials)
+      .where(eq(tutorials.isActive, true))
+      .orderBy(tutorials.priority, tutorials.name);
+  }
+
+  async updateTutorial(id: string, updates: Partial<Tutorial>): Promise<Tutorial | undefined> {
+    const [tutorial] = await db.update(tutorials)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(tutorials.id, id))
+      .returning();
+    return tutorial || undefined;
+  }
+
+  async deleteTutorial(id: string): Promise<boolean> {
+    // Delete all related tutorial steps first
+    await db.delete(tutorialSteps).where(eq(tutorialSteps.tutorialId, id));
+    
+    // Delete all related progress records
+    await db.delete(tutorialProgress).where(eq(tutorialProgress.tutorialId, id));
+    
+    // Finally delete the tutorial
+    const result = await db.delete(tutorials).where(eq(tutorials.id, id));
+    return result.rowCount !== undefined && result.rowCount > 0;
+  }
+  
+  // Tutorial step management operations
+  async createTutorialStep(step: InsertTutorialStep): Promise<TutorialStep> {
+    const [newStep] = await db.insert(tutorialSteps).values(step).returning();
+    return newStep;
+  }
+
+  async getTutorialStep(id: string): Promise<TutorialStep | undefined> {
+    const [step] = await db.select().from(tutorialSteps).where(eq(tutorialSteps.id, id));
+    return step || undefined;
+  }
+
+  async getTutorialSteps(tutorialId: string): Promise<TutorialStep[]> {
+    return await db.select().from(tutorialSteps)
+      .where(eq(tutorialSteps.tutorialId, tutorialId))
+      .orderBy(tutorialSteps.stepNumber);
+  }
+
+  async updateTutorialStep(id: string, updates: Partial<TutorialStep>): Promise<TutorialStep | undefined> {
+    const [step] = await db.update(tutorialSteps)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(tutorialSteps.id, id))
+      .returning();
+    return step || undefined;
+  }
+
+  async deleteTutorialStep(id: string): Promise<boolean> {
+    const result = await db.delete(tutorialSteps).where(eq(tutorialSteps.id, id));
+    return result.rowCount !== undefined && result.rowCount > 0;
+  }
+
+  async deleteTutorialSteps(tutorialId: string): Promise<boolean> {
+    const result = await db.delete(tutorialSteps).where(eq(tutorialSteps.tutorialId, tutorialId));
+    return result.rowCount !== undefined && result.rowCount > 0;
+  }
+  
+  // Tutorial progress tracking operations
+  async createTutorialProgress(progress: InsertTutorialProgress): Promise<TutorialProgress> {
+    const [newProgress] = await db.insert(tutorialProgress).values({
+      ...progress,
+      startedAt: new Date(),
+      lastInteractionAt: new Date()
+    }).returning();
+    return newProgress;
+  }
+
+  async getTutorialProgress(id: string): Promise<TutorialProgress | undefined> {
+    const [progress] = await db.select().from(tutorialProgress).where(eq(tutorialProgress.id, id));
+    return progress || undefined;
+  }
+
+  async getUserTutorialProgress(userId: string, tutorialId: string): Promise<TutorialProgress | undefined> {
+    const [progress] = await db.select().from(tutorialProgress)
+      .where(and(
+        eq(tutorialProgress.userId, userId),
+        eq(tutorialProgress.tutorialId, tutorialId)
+      ));
+    return progress || undefined;
+  }
+
+  async getUserAllTutorialProgress(userId: string): Promise<TutorialProgress[]> {
+    return await db.select().from(tutorialProgress)
+      .where(eq(tutorialProgress.userId, userId))
+      .orderBy(tutorialProgress.lastInteractionAt);
+  }
+
+  async updateTutorialProgress(id: string, updates: Partial<TutorialProgress>): Promise<TutorialProgress | undefined> {
+    const [progress] = await db.update(tutorialProgress)
+      .set({ ...updates, lastInteractionAt: new Date() })
+      .where(eq(tutorialProgress.id, id))
+      .returning();
+    return progress || undefined;
+  }
+
+  async deleteTutorialProgress(id: string): Promise<boolean> {
+    const result = await db.delete(tutorialProgress).where(eq(tutorialProgress.id, id));
+    return result.rowCount !== undefined && result.rowCount > 0;
+  }
+
+  async markTutorialStepCompleted(userId: string, tutorialId: string, stepNumber: number): Promise<TutorialProgress | undefined> {
+    // Get or create tutorial progress
+    let progress = await this.getUserTutorialProgress(userId, tutorialId);
+    
+    if (!progress) {
+      progress = await this.createTutorialProgress({
+        userId,
+        tutorialId,
+        status: 'in_progress',
+        currentStep: stepNumber,
+        completedSteps: [stepNumber],
+        skippedSteps: []
+      });
+    } else {
+      // Update progress
+      const completedSteps = Array.isArray(progress.completedSteps) 
+        ? [...progress.completedSteps] 
+        : [];
+      
+      if (!completedSteps.includes(stepNumber)) {
+        completedSteps.push(stepNumber);
+      }
+
+      progress = await this.updateTutorialProgress(progress.id, {
+        status: 'in_progress',
+        currentStep: stepNumber + 1, // Move to next step
+        completedSteps: completedSteps
+      });
+    }
+    
+    return progress;
+  }
+
+  async markTutorialCompleted(userId: string, tutorialId: string): Promise<TutorialProgress | undefined> {
+    let progress = await this.getUserTutorialProgress(userId, tutorialId);
+    
+    if (!progress) {
+      // Create completed progress if none exists
+      progress = await this.createTutorialProgress({
+        userId,
+        tutorialId,
+        status: 'completed',
+        completedAt: new Date()
+      });
+    } else {
+      // Mark as completed
+      progress = await this.updateTutorialProgress(progress.id, {
+        status: 'completed',
+        completedAt: new Date()
+      });
+    }
+
+    // Update user settings with completion count
+    const settings = await this.getTutorialSettings(userId);
+    if (settings) {
+      await this.updateTutorialSettings(userId, {
+        completedTutorialCount: (settings.completedTutorialCount || 0) + 1
+      });
+    }
+    
+    return progress;
+  }
+  
+  // Tutorial settings management operations
+  async createTutorialSettings(settings: InsertTutorialSettings): Promise<TutorialSettings> {
+    const [newSettings] = await db.insert(tutorialSettings).values(settings).returning();
+    return newSettings;
+  }
+
+  async getTutorialSettings(userId: string): Promise<TutorialSettings | undefined> {
+    const [settings] = await db.select().from(tutorialSettings).where(eq(tutorialSettings.userId, userId));
+    return settings || undefined;
+  }
+
+  async updateTutorialSettings(userId: string, updates: Partial<TutorialSettings>): Promise<TutorialSettings | undefined> {
+    // Try to update existing settings first
+    const [settings] = await db.update(tutorialSettings)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(tutorialSettings.userId, userId))
+      .returning();
+    
+    // If no settings exist, create them
+    if (!settings) {
+      return await this.createTutorialSettings({
+        userId,
+        ...updates as InsertTutorialSettings
+      });
+    }
+    
+    return settings;
+  }
+
+  async resetTutorialSettings(userId: string): Promise<TutorialSettings | undefined> {
+    // Reset to default settings
+    return await this.updateTutorialSettings(userId, {
+      autoStartTutorials: true,
+      showTooltips: true,
+      tutorialSpeed: 'normal',
+      preferredPosition: 'bottom',
+      disabledCategories: [],
+      notificationPreferences: {
+        completion_rewards: true,
+        progress_reminders: true,
+        new_tutorials: true
+      },
+      experienceLevel: 'beginner'
+    });
   }
 }
 
