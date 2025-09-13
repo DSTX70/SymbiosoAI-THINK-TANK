@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
@@ -1613,18 +1613,20 @@ Please build upon the previous discussion while addressing the new question.`
   app.get("/api/health", async (req: Request, res: Response) => {
     try {
       // const health = await performanceMonitor.getSystemHealth();
-      const health = { status: 'healthy', message: 'System monitoring temporarily disabled' };
+      const health = { 
+        status: 'healthy', 
+        message: 'System monitoring temporarily disabled',
+        uptime: process.uptime(),
+        version: process.env.npm_package_version || '1.0.0'
+      };
       
       // Set appropriate status code based on health
       const statusCode = health.status === 'healthy' ? 200 : 
                         health.status === 'warning' ? 200 : 503;
       
       res.status(statusCode).json({
-        status: health.status,
-        timestamp: new Date().toISOString(),
-        uptime: health.uptime,
-        version: process.env.npm_package_version || '1.0.0',
-        ...health
+        ...health,
+        timestamp: new Date().toISOString()
       });
     } catch (error: any) {
       console.error("Health check error:", error);
