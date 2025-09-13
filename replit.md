@@ -4,7 +4,20 @@
 
 SymbiosoAi ThinkTank is an enterprise-grade collaborative intelligence platform that leverages multiple AI agents to conduct structured debates and generate consensus-driven insights. The application provides three progressive complexity levels: **Simple** mode for quick analysis, **Guided** mode with intermediate configuration options, and **Expert** mode with comprehensive enterprise features including interactive fact-checking, visual journey mapping, template management, team collaboration capabilities, and advanced AI configuration options. The platform orchestrates debates between specialized AI agents (Analyst, Critic, Synthesizer, and Domain Expert) to produce well-reasoned conclusions, identify dissenting viewpoints, and highlight unresolved questions.
 
-## Recent Changes
+## Version History
+
+**September 13, 2025 - v0.4.0 Stable Baseline:**
+- 🏷️ **DEVELOPMENT MILESTONE**: Core platform functionality validated for development use
+- ✅ **LSP Error Resolution**: Fixed 5 TypeScript errors in server/routes.ts (Request/Response imports, health object structure)
+- ✅ **End-to-End Smoke Tests**: Core flow validation (auth → debate → brainstorm → report) completed successfully via Playwright
+- ✅ **Authentication System**: Demo login (demo/demo123) and OAuth working with session persistence
+- ✅ **Multi-Agent AI System**: Debate orchestration functional with structured consensus outputs from OpenAI API
+- ✅ **Brainstorming Integration**: Standalone and session-based brainstorming operational
+- ✅ **Report System**: Basic report generation and file export working (File System Access API in supported browsers)
+- ✅ **Code Quality**: TypeScript compilation clean, core error handling implemented
+- ⚠️ **Enterprise Features**: Security middleware, rate limiting, and performance monitoring currently disabled/stubbed
+- ⚠️ **Persistence**: Mixed storage approach - sessions use PostgreSQL, some features use in-memory storage
+- 📝 **Known Limitations**: Performance metrics not actively monitored, enterprise security features require activation
 
 **September 2025 - Authentication System Overhaul & UI Improvements:**
 - ✅ **Complete Authentication System Fix**: Resolved critical login visibility issues where users couldn't access login buttons
