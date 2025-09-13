@@ -53,6 +53,7 @@ export default function ExpertPage() {
   const [transferSessionId, setTransferSessionId] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [brainstormResults, setBrainstormResults] = useState<BrainstormResponse | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
@@ -85,6 +86,9 @@ export default function ExpertPage() {
         }
       }));
 
+      // Mark this template as selected
+      setSelectedTemplateId(template.id);
+
       toast({
         title: "Template Applied",
         description: `"${template.title}" template has been applied to your analysis configuration.`
@@ -96,6 +100,15 @@ export default function ExpertPage() {
         variant: "destructive"
       });
     }
+  };
+
+  // Clear template handler
+  const handleClearTemplate = () => {
+    setSelectedTemplateId(null);
+    toast({
+      title: "Template Cleared",
+      description: "Template selection has been cleared. Your current configuration remains unchanged."
+    });
   };
 
   const handlePreviewTemplate = (template: any) => {
@@ -1009,6 +1022,8 @@ export default function ExpertPage() {
                   <TemplateLibrary 
                     onUseTemplate={handleUseTemplate}
                     onPreviewTemplate={handlePreviewTemplate}
+                    selectedTemplateId={selectedTemplateId}
+                    onClearTemplate={handleClearTemplate}
                   />
                 </CardContent>
               </Card>

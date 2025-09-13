@@ -44,6 +44,8 @@ interface Template {
 interface TemplateLibraryProps {
   onUseTemplate?: (template: Template) => void;
   onPreviewTemplate?: (template: Template) => void;
+  selectedTemplateId?: string | null;
+  onClearTemplate?: () => void;
 }
 
 const sampleTemplates: Template[] = [
@@ -183,7 +185,12 @@ const categoryColors = {
   research: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300"
 };
 
-export function TemplateLibrary({ onUseTemplate, onPreviewTemplate }: TemplateLibraryProps = {}) {
+export function TemplateLibrary({ 
+  onUseTemplate, 
+  onPreviewTemplate, 
+  selectedTemplateId, 
+  onClearTemplate 
+}: TemplateLibraryProps = {}) {
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -312,14 +319,26 @@ export function TemplateLibrary({ onUseTemplate, onPreviewTemplate }: TemplateLi
                       </div>
 
                       <div className="flex gap-2 pt-2">
-                        <Button 
-                          size="sm" 
-                          className="flex-1"
-                          onClick={() => handleUseTemplate(template)}
-                          data-testid={`use-template-${template.id}`}
-                        >
-                          Use Template
-                        </Button>
+                        {selectedTemplateId === template.id ? (
+                          <Button 
+                            size="sm" 
+                            variant="secondary"
+                            className="flex-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300 border-green-300 dark:border-green-700"
+                            onClick={() => onClearTemplate?.()}
+                            data-testid={`clear-template-${template.id}`}
+                          >
+                            ✓ Template Active
+                          </Button>
+                        ) : (
+                          <Button 
+                            size="sm" 
+                            className="flex-1"
+                            onClick={() => handleUseTemplate(template)}
+                            data-testid={`use-template-${template.id}`}
+                          >
+                            Use Template
+                          </Button>
+                        )}
                         <Button 
                           variant="outline" 
                           size="sm"
