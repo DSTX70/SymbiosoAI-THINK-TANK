@@ -56,6 +56,55 @@ export default function ExpertPage() {
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
+  // Template usage handler
+  const handleUseTemplate = (template: any) => {
+    try {
+      // Update prompt with template prompt
+      setPrompt(template.config.prompt);
+      
+      // Update agent selection
+      setSelectionMode("manual");
+      setManualAgents(template.config.agents as any);
+      setDomainExperts(template.config.domainExperts as any);
+      
+      // Update configuration
+      setConfiguration(prev => ({
+        ...prev,
+        frameworks: [template.config.reasoningFramework],
+        max_steps: template.config.debateRounds,
+        selection_mode: "manual",
+        manual_agents: template.config.agents as any,
+        domain_experts: template.config.domainExperts as any,
+        advanced_fact_check: {
+          ...prev.advanced_fact_check,
+          verificationDepth: template.config.enableFactCheck ? "comprehensive" : "standard"
+        },
+        rag_config: {
+          ...prev.rag_config,
+          webSearch: template.config.enableLiveWeb
+        }
+      }));
+
+      toast({
+        title: "Template Applied",
+        description: `"${template.title}" template has been applied to your analysis configuration.`
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to apply template configuration.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handlePreviewTemplate = (template: any) => {
+    toast({
+      title: "Template Preview",
+      description: `Preview: ${template.description}\n\nAgents: ${template.config.agents.join(", ")}\nFramework: ${template.config.reasoningFramework}`
+    });
+  };
+
   // Agent Selection State (for UI display)
   const [selectionMode, setSelectionMode] = useState<"smart" | "manual" | "domain" | "usecase">("smart");
   const [manualAgents, setManualAgents] = useState<("analyst" | "pragmatist" | "innovator" | "thoughtful" | "critic")[]>([]);
@@ -957,7 +1006,10 @@ export default function ExpertPage() {
             <TabsContent value="templates" className="space-y-6">
               <Card variant="elevated">
                 <CardContent className="p-6">
-                  <TemplateLibrary />
+                  <TemplateLibrary 
+                    onUseTemplate={handleUseTemplate}
+                    onPreviewTemplate={handlePreviewTemplate}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>

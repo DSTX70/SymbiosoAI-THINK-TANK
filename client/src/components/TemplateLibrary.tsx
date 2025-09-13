@@ -29,6 +29,21 @@ interface Template {
   uses: number;
   complexity: "low" | "medium" | "high";
   tags: string[];
+  config: {
+    prompt: string;
+    agents: string[];
+    domainExperts: string[];
+    reasoningFramework: string;
+    debateRounds: number;
+    requireCitations: boolean;
+    enableFactCheck: boolean;
+    enableLiveWeb: boolean;
+  };
+}
+
+interface TemplateLibraryProps {
+  onUseTemplate?: (template: Template) => void;
+  onPreviewTemplate?: (template: Template) => void;
 }
 
 const sampleTemplates: Template[] = [
@@ -40,7 +55,17 @@ const sampleTemplates: Template[] = [
     rating: 4.8,
     uses: 245,
     complexity: "high",
-    tags: ["strategy", "market-analysis", "competition"]
+    tags: ["strategy", "market-analysis", "competition"],
+    config: {
+      prompt: "Analyze the business strategy and competitive positioning of [Company/Industry]. Consider market dynamics, competitive advantages, potential risks, and strategic recommendations for growth.",
+      agents: ["analyst", "pragmatist", "critic"],
+      domainExperts: ["financial-analyst", "brand-strategist"],
+      reasoningFramework: "strategic_thinking",
+      debateRounds: 6,
+      requireCitations: true,
+      enableFactCheck: true,
+      enableLiveWeb: true
+    }
   },
   {
     id: "technical-architecture",
@@ -50,7 +75,17 @@ const sampleTemplates: Template[] = [
     rating: 4.6,
     uses: 189,
     complexity: "high",
-    tags: ["architecture", "engineering", "systems"]
+    tags: ["architecture", "engineering", "systems"],
+    config: {
+      prompt: "Review the technical architecture of [System/Application]. Evaluate scalability, security, maintainability, and performance. Identify potential improvements and architectural trade-offs.",
+      agents: ["analyst", "critic", "thoughtful"],
+      domainExperts: ["tech-architect", "devops-engineer"],
+      reasoningFramework: "systems_thinking",
+      debateRounds: 7,
+      requireCitations: false,
+      enableFactCheck: false,
+      enableLiveWeb: false
+    }
   },
   {
     id: "market-research",
@@ -60,7 +95,17 @@ const sampleTemplates: Template[] = [
     rating: 4.7,
     uses: 156,
     complexity: "medium",
-    tags: ["research", "market", "insights"]
+    tags: ["research", "market", "insights"],
+    config: {
+      prompt: "Conduct comprehensive market research for [Product/Service/Market]. Analyze target demographics, market size, competitive landscape, pricing strategies, and consumer behavior patterns.",
+      agents: ["analyst", "pragmatist", "innovator"],
+      domainExperts: ["research-scientist"],
+      reasoningFramework: "analytical_framework",
+      debateRounds: 5,
+      requireCitations: true,
+      enableFactCheck: true,
+      enableLiveWeb: true
+    }
   },
   {
     id: "ai-ethics",
@@ -70,7 +115,17 @@ const sampleTemplates: Template[] = [
     rating: 4.9,
     uses: 98,
     complexity: "high",
-    tags: ["ai", "ethics", "philosophy"]
+    tags: ["ai", "ethics", "philosophy"],
+    config: {
+      prompt: "Examine the ethical implications of [AI Technology/Application]. Consider bias, fairness, privacy, transparency, accountability, and societal impact. Provide balanced perspectives on responsible AI development.",
+      agents: ["thoughtful", "critic", "analyst"],
+      domainExperts: ["behavioral-analyst"],
+      reasoningFramework: "ethical_framework",
+      debateRounds: 8,
+      requireCitations: true,
+      enableFactCheck: true,
+      enableLiveWeb: false
+    }
   },
   {
     id: "product-launch",
@@ -80,7 +135,17 @@ const sampleTemplates: Template[] = [
     rating: 4.5,
     uses: 203,
     complexity: "medium",
-    tags: ["product", "launch", "strategy"]
+    tags: ["product", "launch", "strategy"],
+    config: {
+      prompt: "Develop a comprehensive product launch strategy for [Product]. Consider target market, pricing, distribution channels, marketing campaigns, competitive positioning, and success metrics.",
+      agents: ["innovator", "pragmatist", "analyst"],
+      domainExperts: ["brand-strategist"],
+      reasoningFramework: "strategic_thinking",
+      debateRounds: 5,
+      requireCitations: false,
+      enableFactCheck: true,
+      enableLiveWeb: true
+    }
   },
   {
     id: "security-audit",
@@ -90,7 +155,17 @@ const sampleTemplates: Template[] = [
     rating: 4.8,
     uses: 134,
     complexity: "high",
-    tags: ["security", "audit", "risk"]
+    tags: ["security", "audit", "risk"],
+    config: {
+      prompt: "Conduct a comprehensive security assessment of [System/Application/Infrastructure]. Identify vulnerabilities, assess risk levels, and recommend security improvements and best practices.",
+      agents: ["critic", "analyst", "thoughtful"],
+      domainExperts: ["tech-architect"],
+      reasoningFramework: "risk_assessment",
+      debateRounds: 6,
+      requireCitations: false,
+      enableFactCheck: false,
+      enableLiveWeb: false
+    }
   }
 ];
 
@@ -108,7 +183,7 @@ const categoryColors = {
   research: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300"
 };
 
-export function TemplateLibrary() {
+export function TemplateLibrary({ onUseTemplate, onPreviewTemplate }: TemplateLibraryProps = {}) {
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -121,13 +196,19 @@ export function TemplateLibrary() {
   });
 
   const handleUseTemplate = (template: Template) => {
-    console.log("Using template:", template.title);
-    // TODO: Implement template usage logic
+    if (onUseTemplate) {
+      onUseTemplate(template);
+    } else {
+      console.log("Using template:", template.title, template.config);
+    }
   };
 
   const handlePreviewTemplate = (template: Template) => {
-    console.log("Previewing template:", template.title);
-    // TODO: Implement template preview logic
+    if (onPreviewTemplate) {
+      onPreviewTemplate(template);
+    } else {
+      console.log("Previewing template:", template.title, template.config);
+    }
   };
 
   return (
