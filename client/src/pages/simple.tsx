@@ -279,7 +279,7 @@ export default function SimplePage() {
                   onClick={handleSubmit}
                   disabled={thinkMutation.isPending || isStreaming}
                   variant="primary" className="flex items-center gap-2"
-                  data-testid="button-start-thinking"
+                  data-testid="run-debate"
                 >
                   {(thinkMutation.isPending || isStreaming) ? (
                     <>

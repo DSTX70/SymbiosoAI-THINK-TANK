@@ -76,7 +76,7 @@ export default function ExportDLPGuard({ filename, payload, children, className 
       </Button>
       
       {error && (
-        <Alert variant="destructive" data-testid="export-error">
+        <Alert variant="destructive" data-testid="dlp-error">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription className="text-sm">
             {error}
