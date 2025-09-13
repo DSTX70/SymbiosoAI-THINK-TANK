@@ -1,0 +1,1 @@
+export function policyEnforcer(){ return (_req,_res,next)=>next(); }
