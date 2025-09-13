@@ -1,0 +1,19 @@
+{
+  "name": "symbiosoai-sprint1-tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test:sprint1": "jest --runInBand --testTimeout=45000",
+    "postman": "newman run postman/Sprint1.postman_collection.json --env-var baseUrl=$BASE_URL",
+    "test:api": "jest tests/*.test.js --runInBand --testTimeout=45000"
+  },
+  "dependencies": {
+    "eventsource": "^2.0.2",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "newman": "^6.2.1"
+  }
+}

@@ -12,10 +12,13 @@ import {
   type UsageMetric, type InsertUsageMetric, type RateLimitRule, type InsertRateLimitRule,
   type PerformanceMetric, type InsertPerformanceMetric, type ErrorLog, type InsertErrorLog,
   type HealthCheck, type InsertHealthCheck,
+  // Sprint 1 types
+  type DebateRun, type InsertDebateRun, type ExportLog, type InsertExportLog,
   users, analysisSessions, workspaces, workspaceMembers, workspaceInvites, generatedReports,
   sessionCodes, sessionParticipants, chatMessages,
   organizations, organizationMembers, teams, teamMembers, auditLogs, securityEvents,
-  usageMetrics, rateLimitRules, performanceMetrics, errorLogs, healthChecks
+  usageMetrics, rateLimitRules, performanceMetrics, errorLogs, healthChecks,
+  debateRuns, exportLogs
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { Pool, neonConfig } from '@neondatabase/serverless';
@@ -168,6 +171,19 @@ export interface IStorage {
   recordHealthCheck(check: InsertHealthCheck): Promise<HealthCheck>;
   getHealthChecks(serviceName?: string): Promise<HealthCheck[]>;
   getLatestHealthStatus(): Promise<{ [serviceName: string]: HealthCheck }>;
+
+  // ============================================
+  // SPRINT 1 - Async Processing & Export Tracking
+  // ============================================
+  
+  // Debate run tracking
+  createDebateRun(run: InsertDebateRun): Promise<DebateRun>;
+  getDebateRun(id: string): Promise<DebateRun | undefined>;
+  updateDebateRunStatus(id: string, status: string, completedAt?: Date): Promise<DebateRun | undefined>;
+  
+  // Export logging
+  createExportLog(log: InsertExportLog): Promise<ExportLog>;
+  getExportLogs(userId?: string, workspaceId?: string): Promise<ExportLog[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -1409,6 +1425,56 @@ export class DatabaseStorage implements IStorage {
     }
     
     return latest;
+  }
+
+  // ============================================
+  // SPRINT 1 - Async Processing & Export Tracking Implementation
+  // ============================================
+  
+  async createDebateRun(run: InsertDebateRun): Promise<DebateRun> {
+    const [debateRun] = await db.insert(debateRuns).values(run).returning();
+    return debateRun;
+  }
+
+  async getDebateRun(id: string): Promise<DebateRun | undefined> {
+    const [debateRun] = await db.select().from(debateRuns).where(eq(debateRuns.id, id));
+    return debateRun || undefined;
+  }
+
+  async updateDebateRunStatus(id: string, status: string, completedAt?: Date): Promise<DebateRun | undefined> {
+    const updateData: any = { status };
+    if (completedAt) {
+      updateData.completedAt = completedAt;
+    }
+    
+    const [debateRun] = await db.update(debateRuns)
+      .set(updateData)
+      .where(eq(debateRuns.id, id))
+      .returning();
+    return debateRun || undefined;
+  }
+
+  async createExportLog(log: InsertExportLog): Promise<ExportLog> {
+    const [exportLog] = await db.insert(exportLogs).values(log).returning();
+    return exportLog;
+  }
+
+  async getExportLogs(userId?: string, workspaceId?: string): Promise<ExportLog[]> {
+    let query = db.select().from(exportLogs);
+    
+    const conditions = [];
+    if (userId) {
+      conditions.push(eq(exportLogs.userId, userId));
+    }
+    if (workspaceId) {
+      conditions.push(eq(exportLogs.workspaceId, workspaceId));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(sql`${conditions.join(' AND ')}`);
+    }
+    
+    return await query.orderBy(exportLogs.createdAt);
   }
 }
 

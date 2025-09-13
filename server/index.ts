@@ -3,6 +3,11 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { ResponseCache } from "./middleware/responseCache";
 import { PerformanceMonitor } from "./middleware/monitoring";
+import helmet from "helmet";
+import { demoGate } from "./middleware/auth";
+import { startDebateWorker } from "./queue/queue";
+import debatesAsyncRouter from "./routes/debates-async";
+import exportRouter from "./routes/export";
 
 // Set BYPASS_AUTH for development testing - commented out to show login flow
 // if (process.env.NODE_ENV === 'development') {
@@ -11,6 +16,21 @@ import { PerformanceMonitor } from "./middleware/monitoring";
 // }
 
 const app = express();
+
+// Sprint 1: Security headers and demo gate
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'", "ws:", "wss:"]
+    }
+  }
+}));
+app.use(demoGate);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -64,6 +84,14 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Sprint 1: Start the debate worker
+  console.log("🚀 Starting Sprint 1 features...");
+  startDebateWorker();
+  
+  // Mount Sprint 1 routes
+  app.use('/api', debatesAsyncRouter);
+  app.use('/api', exportRouter);
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

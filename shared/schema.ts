@@ -1309,6 +1309,46 @@ export const insertWorkflowInstanceSchema = createInsertSchema(workflowInstances
 });
 
 // ============================================
+// SPRINT 1 - Async Job Processing & Export Tracking
+// ============================================
+
+// Track async debate processing jobs
+export const debateRuns = pgTable("debate_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull(),
+  mode: varchar("mode").notNull(), // simple, guided, expert
+  status: varchar("status").notNull().default("running"), // running, completed, failed
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+// Track export operations and DLP violations
+export const exportLogs = pgTable("export_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id"),
+  workspaceId: varchar("workspace_id"),
+  filename: text("filename"),
+  dlpHits: text("dlp_hits"), // JSON string of DLP pattern matches
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Zod schemas for Sprint 1 tables
+export const insertDebateRunSchema = createInsertSchema(debateRuns).pick({
+  sessionId: true,
+  mode: true,
+  status: true,
+  startedAt: true,
+  completedAt: true,
+});
+
+export const insertExportLogSchema = createInsertSchema(exportLogs).pick({
+  userId: true,
+  workspaceId: true,
+  filename: true,
+  dlpHits: true,
+});
+
+// ============================================
 // PHASE 3 AUTOMATION - Type Definitions  
 // ============================================
 
@@ -1324,6 +1364,12 @@ export type WorkflowTemplate = typeof workflowTemplates.$inferSelect;
 export type InsertWorkflowTemplate = z.infer<typeof insertWorkflowTemplateSchema>;
 export type WorkflowInstance = typeof workflowInstances.$inferSelect;
 export type InsertWorkflowInstance = z.infer<typeof insertWorkflowInstanceSchema>;
+
+// Sprint 1 types
+export type DebateRun = typeof debateRuns.$inferSelect;
+export type InsertDebateRun = z.infer<typeof insertDebateRunSchema>;
+export type ExportLog = typeof exportLogs.$inferSelect;
+export type InsertExportLog = z.infer<typeof insertExportLogSchema>;
 
 // Settings types
 export type OrganizationSettings = z.infer<typeof organizationSettingsSchema>;

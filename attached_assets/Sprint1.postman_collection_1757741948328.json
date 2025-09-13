@@ -1,0 +1,85 @@
+{
+  "info": {
+    "name": "SymbiosoAi Sprint 1",
+    "_postman_id": "sprint1-collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Enqueue debate",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/debates",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "debates"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"sessionId\": \"abc\", \"mode\": \"guided\", \"prompt\": \"Test prompt\"}"
+        }
+      }
+    },
+    {
+      "name": "Stream progress (SSE)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/debates/:jobId/stream",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "debates",
+            ":jobId",
+            "stream"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Export (DLP check)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/export",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "export"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"filename\": \"decision.txt\", \"content\": \"hello world\"}"
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
+  ]
+}
