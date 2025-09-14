@@ -2,16 +2,24 @@ import { Queue, Worker, QueueEvents, JobsOptions } from 'bullmq';
 import IORedis from 'ioredis';
 
 const redisUrl = process.env.REDIS_URL;
-if (!redisUrl) {
-  console.warn("REDIS_URL is not set, using memory fallback for development");
-}
 
-// Create Redis connection with fallback for development
-const connection = redisUrl ? new IORedis(redisUrl, {
-  maxRetriesPerRequest: null,
-  enableReadyCheck: false,
-  ...(process.env.REDIS_PASSWORD ? { password: process.env.REDIS_PASSWORD } : {})
-}) : null;
+// Create Redis connection only if REDIS_URL is provided
+let connection = null;
+if (redisUrl) {
+  try {
+    connection = new IORedis(redisUrl, {
+      maxRetriesPerRequest: null,
+      enableReadyCheck: false,
+      ...(process.env.REDIS_PASSWORD ? { password: process.env.REDIS_PASSWORD } : {})
+    });
+    console.log("✅ Redis connection established for queue system");
+  } catch (error) {
+    console.error("❌ Failed to connect to Redis:", error);
+    connection = null;
+  }
+} else {
+  console.log("⚠️ REDIS_URL is not set, using synchronous processing for development");
+}
 
 export type DebateJobData = {
   sessionId: string;

@@ -1,0 +1,1 @@
+// debates route stub

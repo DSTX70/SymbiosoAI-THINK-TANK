@@ -2,16 +2,27 @@ import { Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { storage } from '../storage';
 
-// Create Redis connection for the dunning queue
-const connection = new IORedis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  maxRetriesPerRequest: 3,
-  retryDelayOnFailover: 100,
-  enableReadyCheck: false,
-  lazyConnect: true
-});
+// Create Redis connection only if REDIS_URL is available
+let connection: IORedis | null = null;
+if (process.env.REDIS_URL) {
+  try {
+    connection = new IORedis(process.env.REDIS_URL, {
+      maxRetriesPerRequest: null, // Required for BullMQ
+      retryDelayOnFailover: 100,
+      enableReadyCheck: false,
+      lazyConnect: true
+    });
+    console.log('✅ [dunningWorker] Redis connection established');
+  } catch (error) {
+    console.error('❌ [dunningWorker] Failed to connect to Redis:', error);
+    connection = null;
+  }
+} else {
+  console.log('⚠️ [dunningWorker] REDIS_URL not set, using synchronous processing for development');
+}
 
-// Export the dunning queue for adding jobs
-export const dunningQueue = new Queue('billing-dunning', { 
+// Export the dunning queue for adding jobs (null if no Redis)
+export const dunningQueue = connection ? new Queue('billing-dunning', { 
   connection,
   defaultJobOptions: {
     removeOnComplete: 50,
@@ -22,13 +33,18 @@ export const dunningQueue = new Queue('billing-dunning', {
       delay: 2000,
     }
   }
-});
+}) : null;
 
 /**
  * Start the dunning worker for automated billing notifications
  */
 export function startDunningWorker() {
   console.log('🚀 Starting dunning worker...');
+  
+  if (!connection || !dunningQueue) {
+    console.log('⚠️ [dunningWorker] Redis not available, running in synchronous mode for development');
+    return null;
+  }
   
   const worker = new Worker('billing-dunning', async (job) => {
     const { orgId, invoiceId, daysPastDue } = job.data || {};

@@ -1,0 +1,1 @@
+// queue worker stub (see full handoff for real code)

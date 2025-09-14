@@ -149,7 +149,54 @@ export async function setupAuth(app: Express) {
   }
 
   passport.serializeUser((user: Express.User, cb) => cb(null, user));
-  passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+  passport.deserializeUser(async (sessionData: any, cb) => {
+    try {
+      // If we have session data with claims, try to load the current user from database
+      if (sessionData && sessionData.claims && sessionData.claims.sub) {
+        const userId = sessionData.claims.sub;
+        console.log("🔄 Deserializing user session for ID:", userId);
+        
+        // Load current user data from database
+        let user = await storage.getUser(userId);
+        
+        // If user doesn't exist in database, auto-provision from claims
+        if (!user) {
+          console.log("🔄 Auto-provisioning user during session deserialization");
+          try {
+            user = await storage.upsertUser({
+              id: sessionData.claims.sub,
+              email: sessionData.claims.email,
+              firstName: sessionData.claims.first_name,
+              lastName: sessionData.claims.last_name,
+              profileImageUrl: sessionData.claims.profile_image_url,
+            });
+            console.log("✅ User auto-provisioned during deserialization:", user.id);
+          } catch (error) {
+            console.error("❌ Failed to auto-provision user during deserialization:", error);
+            return cb(error, null);
+          }
+        }
+        
+        // Attach the fresh user data and preserve session tokens
+        const enhancedUser = {
+          ...user,
+          claims: sessionData.claims,
+          access_token: sessionData.access_token,
+          refresh_token: sessionData.refresh_token,
+          expires_at: sessionData.expires_at
+        };
+        
+        console.log("✅ Session deserialized successfully for user:", user.id);
+        return cb(null, enhancedUser);
+      }
+      
+      // Fallback to original behavior if no claims found
+      cb(null, sessionData);
+    } catch (error) {
+      console.error("❌ Session deserialization error:", error);
+      cb(error, null);
+    }
+  });
 
   app.get("/api/login", (req, res, next) => {
     // Use the configured domain for OAuth consistency

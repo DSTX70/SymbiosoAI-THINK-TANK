@@ -61,25 +61,37 @@ async function testRedisAvailability(): Promise<boolean> {
 async function initializeRedisQueue(): Promise<void> {
   if (connection && webhookQueue) return;
 
-  connection = new IORedis(process.env.REDIS_URL || {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379', 10),
-    maxRetriesPerRequest: null,
-    retryDelayOnFailover: 100,
-    lazyConnect: true
-  });
-
-  connection.on('error', (err) => {
-    console.warn('[webhookDelivery] Redis connection error:', err.message);
+  // Only create connection if REDIS_URL is actually set
+  if (!process.env.REDIS_URL) {
+    console.log('⚠️ [webhookDelivery] REDIS_URL not set, Redis queue not initialized');
     redisState = RedisState.UNAVAILABLE;
-  });
+    return;
+  }
 
-  connection.on('connect', () => {
-    console.log('✅ [webhookDelivery] Redis connected');
-    redisState = RedisState.AVAILABLE;
-  });
+  try {
+    connection = new IORedis(process.env.REDIS_URL, {
+      maxRetriesPerRequest: null,
+      retryDelayOnFailover: 100,
+      lazyConnect: true
+    });
 
-  webhookQueue = new Queue<WebhookJob>('webhook-delivery', { connection });
+    connection.on('error', (err) => {
+      console.warn('[webhookDelivery] Redis connection error:', err.message);
+      redisState = RedisState.UNAVAILABLE;
+    });
+
+    connection.on('connect', () => {
+      console.log('✅ [webhookDelivery] Redis connected');
+      redisState = RedisState.AVAILABLE;
+    });
+
+    webhookQueue = new Queue<WebhookJob>('webhook-delivery', { connection });
+    console.log('✅ [webhookDelivery] Redis queue initialized');
+  } catch (error) {
+    console.error('❌ [webhookDelivery] Failed to initialize Redis queue:', error);
+    connection = null;
+    redisState = RedisState.UNAVAILABLE;
+  }
 }
 
 /**

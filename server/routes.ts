@@ -402,32 +402,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Not authenticated" });
       }
       
-      const userId = req.user.claims.sub;
-      console.log("🔍 Looking for user with ID:", userId);
-      let user = await storage.getUser(userId);
-      console.log("🔍 Found user:", user ? "YES" : "NO");
+      // Use the user data from session (already loaded by deserializeUser)
+      // This eliminates the repeated database lookups and auto-provisioning
+      const user = req.user;
+      console.log("✅ Using user from session:", user.id);
       
-      // Auto-provision user if they don't exist
-      if (!user) {
-        console.log("🔄 Auto-provisioning new user from claims");
-        try {
-          user = await storage.upsertUser({
-            id: req.user.claims.sub,
-            email: req.user.claims.email,
-            firstName: req.user.claims.first_name,
-            lastName: req.user.claims.last_name,
-            profileImageUrl: req.user.claims.profile_image_url,
-          });
-          console.log("✅ User auto-provisioned successfully:", user.id);
-        } catch (upsertError) {
-          console.error("❌ Failed to auto-provision user:", upsertError);
-          return res.status(500).json({ message: "Failed to create user profile" });
-        }
-      }
-      
-      // Return basic user object for now - organization features can be added later
+      // Return enhanced user object with permissions
       const enhancedUser = {
-        ...user,
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        profileImageUrl: user.profileImageUrl,
+        role: user.role,
+        preferences: user.preferences,
+        subscription: user.subscription,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
         permissions: {
           canViewAuditLogs: user.role === 'admin',
           canManageOrganizations: user.role === 'admin',
