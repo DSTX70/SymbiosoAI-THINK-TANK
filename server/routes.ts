@@ -1337,18 +1337,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const body = req.body || {};
         const mode = body.mode || 'simple';
         
-        // Expert mode requires workspace context and ADVANCED_AI feature
+        // Expert mode requires ADVANCED_AI feature (with workspace fallback for free users)
         if (mode === 'expert') {
-          const workspaceId = req.params.workspaceId || body.workspaceId || req.query.workspaceId;
-          
-          if (!workspaceId) {
-            return res.status(400).json({ 
-              error: "Workspace context required for Expert mode analysis",
-              code: "WORKSPACE_CONTEXT_REQUIRED" 
-            });
-          }
-          
-          // Apply ADVANCED_AI feature requirement for Expert mode
+          // Apply ADVANCED_AI feature requirement - this handles workspace context logic internally
           return requireFeature(BILLING_FEATURES.ADVANCED_AI)(req, res, next);
         }
         
