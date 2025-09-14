@@ -6,7 +6,7 @@ const config: Config = {
   roots: ['<rootDir>/tests'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'json'],
   transform: { '^.+\\.(ts|tsx)$': 'ts-jest' },
-  collectCoverageFrom: ['server/**/*.{ts,tsx}', '!server/**/index.{ts,tsx}'],
+  collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/index.{ts,tsx}'],
   coverageReporters: ['text', 'lcov', 'json', 'cobertura'],
   coverageThreshold: {
     global: {
