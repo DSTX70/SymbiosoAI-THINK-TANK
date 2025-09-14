@@ -1,0 +1,245 @@
+// File: src/billing/planFeatures.ts
+// TL;DR: add a dedicated DEMO plan that only unlocks ADVANCED_AI (Expert mode)
+
+export const BILLING_FEATURES = {
+  ADVANCED_AI: 'ADVANCED_AI',
+  EXPORT_PDF: 'EXPORT_PDF',
+  CUSTOM_TEMPLATES: 'CUSTOM_TEMPLATES',
+  UNLIMITED_SESSIONS: 'UNLIMITED_SESSIONS',
+  TEAM_COLLABORATION: 'TEAM_COLLABORATION',
+  ADVANCED_ANALYTICS: 'ADVANCED_ANALYTICS',
+} as const;
+
+export type BillingFeature = typeof BILLING_FEATURES[keyof typeof BILLING_FEATURES];
+
+export const PLAN_FEATURES: Record<string, readonly BillingFeature[]> = {
+  free: [],
+  // ⚠️ Demo plan only whitelists Expert mode (ADVANCED_AI). Nothing else.
+  demo: [BILLING_FEATURES.ADVANCED_AI],
+  pro: [
+    BILLING_FEATURES.ADVANCED_AI,
+    BILLING_FEATURES.EXPORT_PDF,
+    BILLING_FEATURES.CUSTOM_TEMPLATES,
+    BILLING_FEATURES.UNLIMITED_SESSIONS,
+    BILLING_FEATURES.TEAM_COLLABORATION,
+    BILLING_FEATURES.ADVANCED_ANALYTICS,
+  ],
+  enterprise: [
+    BILLING_FEATURES.ADVANCED_AI,
+    BILLING_FEATURES.EXPORT_PDF,
+    BILLING_FEATURES.CUSTOM_TEMPLATES,
+    BILLING_FEATURES.UNLIMITED_SESSIONS,
+    BILLING_FEATURES.TEAM_COLLABORATION,
+    BILLING_FEATURES.ADVANCED_ANALYTICS,
+  ],
+  custom: [],
+};
+
+
+// File: src/middleware/requireFeature.ts
+import type { Request, Response, NextFunction } from 'express';
+import { BILLING_FEATURES, PLAN_FEATURES, type BillingFeature } from '../billing/planFeatures';
+import { hasFeatureAccess } from '../services/entitlements';
+
+/**
+ * Enforces feature access rules.
+ * - ADVANCED_AI can be used without workspace if the acting principal's plan includes it.
+ * - Demo users get the DEMO plan (ADVANCED_AI only).
+ * - No other feature bypasses workspace requirements.
+ */
+export function requireFeature(feature: BillingFeature) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
+      }
+
+      // Normalize user subscription; demo users default to DEMO plan if unset.
+      const isDemo = Boolean((req.user as any).isDemo);
+      const userSub = ((req.user as any).subscription ?? {}) as { plan?: string };
+      const plan = userSub.plan || (isDemo ? 'demo' : 'free');
+
+      const workspaceId = (req.params as any).workspaceId || (req.body as any).workspaceId || (req.query as any).workspaceId;
+
+      // Special-case: ADVANCED_AI may be used without workspace if the user's plan grants it
+      if (feature === BILLING_FEATURES.ADVANCED_AI && PLAN_FEATURES[plan]?.includes(BILLING_FEATURES.ADVANCED_AI)) {
+        return next();
+      }
+
+      // Everything else requires workspace context
+      if (!workspaceId) {
+        return res.status(400).json({ error: 'Workspace context required for feature access', code: 'WORKSPACE_CONTEXT_REQUIRED' });
+      }
+
+      const hasAccessFlag = await hasFeatureAccess(workspaceId, feature);
+      if (!hasAccessFlag) {
+        return res.status(402).json({ error: 'Feature requires upgrade', code: 'FEATURE_REQUIRES_UPGRADE', feature, workspaceId });
+      }
+
+      return next();
+    } catch (err) {
+      // Why: do not leak internals
+      // eslint-disable-next-line no-console
+      console.error('Feature requirement check failed:', err);
+      return res.status(500).json({ error: 'Internal server error', code: 'INTERNAL_ERROR' });
+    }
+  };
+}
+
+
+// File: src/routes/demoLogin.ts
+import type { Request, Response } from 'express';
+import { PLAN_FEATURES } from '../billing/planFeatures';
+import { storage } from '../services/storage';
+
+/**
+ * Demo login grants a minimal DEMO subscription (ADVANCED_AI only) and sets isDemo flag.
+ * Why: Keep demo powerful enough for Expert mode without unlocking paid features.
+ */
+export async function registerDemoLoginRoute(app: import('express').Express) {
+  app.post('/api/demo-login', async (req: Request, res: Response) => {
+    if (process.env.NODE_ENV === 'production' && process.env.ENABLE_DEMO_LOGIN !== 'true') {
+      return res.status(404).json({ message: 'Not found' });
+    }
+
+    try {
+      const { username, password } = req.body as { username?: string; password?: string };
+      if (username !== 'demo' || password !== 'demo123') {
+        return res.status(401).json({ message: 'Invalid demo credentials' });
+      }
+
+      const demoUser = {
+        id: 'demo-user-12345',
+        email: 'demo@ifwhenalways.com',
+        firstName: 'Demo',
+        lastName: 'User',
+        profileImageUrl: null as string | null,
+        role: 'user',
+        isDemo: true,
+        // Attach a lightweight subscription directly for downstream middleware
+        subscription: { plan: 'demo' as const },
+      };
+
+      await storage.upsertUser(demoUser);
+      await storage.upsertSubscription?.(demoUser.id, { plan: 'demo' }); // optional if you persist subs separately
+
+      const session = {
+        claims: {
+          sub: demoUser.id,
+          email: demoUser.email,
+          first_name: demoUser.firstName,
+          last_name: demoUser.lastName,
+          profile_image_url: demoUser.profileImageUrl,
+        },
+        access_token: null as string | null,
+        refresh_token: null as string | null,
+        expires_at: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60,
+        isDemo: true,
+        subscription: { plan: 'demo' as const },
+      };
+
+      // Your existing session write helper
+      await storage.upsertSession(session);
+
+      return res.status(200).json({
+        message: 'Demo login successful',
+        user: { id: demoUser.id, email: demoUser.email, isDemo: true, subscription: session.subscription },
+        plan: 'demo',
+        features: PLAN_FEATURES.demo,
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Demo login failed:', err);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+}
+
+
+// File: src/middleware/loadEntitlementsContext.ts
+import type { Request, Response, NextFunction } from 'express';
+
+/**
+ * Ensures req.user has `subscription` & `isDemo` available to downstream middleware.
+ * Why: Some auth providers omit custom claims; this normalizes demo-derived sessions.
+ */
+export async function loadEntitlementsContext(req: Request, _res: Response, next: NextFunction) {
+  try {
+    const user = (req.user ?? {}) as any;
+    if (user && user.isDemo && !user.subscription) {
+      user.subscription = { plan: 'demo' };
+    }
+    req.user = user;
+    return next();
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('loadEntitlementsContext error:', e);
+    return next();
+  }
+}
+
+
+// File: src/routes/think.ts
+import type { Request, Response, NextFunction } from 'express';
+import express from 'express';
+import { requireFeature } from '../middleware/requireFeature';
+import { BILLING_FEATURES } from '../billing/planFeatures';
+import { loadEntitlementsContext } from '../middleware/loadEntitlementsContext';
+
+export const thinkRouter = express.Router();
+
+thinkRouter.post(
+  '/api/think',
+  requireAuth,
+  loadEntitlementsContext,
+  express.json(),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const body = (req.body ?? {}) as any;
+      const mode = body.mode || 'simple';
+
+      if (mode === 'expert') {
+        // If the caller (real or demo) has ADVANCED_AI in their *plan*, allow no-workspace access
+        return requireFeature(BILLING_FEATURES.ADVANCED_AI)(req, res, next);
+      }
+
+      return next();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Mode-based feature check failed:', err);
+      return res.status(500).json({ error: 'Internal server error', code: 'INTERNAL_ERROR' });
+    }
+  },
+  async (req: Request, res: Response) => {
+    // ... existing handler
+    return res.json({ ok: true });
+  }
+);
+
+
+// File: tests/requireFeature.demo.spec.ts
+// Jest-style smoke tests for the demo path
+import request from 'supertest';
+import { app } from '../src/server';
+
+describe('Demo Expert mode access', () => {
+  it('allows /api/think expert mode for demo without workspace', async () => {
+    const agent = request.agent(app);
+    await agent.post('/api/demo-login').send({ username: 'demo', password: 'demo123' }).expect(200);
+
+    await agent
+      .post('/api/think')
+      .send({ mode: 'expert', prompt: 'hello' })
+      .expect(200);
+  });
+
+  it('still blocks non-ADVANCED features without workspace', async () => {
+    const agent = request.agent(app);
+    await agent.post('/api/demo-login').send({ username: 'demo', password: 'demo123' }).expect(200);
+
+    await agent
+      .post('/api/export') // assume guarded by requireFeature(EXPORT_PDF)
+      .send({})
+      .expect(400); // workspace required
+  });
+});

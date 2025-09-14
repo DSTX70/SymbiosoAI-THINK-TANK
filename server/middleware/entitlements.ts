@@ -26,6 +26,10 @@ export const PLAN_FEATURES = {
   free: [
     // Free tier has very limited features
   ],
+  demo: [
+    // Demo plan only grants access to Expert mode (ADVANCED_AI)
+    BILLING_FEATURES.ADVANCED_AI
+  ],
   pro: [
     BILLING_FEATURES.ADVANCED_AI,
     BILLING_FEATURES.EXPORT_PDF,
@@ -60,6 +64,15 @@ export const PLAN_LIMITS = {
     storage_gb: 1,
     templates: 5,
     ai_calls_per_hour: 100
+  },
+  demo: {
+    // Demo plan has same limits as free but with ADVANCED_AI access
+    workspaces: 1,
+    members_per_workspace: 3,
+    sessions_per_month: 50, // Slightly higher for demos
+    storage_gb: 1,
+    templates: 5,
+    ai_calls_per_hour: 200 // Higher for demo purposes
   },
   pro: {
     workspaces: 5,
@@ -109,21 +122,28 @@ export async function loadEntitlementsContext(req: Request, res: Response, next:
       return next(); // Skip if not authenticated
     }
 
+    // Ensure demo users have demo subscription context
+    const isDemo = Boolean((req.user as any).isDemo);
+    if (isDemo && !(req.user as any).subscription) {
+      (req.user as any).subscription = { plan: 'demo' };
+    }
+
     const workspaceId = req.params.workspaceId || req.body.workspaceId || req.query.workspaceId;
     
     if (!workspaceId) {
       // For non-workspace operations, use user's default subscription context
       const userSubscription = req.user.subscription as any;
-      if (userSubscription) {
-        req.subscription = {
-          id: 'user-subscription',
-          workspaceId: null,
-          plan: userSubscription.plan || 'free',
-          status: 'active',
-          currentPeriodEnd: new Date(),
-          seats: 1
-        } as any;
-      }
+      const plan = userSubscription?.plan || (isDemo ? 'demo' : 'free');
+      
+      req.subscription = {
+        id: 'user-subscription',
+        workspaceId: null,
+        plan: plan,
+        status: 'active',
+        currentPeriodEnd: new Date(),
+        seats: 1
+      } as any;
+      
       return next();
     }
 
@@ -292,14 +312,16 @@ export function requireFeature(feature: BillingFeature) {
 
       const workspaceId = req.params.workspaceId || req.body.workspaceId || req.query.workspaceId;
       
+      // Determine user's plan: demo users get 'demo' plan, others use their subscription plan
+      const isDemo = Boolean((req.user as any).isDemo);
+      const userSubscription = req.user.subscription as any;
+      const userPlan = userSubscription?.plan || (isDemo ? 'demo' : 'free');
+      
       // Special handling for ADVANCED_AI feature - allow non-workspace usage for individual users
       if (!workspaceId && feature === BILLING_FEATURES.ADVANCED_AI) {
         // Check if user has ADVANCED_AI access through their individual subscription
-        const userSubscription = req.user.subscription as any;
-        const userPlan = userSubscription?.plan || 'free';
-        
         if (PLAN_FEATURES[userPlan]?.includes(feature)) {
-          return next(); // User has individual access to ADVANCED_AI
+          return next(); // User has individual access to ADVANCED_AI (including demo users)
         }
         
         // If user doesn't have individual access, they need workspace context

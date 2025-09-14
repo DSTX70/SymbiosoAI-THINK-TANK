@@ -343,7 +343,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: 'Demo',
           lastName: 'User',
           profileImageUrl: null,
-          role: 'user'
+          role: 'user',
+          subscription: {
+            plan: 'demo'
+          }
         };
         
         // Store demo user in storage
@@ -367,7 +370,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 access_token: null,
                 refresh_token: null,
                 expires_at: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60), // 7 days
-                isDemo: true
+                isDemo: true,
+                subscription: {
+                  plan: 'demo'
+                }
               };
               
               // Use Passport's logIn method to properly set up the session
