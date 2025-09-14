@@ -189,6 +189,16 @@ export default function DemoWalkthrough() {
         </div>
       </header>
 
+      {(typeof window !== 'undefined' && API_BASE !== window.location.origin) && (
+        <Alert variant="warning">
+          <AlertTitle>CORS Configuration Needed</AlertTitle>
+          <AlertDescription>
+            API_BASE ({API_BASE}) differs from current origin ({window.location.origin}). 
+            Make sure to configure CORS on the server to allow cross-origin requests.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {!!warnings.length && (
         <div className="space-y-2">
           {warnings.map((w, i) => (
