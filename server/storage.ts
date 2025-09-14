@@ -19,12 +19,15 @@ import {
   type HealthCheck, type InsertHealthCheck,
   // Sprint 1 types
   type DebateRun, type InsertDebateRun, type ExportLog, type InsertExportLog,
+  // Billing types
+  type Subscription, type InsertSubscription, type Entitlement, type InsertEntitlement,
+  type SubscriptionPlan, type SubscriptionStatus, type BillingFeature,
   users, analysisSessions, workspaces, workspaceMembers, workspaceInvites, generatedReports,
   templates, sessionCodes, sessionParticipants, chatMessages, pushSubscriptions,
   tutorials, tutorialSteps, tutorialProgress, tutorialSettings,
   organizations, organizationMembers, teams, teamMembers, auditLogs, securityEvents,
   usageMetrics, rateLimitRules, performanceMetrics, errorLogs, healthChecks,
-  debateRuns, exportLogs
+  debateRuns, exportLogs, subscriptions, entitlements
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { Pool, neonConfig } from '@neondatabase/serverless';
@@ -246,6 +249,26 @@ export interface IStorage {
   // Export logging
   createExportLog(log: InsertExportLog): Promise<ExportLog>;
   getExportLogs(userId?: string, workspaceId?: string): Promise<ExportLog[]>;
+
+  // ============================================
+  // SPRINT 4 - Billing & Subscription Management
+  // ============================================
+
+  // Subscription plan operations
+  getSubscriptionPlans(): Promise<{ id: string; name: string; priceMonthly: number; priceYearly: number; features: string[]; limits: Record<string, number> }[]>;
+  
+  // Subscription operations
+  createOrUpdateSubscription(subscription: InsertSubscription): Promise<Subscription>;
+  getSubscription(id: string): Promise<Subscription | undefined>;
+  getSubscriptionByWorkspace(workspaceId: string): Promise<Subscription | undefined>;
+  updateSubscriptionStatus(id: string, status: SubscriptionStatus): Promise<Subscription | undefined>;
+  cancelSubscription(id: string): Promise<Subscription | undefined>;
+  
+  // Entitlement operations
+  createEntitlement(entitlement: InsertEntitlement): Promise<Entitlement>;
+  getEntitlements(workspaceId: string): Promise<Entitlement[]>;
+  revokeEntitlements(workspaceId: string, feature?: BillingFeature): Promise<boolean>;
+  checkEntitlement(workspaceId: string, feature: BillingFeature): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -726,6 +749,64 @@ export class MemStorage implements IStorage {
   async recordHealthCheck(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
   async getHealthChecks(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
   async getLatestHealthStatus(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  
+  // Tutorial system methods
+  async createTutorial(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getTutorial(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getAllTutorials(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getTutorialsByCategory(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getActiveTutorials(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateTutorial(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteTutorial(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createTutorialStep(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getTutorialStep(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getTutorialSteps(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateTutorialStep(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteTutorialStep(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteTutorialSteps(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createTutorialProgress(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getTutorialProgress(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getUserTutorialProgress(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getUserAllTutorialProgress(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateTutorialProgress(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteTutorialProgress(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async markTutorialStepCompleted(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async markTutorialCompleted(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createTutorialSettings(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getTutorialSettings(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateTutorialSettings(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async resetTutorialSettings(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+
+  // Push notification methods
+  async createPushSubscription(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getPushSubscription(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getUserPushSubscriptions(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deletePushSubscription(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deletePushSubscriptionByEndpoint(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updatePushSubscription(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+
+  // Template methods
+  async createTemplate(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getTemplate(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getAllTemplates(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getTemplatesByCategory(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getPublicTemplates(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getUserTemplates(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateTemplate(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteTemplate(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async incrementTemplateUsage(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  
+  // Billing methods
+  async getSubscriptionPlans(): Promise<{ id: string; name: string; priceMonthly: number; priceYearly: number; features: string[]; limits: Record<string, number> }[]> { throw new Error('Not implemented in MemStorage'); }
+  async createOrUpdateSubscription(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getSubscription(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getSubscriptionByWorkspace(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateSubscriptionStatus(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async cancelSubscription(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createEntitlement(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getEntitlements(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async revokeEntitlements(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async checkEntitlement(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1628,7 +1709,7 @@ export class DatabaseStorage implements IStorage {
     
     // Finally delete the tutorial
     const result = await db.delete(tutorials).where(eq(tutorials.id, id));
-    return result.rowCount !== undefined && result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
   
   // Tutorial step management operations
@@ -1658,12 +1739,12 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTutorialStep(id: string): Promise<boolean> {
     const result = await db.delete(tutorialSteps).where(eq(tutorialSteps.id, id));
-    return result.rowCount !== undefined && result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async deleteTutorialSteps(tutorialId: string): Promise<boolean> {
     const result = await db.delete(tutorialSteps).where(eq(tutorialSteps.tutorialId, tutorialId));
-    return result.rowCount !== undefined && result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
   
   // Tutorial progress tracking operations
@@ -1706,7 +1787,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTutorialProgress(id: string): Promise<boolean> {
     const result = await db.delete(tutorialProgress).where(eq(tutorialProgress.id, id));
-    return result.rowCount !== undefined && result.rowCount > 0;
+    return (result.rowCount ?? 0) > 0;
   }
 
   async markTutorialStepCompleted(userId: string, tutorialId: string, stepNumber: number): Promise<TutorialProgress | undefined> {
@@ -1793,8 +1874,8 @@ export class DatabaseStorage implements IStorage {
     // If no settings exist, create them
     if (!settings) {
       return await this.createTutorialSettings({
-        userId,
-        ...updates as InsertTutorialSettings
+        ...updates as InsertTutorialSettings,
+        userId
       });
     }
     
@@ -1816,6 +1897,223 @@ export class DatabaseStorage implements IStorage {
       },
       experienceLevel: 'beginner'
     });
+  }
+
+  // ============================================
+  // TEMPLATE MANAGEMENT - AI Thinking Templates
+  // ============================================
+  
+  async createTemplate(template: InsertTemplate): Promise<Template> {
+    const [newTemplate] = await db.insert(templates).values({
+      ...template,
+      id: randomUUID()
+    }).returning();
+    return newTemplate;
+  }
+
+  async getTemplate(id: string): Promise<Template | undefined> {
+    const [template] = await db.select().from(templates).where(eq(templates.id, id));
+    return template || undefined;
+  }
+
+  async getAllTemplates(): Promise<Template[]> {
+    return await db.select().from(templates).orderBy(templates.createdAt);
+  }
+
+  async getTemplatesByCategory(category: string): Promise<Template[]> {
+    return await db.select().from(templates)
+      .where(eq(templates.category, category))
+      .orderBy(templates.createdAt);
+  }
+
+  async getPublicTemplates(): Promise<Template[]> {
+    return await db.select().from(templates)
+      .where(eq(templates.isPublic, true))
+      .orderBy(templates.usageCount, templates.createdAt);
+  }
+
+  async getUserTemplates(userId: string): Promise<Template[]> {
+    return await db.select().from(templates)
+      .where(eq(templates.authorId, userId))
+      .orderBy(templates.createdAt);
+  }
+
+  async updateTemplate(id: string, updates: Partial<Template>): Promise<Template | undefined> {
+    const [template] = await db.update(templates)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(templates.id, id))
+      .returning();
+    return template || undefined;
+  }
+
+  async deleteTemplate(id: string): Promise<boolean> {
+    const result = await db.delete(templates).where(eq(templates.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async incrementTemplateUsage(id: string): Promise<Template | undefined> {
+    const [template] = await db.update(templates)
+      .set({ usageCount: sql`${templates.usageCount} + 1` })
+      .where(eq(templates.id, id))
+      .returning();
+    return template || undefined;
+  }
+
+  // ============================================
+  // SPRINT 4 - Billing & Subscription Management
+  // ============================================
+
+  async getSubscriptionPlans(): Promise<{ id: string; name: string; priceMonthly: number; priceYearly: number; features: string[]; limits: Record<string, number> }[]> {
+    // Return static subscription plans
+    return [
+      {
+        id: "free",
+        name: "Free",
+        priceMonthly: 0,
+        priceYearly: 0,
+        features: [
+          "Basic AI analysis",
+          "Single user workspace",
+          "10 analyses per month",
+          "Standard export formats"
+        ],
+        limits: {
+          monthly_analyses: 10,
+          users_per_workspace: 1,
+          storage_gb: 1,
+          api_calls_per_minute: 5
+        }
+      },
+      {
+        id: "pro",
+        name: "Pro",
+        priceMonthly: 29,
+        priceYearly: 290,
+        features: [
+          "Advanced AI analysis",
+          "Multi-user workspaces",
+          "Unlimited analyses",
+          "Premium export formats",
+          "Priority support",
+          "Advanced templates"
+        ],
+        limits: {
+          monthly_analyses: -1, // unlimited
+          users_per_workspace: 10,
+          storage_gb: 50,
+          api_calls_per_minute: 50
+        }
+      },
+      {
+        id: "enterprise",
+        name: "Enterprise",
+        priceMonthly: 99,
+        priceYearly: 990,
+        features: [
+          "All Pro features",
+          "Unlimited users",
+          "SSO integration",
+          "Advanced security",
+          "Custom integrations",
+          "Dedicated support",
+          "Custom AI models"
+        ],
+        limits: {
+          monthly_analyses: -1, // unlimited
+          users_per_workspace: -1, // unlimited
+          storage_gb: 500,
+          api_calls_per_minute: 200
+        }
+      }
+    ];
+  }
+
+  async createOrUpdateSubscription(subscription: InsertSubscription): Promise<Subscription> {
+    // Check if subscription already exists for workspace
+    const existing = await this.getSubscriptionByWorkspace(subscription.workspaceId);
+    
+    if (existing) {
+      // Update existing subscription
+      const [updated] = await db.update(subscriptions)
+        .set({ ...subscription, updatedAt: new Date() })
+        .where(eq(subscriptions.workspaceId, subscription.workspaceId))
+        .returning();
+      return updated;
+    } else {
+      // Create new subscription
+      const [newSubscription] = await db.insert(subscriptions).values({
+        ...subscription,
+        id: randomUUID()
+      }).returning();
+      return newSubscription;
+    }
+  }
+
+  async getSubscription(id: string): Promise<Subscription | undefined> {
+    const [subscription] = await db.select().from(subscriptions).where(eq(subscriptions.id, id));
+    return subscription || undefined;
+  }
+
+  async getSubscriptionByWorkspace(workspaceId: string): Promise<Subscription | undefined> {
+    const [subscription] = await db.select().from(subscriptions).where(eq(subscriptions.workspaceId, workspaceId));
+    return subscription || undefined;
+  }
+
+  async updateSubscriptionStatus(id: string, status: SubscriptionStatus): Promise<Subscription | undefined> {
+    const [updated] = await db.update(subscriptions)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(subscriptions.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async cancelSubscription(id: string): Promise<Subscription | undefined> {
+    const [canceled] = await db.update(subscriptions)
+      .set({ status: 'canceled', updatedAt: new Date() })
+      .where(eq(subscriptions.id, id))
+      .returning();
+    return canceled || undefined;
+  }
+
+  async createEntitlement(entitlement: InsertEntitlement): Promise<Entitlement> {
+    const [newEntitlement] = await db.insert(entitlements).values({
+      ...entitlement,
+      id: randomUUID()
+    }).returning();
+    return newEntitlement;
+  }
+
+  async getEntitlements(workspaceId: string): Promise<Entitlement[]> {
+    return await db.select().from(entitlements).where(eq(entitlements.workspaceId, workspaceId));
+  }
+
+  async revokeEntitlements(workspaceId: string, feature?: BillingFeature): Promise<boolean> {
+    const conditions = [eq(entitlements.workspaceId, workspaceId)];
+    
+    if (feature) {
+      conditions.push(eq(entitlements.feature, feature));
+    }
+    
+    const result = await db.delete(entitlements).where(and(...conditions));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async checkEntitlement(workspaceId: string, feature: BillingFeature): Promise<boolean> {
+    const [entitlement] = await db.select()
+      .from(entitlements)
+      .where(and(
+        eq(entitlements.workspaceId, workspaceId),
+        eq(entitlements.feature, feature)
+      ));
+    
+    if (!entitlement) return false;
+    
+    // Check if entitlement is expired
+    if (entitlement.expiresAt && entitlement.expiresAt < new Date()) {
+      return false;
+    }
+    
+    return true;
   }
 }
 

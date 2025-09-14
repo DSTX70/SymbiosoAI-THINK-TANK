@@ -6,7 +6,8 @@ import {
   thinkRequestSchema, type ThinkResponse, insertWorkspaceSchema,
   insertOrganizationSchema, insertOrganizationMemberSchema, insertTeamSchema,
   brainstormResponseSchema, type BrainstormResponse,
-  reportRequestSchema, type ReportRequest, type ReportResponse
+  reportRequestSchema, type ReportRequest, type ReportResponse,
+  insertSubscriptionSchema, insertEntitlementSchema, type BillingFeature
 } from "@shared/schema";
 import { runMultiAgentDebate, runBrainstormingSession, runReportGeneration } from "./ai-service";
 import { perplexityService } from "./services/perplexity";
@@ -1951,6 +1952,172 @@ Provide additional insights, explore deeper implications, or address related asp
     } catch (error) {
       console.error("Error processing follow-up question:", error);
       res.status(500).json({ error: "Failed to process follow-up question" });
+    }
+  });
+
+  // ============================================
+  // SPRINT 4 - Billing API Endpoints
+  // ============================================
+
+  // GET /api/billing/plans - Return static subscription plans
+  app.get("/api/billing/plans", async (req, res) => {
+    try {
+      const plans = await storage.getSubscriptionPlans();
+      res.json({ plans });
+    } catch (error: any) {
+      console.error("Error fetching billing plans:", error);
+      res.status(500).json({ error: "Failed to fetch billing plans" });
+    }
+  });
+
+  // POST /api/billing/checkout - Mock checkout flow
+  app.post("/api/billing/checkout", isAuthenticated, express.json(), async (req: any, res) => {
+    try {
+      const { workspaceId, planId, seats = 1 } = req.body;
+
+      // Validate required fields
+      if (!workspaceId || !planId) {
+        return res.status(400).json({ 
+          error: "Missing required fields: workspaceId and planId are required" 
+        });
+      }
+
+      // Validate planId
+      const validPlans = ["free", "pro", "enterprise"];
+      if (!validPlans.includes(planId)) {
+        return res.status(400).json({ 
+          error: `Invalid planId. Must be one of: ${validPlans.join(', ')}` 
+        });
+      }
+
+      // Check if workspace exists
+      const workspace = await storage.getWorkspace(workspaceId);
+      if (!workspace) {
+        return res.status(404).json({ error: "Workspace not found" });
+      }
+
+      // Create/update subscription
+      const subscription = await storage.createOrUpdateSubscription({
+        workspaceId,
+        plan: planId as "free" | "pro" | "enterprise" | "custom",
+        status: "active",
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        stripeSubscriptionId: `mock_sub_${Date.now()}`
+      });
+
+      // Grant plan entitlements based on plan
+      const planFeatures: Record<string, BillingFeature[]> = {
+        free: ["export_pdf"],
+        pro: ["advanced_ai", "export_pdf", "team_collaboration", "premium_support"],
+        enterprise: ["advanced_ai", "export_pdf", "custom_templates", "sso_integration", "advanced_analytics", "dedicated_support"]
+      };
+
+      // Revoke existing entitlements for this workspace
+      await storage.revokeEntitlements(workspaceId);
+
+      // Grant new entitlements
+      const features = planFeatures[planId] || [];
+      for (const feature of features) {
+        await storage.createEntitlement({
+          workspaceId,
+          feature,
+          subscriptionId: subscription.id,
+          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 year from now
+        });
+      }
+
+      // Return mock checkout response
+      const mockResponse = {
+        sessionId: `mock_checkout_${Date.now()}`,
+        status: "active",
+        checkoutUrl: "mock://checkout",
+        subscriptionId: subscription.id,
+        message: `Successfully upgraded to ${planId} plan`
+      };
+
+      console.log(`✅ Billing checkout completed: ${planId} plan for workspace ${workspaceId}`);
+      res.json(mockResponse);
+
+    } catch (error: any) {
+      console.error("Error processing billing checkout:", error);
+      res.status(500).json({ error: "Failed to process checkout" });
+    }
+  });
+
+  // POST /api/billing/webhook - Mock webhook handler for subscription events
+  app.post("/api/billing/webhook", express.json(), async (req, res) => {
+    try {
+      const { type, workspaceId, subscriptionId, planId } = req.body;
+
+      if (!type || !workspaceId) {
+        return res.status(400).json({ 
+          error: "Missing required webhook fields: type and workspaceId are required" 
+        });
+      }
+
+      console.log(`📨 Processing billing webhook: ${type} for workspace ${workspaceId}`);
+
+      switch (type) {
+        case "subscription.activated":
+        case "subscription.updated":
+          if (!subscriptionId) {
+            return res.status(400).json({ error: "subscriptionId required for activation/update events" });
+          }
+          
+          // Update subscription status to active
+          const activatedSub = await storage.updateSubscriptionStatus(subscriptionId, "active");
+          if (activatedSub) {
+            console.log(`✅ Subscription ${subscriptionId} activated/updated`);
+          }
+          break;
+
+        case "subscription.canceled":
+          if (!subscriptionId) {
+            return res.status(400).json({ error: "subscriptionId required for cancellation events" });
+          }
+          
+          // Cancel subscription
+          const canceledSub = await storage.cancelSubscription(subscriptionId);
+          if (canceledSub) {
+            // Revoke entitlements for canceled subscription
+            await storage.revokeEntitlements(workspaceId);
+            console.log(`❌ Subscription ${subscriptionId} canceled and entitlements revoked`);
+          }
+          break;
+
+        case "subscription.payment_failed":
+          if (!subscriptionId) {
+            return res.status(400).json({ error: "subscriptionId required for payment failure events" });
+          }
+          
+          // Update subscription status to past_due
+          const pastDueSub = await storage.updateSubscriptionStatus(subscriptionId, "past_due");
+          if (pastDueSub) {
+            console.log(`⚠️ Subscription ${subscriptionId} marked as past due`);
+          }
+          break;
+
+        default:
+          console.log(`ℹ️ Unhandled webhook type: ${type}`);
+          break;
+      }
+
+      // Always return success for webhook processing
+      res.status(200).json({ 
+        received: true, 
+        type, 
+        workspaceId,
+        processed_at: new Date().toISOString()
+      });
+
+    } catch (error: any) {
+      console.error("Error processing billing webhook:", error);
+      // Still return 200 to avoid webhook retries in production
+      res.status(200).json({ 
+        received: true, 
+        error: "Processing failed but webhook acknowledged",
+        processed_at: new Date().toISOString()
+      });
     }
   });
   
