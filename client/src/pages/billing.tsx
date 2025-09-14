@@ -1,13 +1,16 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { CheckCircle, Crown, Star, Zap, AlertCircle } from "lucide-react";
+import { CheckCircle, Crown, Star, Zap, AlertCircle, Lock, Users } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
 interface SubscriptionPlan {
@@ -28,6 +31,23 @@ interface PlansResponse {
   plans: SubscriptionPlan[];
 }
 
+interface Workspace {
+  id: string;
+  name: string;
+  description?: string;
+  ownerId: string;
+  settings?: any;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface WorkspaceMember {
+  workspaceId: string;
+  userId: string;
+  role: 'owner' | 'admin' | 'member' | 'viewer';
+  joinedAt: string;
+}
+
 interface CheckoutRequest {
   workspaceId: string;
   planId: string;
@@ -42,12 +62,14 @@ interface CheckoutResponse {
   message: string;
 }
 
-function PlanCard({ plan, onSelectPlan, isLoading }: { 
+function PlanCard({ plan, onSelectPlan, isLoading, canManageBilling, currentPlan, billingInterval }: { 
   plan: SubscriptionPlan; 
   onSelectPlan: (planId: string) => void;
   isLoading: boolean;
+  canManageBilling: boolean;
+  currentPlan: string;
+  billingInterval: 'monthly' | 'yearly';
 }) {
-  const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly');
   
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -161,11 +183,25 @@ function PlanCard({ plan, onSelectPlan, isLoading }: {
               : ''
           }`}
           onClick={() => onSelectPlan(plan.id)}
-          disabled={isLoading}
+          disabled={isLoading || !canManageBilling || currentPlan === plan.id}
           data-testid={`buy-button-${plan.id}`}
         >
-          {isLoading ? 'Processing...' : plan.id === 'free' ? 'Current Plan' : 'Upgrade Now'}
+          {!canManageBilling ? (
+            <><Lock className="w-4 h-4 mr-2" />Restricted</>
+          ) : isLoading ? (
+            'Processing...'
+          ) : currentPlan === plan.id ? (
+            'Current Plan'
+          ) : (
+            'Upgrade Now'
+          )}
         </Button>
+        
+        {!canManageBilling && (
+          <p className="text-xs text-center text-muted-foreground mt-2">
+            Only workspace owners and admins can manage billing
+          </p>
+        )}
       </CardContent>
     </Card>
   );
@@ -175,11 +211,38 @@ export default function BillingPage() {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>('');
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly');
+
+  // Fetch user's workspaces
+  const { data: workspaces = [], isLoading: workspacesLoading, error: workspacesError } = useQuery<Workspace[]>({
+    queryKey: ['/api/workspaces'],
+    enabled: isAuthenticated,
+  });
 
   // Fetch subscription plans
   const { data: plansData, isLoading: plansLoading, error: plansError } = useQuery<PlansResponse>({
     queryKey: ['/api/billing/plans'],
   });
+
+  // Get current subscription for selected workspace
+  const { data: currentSubscription } = useQuery({
+    queryKey: ['/api/billing/subscriptions', selectedWorkspaceId],
+    enabled: !!selectedWorkspaceId,
+  });
+
+  // Get current workspace and user's role
+  const currentWorkspace = workspaces.find(w => w.id === selectedWorkspaceId);
+  const isWorkspaceOwner = currentWorkspace?.ownerId === user?.id;
+  const canManageBilling = isWorkspaceOwner; // For now, only owners. Can extend to include admins later
+  const currentPlan = currentSubscription?.plan || 'free';
+
+  // Auto-select workspace if user has only one
+  React.useEffect(() => {
+    if (workspaces.length === 1 && !selectedWorkspaceId) {
+      setSelectedWorkspaceId(workspaces[0].id);
+    }
+  }, [workspaces, selectedWorkspaceId]);
 
   // Checkout mutation
   const checkoutMutation = useMutation({
@@ -226,15 +289,29 @@ export default function BillingPage() {
       return;
     }
 
-    // For demo purposes, use a default workspace ID
-    // In production, this would come from user's selected workspace
-    const defaultWorkspaceId = "demo-workspace-123";
+    if (!selectedWorkspaceId) {
+      toast({
+        title: "Workspace Required",
+        description: "Please select a workspace to manage billing",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!canManageBilling) {
+      toast({
+        title: "Authorization Required",
+        description: "Only workspace owners and administrators can manage billing",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsCheckingOut(true);
     
     try {
       await checkoutMutation.mutateAsync({
-        workspaceId: defaultWorkspaceId,
+        workspaceId: selectedWorkspaceId,
         planId,
         seats: 1,
       });
@@ -283,18 +360,83 @@ export default function BillingPage() {
           </p>
         </div>
 
-        {/* Error State */}
-        {plansError && (
+        {/* Workspace Selection */}
+        {workspaces.length > 1 && (
+          <div className="max-w-md mx-auto mb-8">
+            <Label htmlFor="workspace-select" className="text-sm font-medium mb-2 block">
+              Select Workspace
+            </Label>
+            <Select value={selectedWorkspaceId} onValueChange={setSelectedWorkspaceId}>
+              <SelectTrigger data-testid="workspace-select">
+                <SelectValue placeholder="Choose a workspace" />
+              </SelectTrigger>
+              <SelectContent>
+                {workspaces.map((workspace) => (
+                  <SelectItem key={workspace.id} value={workspace.id}>
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      <span>{workspace.name}</span>
+                      {workspace.ownerId === user?.id && <Badge variant="secondary">Owner</Badge>}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {/* Billing Interval Toggle */}
+        {selectedWorkspaceId && (
+          <div className="flex items-center justify-center gap-4 mb-8">
+            <Label htmlFor="billing-toggle" className="text-sm font-medium">
+              Monthly
+            </Label>
+            <Switch
+              id="billing-toggle"
+              checked={billingInterval === 'yearly'}
+              onCheckedChange={(checked) => setBillingInterval(checked ? 'yearly' : 'monthly')}
+              data-testid="billing-interval-toggle"
+            />
+            <Label htmlFor="billing-toggle" className="text-sm font-medium">
+              Yearly
+              <Badge className="ml-2" variant="secondary">Save 20%</Badge>
+            </Label>
+          </div>
+        )}
+
+        {/* Workspace Authorization Warning */}
+        {selectedWorkspaceId && !canManageBilling && (
+          <Alert className="mb-8 max-w-2xl mx-auto" data-testid="authorization-warning">
+            <Lock className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Limited Access:</strong> Only workspace owners and administrators can manage billing for this workspace. 
+              Contact your workspace owner to upgrade your plan.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Error States */}
+        {(plansError || workspacesError) && (
           <Alert className="mb-8" data-testid="plans-error">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Failed to load subscription plans. Please try again later.
+              {plansError ? 'Failed to load subscription plans.' : 'Failed to load workspaces.'} Please try again later.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* No Workspaces State */}
+        {workspaces.length === 0 && !workspacesLoading && (
+          <Alert className="mb-8 max-w-2xl mx-auto" data-testid="no-workspaces">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              You need to be a member of at least one workspace to manage billing. Please join a workspace or create one first.
             </AlertDescription>
           </Alert>
         )}
 
         {/* Loading State */}
-        {plansLoading && (
+        {(plansLoading || workspacesLoading) && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" data-testid="plans-loading">
             {Array.from({ length: 3 }).map((_, i) => (
               <Card key={i}>
@@ -314,7 +456,7 @@ export default function BillingPage() {
         )}
 
         {/* Plans Grid */}
-        {plansData?.plans && (
+        {plansData?.plans && selectedWorkspaceId && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8" data-testid="plans-grid">
             {plansData.plans.map((plan) => (
               <PlanCard
@@ -322,6 +464,9 @@ export default function BillingPage() {
                 plan={plan}
                 onSelectPlan={handleSelectPlan}
                 isLoading={isCheckingOut}
+                canManageBilling={canManageBilling}
+                currentPlan={currentPlan}
+                billingInterval={billingInterval}
               />
             ))}
           </div>

@@ -1997,15 +1997,16 @@ Provide additional insights, explore deeper implications, or address related asp
         return res.status(404).json({ error: "Workspace not found" });
       }
 
-      // SECURITY FIX: Check workspace authorization - user must be owner or member
+      // SECURITY FIX: Check workspace authorization - user must be owner or admin only
       const userId = req.user.claims.sub;
       const membership = await storage.getWorkspaceMembership(workspaceId, userId);
       const isOwner = workspace.ownerId === userId;
       
-      if (!isOwner && !membership) {
-        console.log(`❌ Unauthorized billing access attempt: User ${userId} tried to upgrade workspace ${workspaceId}`);
+      // Check if user has billing permissions (only owner and admin)
+      if (!isOwner && (!membership || !["owner", "admin"].includes(membership.role))) {
+        console.log(`❌ Unauthorized billing access attempt: User ${userId} (role: ${membership?.role || 'none'}) tried to upgrade workspace ${workspaceId}`);
         return res.status(403).json({ 
-          error: "Forbidden: You do not have permission to manage billing for this workspace" 
+          error: "Forbidden: Only workspace owners and administrators can manage billing" 
         });
       }
 

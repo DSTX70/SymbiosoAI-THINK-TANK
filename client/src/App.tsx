@@ -12,6 +12,7 @@ import AutomationPage from "@/pages/AutomationPage";
 import TemplatesPage from "@/pages/templates";
 import TutorialsPage from "@/pages/tutorials";
 import BillingPage from "@/pages/billing";
+import MarketplacePage from "@/pages/marketplace";
 import Landing from "@/pages/landing";
 import BottomNavigation from "@/components/BottomNavigation";
 import DesktopSidebar from "@/components/DesktopSidebar";
@@ -47,6 +48,7 @@ function Router() {
           <Route path="/templates" component={TemplatesPage} />
           <Route path="/tutorials" component={TutorialsPage} />
           <Route path="/billing" component={BillingPage} />
+          <Route path="/marketplace" component={MarketplacePage} />
           <Route component={() => <div>Page not found</div>} />
         </Switch>
       </div>
