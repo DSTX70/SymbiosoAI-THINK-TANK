@@ -87,7 +87,7 @@ app.post('/api/demo-login', async (req, res) => {
   if (username === 'demo' && password === 'demo123') {
     const demoUser = {
       id: 'demo-user-12345',
-      email: 'demo@ifwhenalways.com',
+      email: 'demo@example.com',
       firstName: 'Demo',
       lastName: 'User'
     };

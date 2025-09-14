@@ -339,7 +339,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Create a demo user session
         const demoUser = {
           id: 'demo-user-12345',
-          email: 'demo@ifwhenalways.com',
+          email: 'demo@example.com',
           firstName: 'Demo',
           lastName: 'User',
           profileImageUrl: null,
