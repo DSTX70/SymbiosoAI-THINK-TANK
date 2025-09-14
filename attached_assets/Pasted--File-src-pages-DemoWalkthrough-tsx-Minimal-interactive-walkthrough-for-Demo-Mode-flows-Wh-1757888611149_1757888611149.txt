@@ -1,0 +1,226 @@
+// File: src/pages/DemoWalkthrough.tsx
+// Minimal interactive walkthrough for Demo Mode flows.
+// Why: one-click steps to exercise login, Expert, export, analytics, and upgrade.
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+
+// Optional: swap this if API is hosted elsewhere
+const API_BASE = (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+
+type Json = Record<string, any>;
+
+type StepId =
+  | 'login'
+  | 'expert'
+  | 'export'
+  | 'analytics'
+  | 'upgrade'
+  | 'exportAfterUpgrade';
+
+const steps: { id: StepId; title: string; desc: string; endpoint: string; method: 'POST'; body?: Json }[] = [
+  {
+    id: 'login',
+    title: '1) Demo Login',
+    desc: 'Creates a demo user (isDemo=true, plan=demo). Required for subsequent steps.',
+    endpoint: '/api/demo-login',
+    method: 'POST',
+    body: { username: 'demo', password: 'demo123' },
+  },
+  {
+    id: 'expert',
+    title: '2) Expert Mode (ADVANCED_AI)',
+    desc: 'Allowed without workspace because demo plan includes ADVANCED_AI.',
+    endpoint: '/api/think',
+    method: 'POST',
+    body: { mode: 'expert', prompt: 'Hello from Demo UI' },
+  },
+  {
+    id: 'export',
+    title: '3) Export (requires EXPORT_PDF)',
+    desc: 'Auto-provisions demo workspace, then returns 402 (upgrade required).',
+    endpoint: '/api/export',
+    method: 'POST',
+    body: {},
+  },
+  {
+    id: 'analytics',
+    title: '4) Analytics (requires ADVANCED_ANALYTICS)',
+    desc: 'Auto-provisions + seeds demo workspace, then returns 402 for demo plan.',
+    endpoint: '/api/analytics/run',
+    method: 'POST',
+    body: {},
+  },
+  {
+    id: 'upgrade',
+    title: '5) Upgrade Demo → Pro',
+    desc: 'Dev-only: flips isDemo=false, plan=pro, purges demo artifacts.',
+    endpoint: '/api/upgrade-demo',
+    method: 'POST',
+    body: {},
+  },
+  {
+    id: 'exportAfterUpgrade',
+    title: '6) Export After Upgrade',
+    desc: 'Now returns 400 (workspace required) because auto-provision is only for demo.',
+    endpoint: '/api/export',
+    method: 'POST',
+    body: {},
+  },
+];
+
+function cx(...c: (string | false | null | undefined)[]) { return c.filter(Boolean).join(' '); }
+
+function Code({ children }: { children: React.ReactNode }) {
+  return <code className="rounded bg-gray-100 px-1 py-0.5 text-sm">{children}</code>;
+}
+
+function useLogger() {
+  const [lines, setLines] = useState<string[]>([]);
+  const append = useCallback((line: string) => setLines((s) => [...s, line]), []);
+  const clear = useCallback(() => setLines([]), []);
+  return { lines, append, clear };
+}
+
+async function callApi(path: string, method: 'POST', body?: Json) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include', // why: keep session cookies
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let json: Json | null = null;
+  try { json = await res.json(); } catch {}
+  return { status: res.status, ok: res.ok, json };
+}
+
+export default function DemoWalkthrough() {
+  const { lines, append, clear } = useLogger();
+  const [running, setRunning] = useState<StepId | null>(null);
+  const [lastStatus, setLastStatus] = useState<string>('');
+  const [autoRun, setAutoRun] = useState(false);
+  const busy = !!running;
+
+  const runStep = useCallback(async (s: typeof steps[number]) => {
+    setRunning(s.id);
+    append(`→ ${s.title}`);
+    const { status, ok, json } = await callApi(s.endpoint, s.method, s.body);
+    const payload = JSON.stringify(json ?? {}, null, 2);
+    append(`← HTTP ${status} ${ok ? 'OK' : ''}\n${payload}`);
+    setLastStatus(`${s.id}: ${status}`);
+    setRunning(null);
+    return { status, ok };
+  }, [append]);
+
+  const runAll = useCallback(async () => {
+    if (busy) return;
+    setAutoRun(true);
+    clear();
+    for (const s of steps) {
+      const { status } = await runStep(s);
+      // short breathing room
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => setTimeout(r, 200));
+      // continue even on expected errors (402/400)
+      append(`—— done: ${s.id} (status: ${status})`);
+    }
+    setAutoRun(false);
+  }, [busy, clear, runStep, append]);
+
+  const StepCard = useCallback((s: typeof steps[number]) => (
+    <div key={s.id} className={cx(
+      'rounded-2xl border p-4 shadow-sm transition',
+      running === s.id ? 'ring-1 ring-blue-400' : 'hover:shadow'
+    )}>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-semibold">{s.title}</h3>
+          <p className="text-sm text-gray-600">{s.desc}</p>
+        </div>
+        <button
+          className={cx(
+            'rounded-xl px-3 py-2 text-sm font-medium',
+            'border shadow-sm hover:shadow disabled:opacity-50',
+            'active:scale-[.98]'
+          )}
+          onClick={() => runStep(s)}
+          disabled={busy}
+        >
+          Run
+        </button>
+      </div>
+      <div className="mt-3 grid grid-cols-1 gap-2 text-sm">
+        <div><Code>{s.method}</Code> <Code>{s.endpoint}</Code></div>
+        {s.body && <pre className="overflow-auto rounded bg-gray-50 p-2 text-xs">{JSON.stringify(s.body, null, 2)}</pre>}
+      </div>
+    </div>
+  ), [busy, runStep, running]);
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-6 p-6">
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Demo Mode — Interactive Walkthrough</h1>
+          <p className="text-gray-600">Covers login, Expert, export, analytics, and upgrade flows.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            className={cx('rounded-xl border px-3 py-2 text-sm shadow-sm hover:shadow disabled:opacity-50')}
+            onClick={runAll}
+            disabled={busy}
+          >Run All</button>
+          <button
+            className={cx('rounded-xl border px-3 py-2 text-sm shadow-sm hover:shadow disabled:opacity-50')}
+            onClick={clear}
+            disabled={busy}
+          >Clear Log</button>
+        </div>
+      </header>
+
+      <section className="grid grid-cols-1 gap-4">
+        {steps.map((s) => StepCard(s))}
+      </section>
+
+      <section className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Live Log</h2>
+          <span className="text-xs text-gray-500">{lastStatus}</span>
+        </div>
+        <pre className="h-80 overflow-auto rounded-2xl border bg-black p-3 text-xs text-green-200">
+{lines.length ? lines.join('\n\n') : 'No output yet. Click Run on a step or Run All.'}
+        </pre>
+      </section>
+
+      <footer className="text-xs text-gray-500">
+        Hints: In production, set <Code>ENABLE_DEMO_LOGIN=true</Code> to allow the demo route. This UI sends credentials with requests.
+      </footer>
+    </div>
+  );
+}
+
+// File: src/server/ui-demo-route.ts (optional Express route to serve this page at /demo)
+// If you already have a frontend, mount the component there instead.
+/*
+import path from 'node:path';
+import fs from 'node:fs';
+import type { Express } from 'express';
+
+export function registerDemoUiRoute(app: Express) {
+  // Simple static HTML that mounts the bundled React page (assumes your bundler outputs /public)
+  app.get('/demo', (_req, res) => {
+    const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Demo Walkthrough</title>
+  <script defer src="/public/demo-walkthrough.bundle.js"></script>
+  <link rel="stylesheet" href="/public/tailwind.css" />
+</head>
+<body class="bg-gray-50">
+  <div id="root"></div>
+</body>
+</html>`;
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+  });
+}
+*/

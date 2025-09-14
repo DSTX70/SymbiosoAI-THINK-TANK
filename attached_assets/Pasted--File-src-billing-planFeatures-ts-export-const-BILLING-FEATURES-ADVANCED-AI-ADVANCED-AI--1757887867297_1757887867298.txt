@@ -1,0 +1,1038 @@
+// File: src/billing/planFeatures.ts
+export const BILLING_FEATURES = {
+  ADVANCED_AI: 'ADVANCED_AI',
+  EXPORT_PDF: 'EXPORT_PDF',
+  CUSTOM_TEMPLATES: 'CUSTOM_TEMPLATES',
+  UNLIMITED_SESSIONS: 'UNLIMITED_SESSIONS',
+  TEAM_COLLABORATION: 'TEAM_COLLABORATION',
+  ADVANCED_ANALYTICS: 'ADVANCED_ANALYTICS',
+} as const;
+
+export type BillingFeature = typeof BILLING_FEATURES[keyof typeof BILLING_FEATURES];
+
+export const PLAN_FEATURES: Record<string, readonly BillingFeature[]> = {
+  free: [],
+  demo: [BILLING_FEATURES.ADVANCED_AI],
+  pro: [
+    BILLING_FEATURES.ADVANCED_AI,
+    BILLING_FEATURES.EXPORT_PDF,
+    BILLING_FEATURES.CUSTOM_TEMPLATES,
+    BILLING_FEATURES.UNLIMITED_SESSIONS,
+    BILLING_FEATURES.TEAM_COLLABORATION,
+    BILLING_FEATURES.ADVANCED_ANALYTICS,
+  ],
+  enterprise: [
+    BILLING_FEATURES.ADVANCED_AI,
+    BILLING_FEATURES.EXPORT_PDF,
+    BILLING_FEATURES.CUSTOM_TEMPLATES,
+    BILLING_FEATURES.UNLIMITED_SESSIONS,
+    BILLING_FEATURES.TEAM_COLLABORATION,
+    BILLING_FEATURES.ADVANCED_ANALYTICS,
+  ],
+  custom: [],
+};
+
+
+// File: src/middleware/requireFeature.ts
+import type { Request, Response, NextFunction } from 'express';
+import { BILLING_FEATURES, PLAN_FEATURES, type BillingFeature } from '../billing/planFeatures';
+import { hasFeatureAccess } from '../services/entitlements';
+
+export function requireFeature(feature: BillingFeature) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Authentication required', code: 'AUTH_REQUIRED' });
+      }
+
+      const isDemo = Boolean((req.user as any).isDemo);
+      const userSub = ((req.user as any).subscription ?? {}) as { plan?: string };
+      const plan = userSub.plan || (isDemo ? 'demo' : 'free');
+
+      const workspaceId = (req.params as any).workspaceId || (req.body as any).workspaceId || (req.query as any).workspaceId;
+
+      if (feature === BILLING_FEATURES.ADVANCED_AI && PLAN_FEATURES[plan]?.includes(BILLING_FEATURES.ADVANCED_AI)) {
+        return next();
+      }
+
+      if (!workspaceId) {
+        if (isDemo) {
+          // Auto-create ephemeral demo workspace for demo users
+          const demoWorkspaceId = 'demo-workspace-' + (req.user as any).id;
+          (req as any).workspaceId = demoWorkspaceId;
+          return next();
+        }
+        return res.status(400).json({ error: 'Workspace context required for feature access', code: 'WORKSPACE_CONTEXT_REQUIRED' });
+      }
+
+      const hasAccessFlag = await hasFeatureAccess(workspaceId, feature);
+      if (!hasAccessFlag) {
+        return res.status(402).json({ error: 'Feature requires upgrade', code: 'FEATURE_REQUIRES_UPGRADE', feature, workspaceId });
+      }
+
+      return next();
+    } catch (err) {
+      console.error('Feature requirement check failed:', err);
+      return res.status(500).json({ error: 'Internal server error', code: 'INTERNAL_ERROR' });
+    }
+  };
+}
+
+
+// File: src/routes/demoLogin.ts
+import type { Request, Response } from 'express';
+import { PLAN_FEATURES } from '../billing/planFeatures';
+import { storage } from '../services/storage';
+
+export async function registerDemoLoginRoute(app: import('express').Express) {
+  app.post('/api/demo-login', async (req: Request, res: Response) => {
+    if (process.env.NODE_ENV === 'production' && process.env.ENABLE_DEMO_LOGIN !== 'true') {
+      return res.status(404).json({ message: 'Not found' });
+    }
+
+    try {
+      const { username, password } = req.body as { username?: string; password?: string };
+      if (username !== 'demo' || password !== 'demo123') {
+        return res.status(401).json({ message: 'Invalid demo credentials' });
+      }
+
+      const demoUser = {
+        id: 'demo-user-12345',
+        email: 'demo@ifwhenalways.com',
+        firstName: 'Demo',
+        lastName: 'User',
+        profileImageUrl: null as string | null,
+        role: 'user',
+        isDemo: true,
+        subscription: { plan: 'demo' as const },
+      };
+
+      await storage.upsertUser(demoUser);
+      await storage.upsertSubscription?.(demoUser.id, { plan: 'demo' });
+
+      const demoWorkspace = { id: 'demo-workspace-' + demoUser.id, name: 'Demo Workspace', ownerId: demoUser.id };
+      await storage.upsertWorkspace?.(demoWorkspace);
+
+      const session = {
+        claims: {
+          sub: demoUser.id,
+          email: demoUser.email,
+          first_name: demoUser.firstName,
+          last_name: demoUser.lastName,
+          profile_image_url: demoUser.profileImageUrl,
+        },
+        access_token: null as string | null,
+        refresh_token: null as string | null,
+        expires_at: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60,
+        isDemo: true,
+        subscription: { plan: 'demo' as const },
+        workspace: demoWorkspace,
+      };
+
+      await storage.upsertSession(session);
+
+      return res.status(200).json({
+        message: 'Demo login successful',
+        user: { id: demoUser.id, email: demoUser.email, isDemo: true, subscription: session.subscription },
+        plan: 'demo',
+        features: PLAN_FEATURES.demo,
+        workspace: demoWorkspace,
+      });
+    } catch (err) {
+      console.error('Demo login failed:', err);
+      return res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+}
+
+
+// File: src/services/workspaces.ts
+// Storage-backed demo workspace provisioning + seeding
+import { storage } from './storage';
+
+export interface Workspace { id: string; name: string; ownerUserId: string; isDemo: boolean; seeded?: boolean }
+export interface DemoDoc { id: string; title: string; content: string; createdAt: string }
+
+// Thin wrappers over your real storage layer (provide implementations there)
+async function getWorkspaceById(id: string): Promise<Workspace | null> {
+  return (await storage.getWorkspace?.(id)) ?? null;
+}
+async function getDemoWorkspaceForUser(userId: string): Promise<Workspace | null> {
+  return (await storage.getWorkspaceBySlugOrOwner?.({ ownerUserId: userId, slug: `demo-ws-${userId}` })) ?? null;
+}
+async function createDemoWorkspace(userId: string): Promise<Workspace> {
+  const ws: Workspace = {
+    id: `demo-ws-${userId}`,
+    name: 'Demo Workspace',
+    ownerUserId: userId,
+    isDemo: true,
+    seeded: false,
+  };
+  await storage.createWorkspace?.(ws);
+  return ws;
+}
+async function markSeeded(workspaceId: string): Promise<void> {
+  await storage.updateWorkspace?.(workspaceId, { seeded: true });
+}
+
+export async function ensureDemoWorkspace(userId: string): Promise<Workspace> {
+  const existing = (await getDemoWorkspaceForUser(userId)) || (await getWorkspaceById(`demo-ws-${userId}`));
+  let ws = existing ?? (await createDemoWorkspace(userId));
+  if (!ws.seeded) {
+    await seedDemoWorkspace(ws);
+    await markSeeded(ws.id);
+    ws = { ...ws, seeded: true };
+  }
+  return ws;
+}
+
+export async function seedDemoWorkspace(ws: Workspace): Promise<void> {
+  const now = new Date().toISOString();
+  const docs: DemoDoc[] = [
+    { id: 'd1', title: 'Welcome', content: 'This is your demo space. Try Expert mode.', createdAt: now },
+    { id: 'd2', title: 'Quarterly Notes', content: 'Q3 highlights, metrics, and action items.', createdAt: now },
+    { id: 'd3', title: 'Roadmap', content: 'Backlog: auth hardening, billing events, AI prompts.', createdAt: now },
+  ];
+  // Persist docs using your storage layer; implement upsertDemoDocs for demo ws
+  await storage.upsertDemoDocs?.(ws.id, docs);
+}
+
+export async function getWorkspaceData(workspaceId: string) {
+  const docs = (await storage.getDemoDocs?.(workspaceId)) ?? [];
+  return { docs } as { docs: DemoDoc[] };
+}
+
+
+// File: src/storage/index.ts
+// TypeScript interfaces + stub implementations for demo workspace persistence.
+// Replace stubs with real Prisma/SQL logic.
+
+export interface WorkspaceRow {
+  id: string;
+  slug?: string;
+  name: string;
+  ownerUserId: string;
+  isDemo: boolean;
+  seeded?: boolean;
+}
+
+export interface DemoDocRow {
+  id: string;
+  workspaceId: string;
+  title: string;
+  content: string;
+  createdAt: string;
+}
+
+class InMemoryStorage {
+  private workspaces = new Map<string, WorkspaceRow>();
+  private docs = new Map<string, DemoDocRow[]>();
+
+  async getWorkspace(id: string): Promise<WorkspaceRow | null> {
+    return this.workspaces.get(id) ?? null;
+  }
+
+  async getWorkspaceBySlugOrOwner(opts: { ownerUserId: string; slug: string }): Promise<WorkspaceRow | null> {
+    return Array.from(this.workspaces.values()).find(
+      (w) => w.ownerUserId === opts.ownerUserId && (w.id === opts.slug || w.slug === opts.slug)
+    ) ?? null;
+  }
+
+  async createWorkspace(ws: WorkspaceRow): Promise<void> {
+    this.workspaces.set(ws.id, ws);
+  }
+
+  async updateWorkspace(id: string, patch: Partial<WorkspaceRow>): Promise<void> {
+    const current = this.workspaces.get(id);
+    if (current) {
+      this.workspaces.set(id, { ...current, ...patch });
+    }
+  }
+
+  async upsertDemoDocs(workspaceId: string, docs: DemoDocRow[]): Promise<void> {
+    this.docs.set(workspaceId, docs);
+  }
+
+  async getDemoDocs(workspaceId: string): Promise<DemoDocRow[]> {
+    return this.docs.get(workspaceId) ?? [];
+  }
+}
+
+export const storage = new InMemoryStorage();
+
+
+// File: prisma/schema.prisma
+// Postgres schema for persistent demo workspace + docs.
+// Run: npx prisma migrate dev --name init_demo_workspace
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Workspace {
+  id          String   @id
+  slug        String?  @unique
+  name        String
+  ownerUserId String
+  isDemo      Boolean  @default(false)
+  seeded      Boolean  @default(false)
+  demoDocs    DemoDoc[]
+}
+
+model DemoDoc {
+  id          String   @id
+  workspaceId String
+  title       String
+  content     String
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+}
+
+
+// File: scripts/seedDemoWorkspace.ts
+// Seed script to pre-populate demo workspace + docs in Postgres.
+// Run: ts-node scripts/seedDemoWorkspace.ts
+
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  const userId = 'demo-user-12345';
+  const wsId = `demo-ws-${userId}`;
+
+  let ws = await prisma.workspace.findUnique({ where: { id: wsId } });
+  if (!ws) {
+    ws = await prisma.workspace.create({
+      data: {
+        id: wsId,
+        slug: wsId,
+        name: 'Demo Workspace',
+        ownerUserId: userId,
+        isDemo: true,
+        seeded: true,
+      },
+    });
+  }
+
+  await prisma.demoDoc.deleteMany({ where: { workspaceId: ws.id } });
+  await prisma.demoDoc.createMany({
+    data: [
+      { id: 'd1', workspaceId: ws.id, title: 'Welcome', content: 'This is your demo space. Try Expert mode.' },
+      { id: 'd2', workspaceId: ws.id, title: 'Quarterly Notes', content: 'Q3 highlights, metrics, and action items.' },
+      { id: 'd3', workspaceId: ws.id, title: 'Roadmap', content: 'Backlog: auth hardening, billing events, AI prompts.' },
+    ],
+  });
+
+  console.log('Demo workspace and docs seeded.');
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+
+
+// File: src/middleware/ensureDemoWorkspace.ts
+import type { Request, Response, NextFunction } from 'express';
+import { ensureDemoWorkspace } from '../services/workspaces';
+import { storage } from '../services/storage';
+
+/**
+ * If caller is a demo user and no workspaceId is supplied, auto-create/attach a demo workspace.
+ * Also: if demo user has upgraded to non-demo plan, purge any demo workspaces/docs to avoid leakage.
+ */
+export async function ensureWorkspaceForDemo(req: Request, _res: Response, next: NextFunction) {
+  try {
+    const user: any = req.user;
+    const hasWs = (req.params as any).workspaceId || (req.body as any).workspaceId || (req.query as any).workspaceId;
+
+    // Guard: if user was demo but is now on a real plan, purge demo ws/docs.
+    if (user?.isDemo && user?.subscription?.plan && user.subscription.plan !== 'demo') {
+      await storage.deleteDemoWorkspacesAndDocs?.(user.id);
+      user.isDemo = false; // flip flag so downstream respects real plan
+    }
+
+    if (user?.isDemo && !hasWs) {
+      const ws = await ensureDemoWorkspace(user.id);
+      (req.body as any) = { ...(req.body as any), workspaceId: ws.id };
+      (req as any).workspace = ws;
+    }
+    return next();
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('ensureWorkspaceForDemo error:', e);
+    return next();
+  }
+}
+import type { Request, Response, NextFunction } from 'express';
+import { ensureDemoWorkspace } from '../services/workspaces';
+
+/**
+ * If caller is a demo user and no workspaceId is supplied, auto-create/attach a demo workspace.
+ * Why: Routes that *require* a workspace can proceed to normal entitlement checks.
+ */
+export async function ensureWorkspaceForDemo(req: Request, _res: Response, next: NextFunction) {
+  try {
+    const user: any = req.user;
+    const hasWs = (req.params as any).workspaceId || (req.body as any).workspaceId || (req.query as any).workspaceId;
+    if (user?.isDemo && !hasWs) {
+      const ws = await ensureDemoWorkspace(user.id);
+      // attach to body by default to avoid mutating params
+      (req.body as any) = { ...(req.body as any), workspaceId: ws.id };
+      (req as any).workspace = ws;
+    }
+    return next();
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('ensureWorkspaceForDemo error:', e);
+    return next();
+  }
+}
+
+
+// File: src/routes/export.ts
+import express from 'express';
+import type { Request, Response } from 'express';
+import { requireFeature } from '../middleware/requireFeature';
+import { BILLING_FEATURES } from '../billing/planFeatures';
+import { ensureWorkspaceForDemo } from '../middleware/ensureDemoWorkspace';
+import { loadEntitlementsContext } from '../middleware/loadEntitlementsContext';
+
+export const exportRouter = express.Router();
+
+// Example guarded endpoint for PDF export
+exportRouter.post(
+  '/api/export',
+  requireAuth,
+  loadEntitlementsContext,
+  ensureWorkspaceForDemo, // auto-provision workspace for demo users
+  express.json(),
+  requireFeature(BILLING_FEATURES.EXPORT_PDF),
+  async (_req: Request, res: Response) => {
+    return res.status(200).json({ ok: true });
+  }
+);
+
+
+// File: src/routes/analytics.ts
+import express from 'express';
+import type { Request, Response } from 'express';
+import { requireFeature } from '../middleware/requireFeature';
+import { BILLING_FEATURES } from '../billing/planFeatures';
+import { ensureWorkspaceForDemo } from '../middleware/ensureDemoWorkspace';
+import { loadEntitlementsContext } from '../middleware/loadEntitlementsContext';
+import { getWorkspaceData } from '../services/workspaces';
+
+export const analyticsRouter = express.Router();
+
+// Guarded analytics run endpoint (requires ADVANCED_ANALYTICS)
+analyticsRouter.post(
+  '/api/analytics/run',
+  requireAuth,
+  loadEntitlementsContext,
+  ensureWorkspaceForDemo, // creates demo ws + seeds sample data
+  express.json(),
+  requireFeature(BILLING_FEATURES.ADVANCED_ANALYTICS),
+  async (req: Request, res: Response) => {
+    // If we got here, caller has entitlement; return a trivial aggregation over demo docs
+    const wsId = (req.body as any).workspaceId || (req.params as any).workspaceId || (req.query as any).workspaceId;
+    const data = getWorkspaceData(wsId);
+    const totalDocs = data.docs.length;
+    const titles = data.docs.map(d => d.title);
+    return res.status(200).json({ ok: true, metrics: { totalDocs, titles } });
+  }
+);
+
+
+// File: tests/requireFeature.demo.spec.ts
+// Jest-style tests: Expert mode allowed without workspace; other features auto-provision ws then 402 upgrade.
+import request from 'supertest';
+import { app } from '../src/server';
+
+describe('Demo access controls', () => {
+  it('allows /api/think expert mode for demo without workspace', async () => {
+    const agent = request.agent(app);
+    await agent.post('/api/demo-login').send({ username: 'demo', password: 'demo123' }).expect(200);
+
+    await agent.post('/api/think').send({ mode: 'expert', prompt: 'hello' }).expect(200);
+  });
+
+  it('auto-creates a demo workspace, then blocks PDF export with 402 upgrade', async () => {
+    const agent = request.agent(app);
+    await agent.post('/api/demo-login').send({ username: 'demo', password: 'demo123' }).expect(200);
+
+    const res = await agent.post('/api/export').send({}).expect(402);
+    expect(res.body.code).toBe('FEATURE_REQUIRES_UPGRADE');
+    expect(res.body.feature).toBe('EXPORT_PDF');
+    expect(res.body.workspaceId).toBeTruthy();
+  });
+
+  it('auto-creates a demo workspace, seeds data, then blocks analytics with 402 upgrade', async () => {
+    const agent = request.agent(app);
+    await agent.post('/api/demo-login').send({ username: 'demo', password: 'demo123' }).expect(200);
+
+    const res = await agent
+      .post('/api/analytics/run')
+      .send({})
+      .expect(402);
+    expect(res.body.code).toBe('FEATURE_REQUIRES_UPGRADE');
+    expect(res.body.workspaceId).toBeTruthy();
+  });
+});
+import request from 'supertest';
+import { app } from '../src/server';
+
+describe('Demo access controls', () => {
+  it('allows /api/think expert mode for demo without workspace', async () => {
+    const agent = request.agent(app);
+    await agent.post('/api/demo-login').send({ username: 'demo', password: 'demo123' }).expect(200);
+
+    await agent.post('/api/think').send({ mode: 'expert', prompt: 'hello' }).expect(200);
+  });
+
+  it('auto-creates a demo workspace, then blocks PDF export with 402 upgrade', async () => {
+    const agent = request.agent(app);
+    await agent.post('/api/demo-login').send({ username: 'demo', password: 'demo123' }).expect(200);
+
+    const res = await agent.post('/api/export').send({}).expect(402);
+    expect(res.body.code).toBe('FEATURE_REQUIRES_UPGRADE');
+    expect(res.body.feature).toBe('EXPORT_PDF');
+    expect(res.body.workspaceId).toBeTruthy();
+  });
+
+  it('auto-creates a demo workspace, then blocks analytics with 402 upgrade', async () => {
+    const agent = request.agent(app);
+    await agent.post('/api/demo-login').send({ username: 'demo', password: 'demo123' }).expect(200);
+
+    const res = await agent.post('/api/analytics/run').send({}).expect(402);
+    expect(res.body.code).toBe('FEATURE_REQUIRES_UPGRADE');
+    expect(res.body.feature).toBe('ADVANCED_ANALYTICS');
+  });
+});
+
+// File: src/services/storage.ts
+// Storage interface + Postgres-backed implementation using `pg`.
+// Why: strongly-typed, minimal, easy to swap ORMs later.
+import { Pool, PoolClient } from 'pg';
+
+export type UUID = string;
+
+export interface UserRow {
+  id: UUID;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  profileImageUrl: string | null;
+  role: 'user' | 'admin';
+  isDemo: boolean;
+  plan: 'free' | 'demo' | 'pro' | 'enterprise' | 'custom';
+}
+
+export interface WorkspaceRow {
+  id: string; // allow slug-like id `demo-ws-<userId>`
+  name: string;
+  ownerUserId: UUID;
+  isDemo: boolean;
+  seeded: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface DemoDocRow {
+  id: string;
+  workspaceId: string;
+  title: string;
+  content: string;
+  createdAt: Date;
+}
+
+export interface Storage {
+  // Users/session (minimal)
+  upsertUser(user: Partial<UserRow> & { id: UUID; email: string }): Promise<void>;
+  upsertSession(session: any): Promise<void>;
+
+  // Workspaces
+  getWorkspace(id: string): Promise<WorkspaceRow | null>;
+  getWorkspaceBySlugOrOwner(arg: { ownerUserId: UUID; slug: string }): Promise<WorkspaceRow | null>;
+  createWorkspace(ws: { id: string; name: string; ownerUserId: UUID; isDemo: boolean; seeded?: boolean }): Promise<void>;
+  updateWorkspace(id: string, patch: Partial<Pick<WorkspaceRow, 'name' | 'seeded'>>): Promise<void>;
+
+  // Demo docs
+  upsertDemoDocs(workspaceId: string, docs: { id: string; title: string; content: string; createdAt: string }[]): Promise<void>;
+  getDemoDocs(workspaceId: string): Promise<DemoDocRow[]>;
+}
+
+export class PgStorage implements Storage {
+  private pool: Pool;
+
+  constructor(config?: ConstructorParameters<typeof Pool>[0]) {
+    this.pool = new Pool(config);
+  }
+
+  private async tx<T>(fn: (c: PoolClient) => Promise<T>): Promise<T> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const res = await fn(client);
+      await client.query('COMMIT');
+      return res;
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  async upsertUser(user: Partial<UserRow> & { id: UUID; email: string }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO users (id, email, first_name, last_name, profile_image_url, role, is_demo, plan)
+       VALUES ($1,$2,$3,$4,$5, COALESCE($6,'user'), COALESCE($7,false), COALESCE($8,'free'))
+       ON CONFLICT (id) DO UPDATE SET
+         email = EXCLUDED.email,
+         first_name = EXCLUDED.first_name,
+         last_name = EXCLUDED.last_name,
+         profile_image_url = EXCLUDED.profile_image_url,
+         role = EXCLUDED.role,
+         is_demo = EXCLUDED.is_demo,
+         plan = EXCLUDED.plan`,
+      [
+        user.id,
+        user.email,
+        user.firstName ?? null,
+        user.lastName ?? null,
+        user.profileImageUrl ?? null,
+        (user as any).role ?? 'user',
+        (user as any).isDemo ?? false,
+        (user as any).subscription?.plan ?? (user as any).plan ?? 'free',
+      ]
+    );
+  }
+
+  async upsertSession(session: any): Promise<void> {
+    // No-op stub. Why: session persistence varies by stack; plug your own store here.
+    return;
+  }
+
+  async getWorkspace(id: string): Promise<WorkspaceRow | null> {
+    const { rows } = await this.pool.query(
+      `SELECT id, name, owner_user_id as "ownerUserId", is_demo as "isDemo", seeded, created_at as "createdAt", updated_at as "updatedAt"
+       FROM workspaces WHERE id = $1`,
+      [id]
+    );
+    return rows[0] ?? null;
+  }
+
+  async getWorkspaceBySlugOrOwner(arg: { ownerUserId: UUID; slug: string }): Promise<WorkspaceRow | null> {
+    const { rows } = await this.pool.query(
+      `SELECT id, name, owner_user_id as "ownerUserId", is_demo as "isDemo", seeded, created_at as "createdAt", updated_at as "updatedAt"
+       FROM workspaces WHERE id = $1 OR (owner_user_id = $2 AND is_demo = true) ORDER BY created_at ASC LIMIT 1`,
+      [arg.slug, arg.ownerUserId]
+    );
+    return rows[0] ?? null;
+  }
+
+  async createWorkspace(ws: { id: string; name: string; ownerUserId: UUID; isDemo: boolean; seeded?: boolean }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO workspaces (id, name, owner_user_id, is_demo, seeded)
+       VALUES ($1,$2,$3,$4, COALESCE($5,false)) ON CONFLICT (id) DO NOTHING`,
+      [ws.id, ws.name, ws.ownerUserId, ws.isDemo, ws.seeded ?? false]
+    );
+  }
+
+  async updateWorkspace(id: string, patch: Partial<Pick<WorkspaceRow, 'name' | 'seeded'>>): Promise<void> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let i = 1;
+    if (patch.name !== undefined) { fields.push(`name = $${i++}`); values.push(patch.name); }
+    if (patch.seeded !== undefined) { fields.push(`seeded = $${i++}`); values.push(patch.seeded); }
+    if (!fields.length) return;
+    values.push(id);
+    await this.pool.query(`UPDATE workspaces SET ${fields.join(', ')}, updated_at = NOW() WHERE id = $${i}`, values);
+  }
+
+  async upsertDemoDocs(workspaceId: string, docs: { id: string; title: string; content: string; createdAt: string }[]): Promise<void> {
+    await this.tx(async (c) => {
+      for (const d of docs) {
+        await c.query(
+          `INSERT INTO demo_docs (id, workspace_id, title, content, created_at)
+           VALUES ($1,$2,$3,$4,$5)
+           ON CONFLICT (id) DO NOTHING`,
+          [d.id, workspaceId, d.title, d.content, d.createdAt]
+        );
+      }
+    });
+  }
+
+  async getDemoDocs(workspaceId: string): Promise<DemoDocRow[]> {
+    const { rows } = await this.pool.query(
+      `SELECT id, workspace_id as "workspaceId", title, content, created_at as "createdAt"
+       FROM demo_docs WHERE workspace_id = $1 ORDER BY created_at ASC`,
+      [workspaceId]
+    );
+    return rows as DemoDocRow[];
+  }
+}
+
+export const storage: Storage = new PgStorage({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : undefined,
+});
+
+
+// File: db/migrations/001_init.sql
+-- Why: minimal schema for users, workspaces, demo docs. Idempotent-ish via IF NOT EXISTS.
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  first_name TEXT,
+  last_name TEXT,
+  profile_image_url TEXT,
+  role TEXT NOT NULL DEFAULT 'user',
+  is_demo BOOLEAN NOT NULL DEFAULT false,
+  plan TEXT NOT NULL DEFAULT 'free',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS workspaces (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  owner_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  is_demo BOOLEAN NOT NULL DEFAULT false,
+  seeded BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS demo_docs (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_workspaces_owner ON workspaces(owner_user_id);
+CREATE INDEX IF NOT EXISTS idx_demo_docs_ws ON demo_docs(workspace_id);
+
+-- Trigger to update updated_at on workspaces
+CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END; $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_ws_updated ON workspaces;
+CREATE TRIGGER trg_ws_updated BEFORE UPDATE ON workspaces
+FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+
+// File: db/seed/seed.ts
+// Seed script that ensures the demo user + demo workspace + docs exist.
+// Usage: ts-node db/seed/seed.ts (requires DATABASE_URL)
+import { PgStorage } from '../../src/services/storage';
+import { ensureDemoWorkspace, seedDemoWorkspace } from '../../src/services/workspaces';
+import 'dotenv/config';
+
+async function main() {
+  const storage = new PgStorage({ connectionString: process.env.DATABASE_URL });
+  const demoUser = {
+    id: 'demo-user-12345',
+    email: 'demo@ifwhenalways.com',
+    firstName: 'Demo',
+    lastName: 'User',
+    profileImageUrl: null,
+    role: 'user' as const,
+    isDemo: true,
+    plan: 'demo' as const,
+  };
+  await storage.upsertUser(demoUser);
+
+  // Ensure workspace + seed docs
+  const ws = await ensureDemoWorkspace(demoUser.id);
+  await seedDemoWorkspace(ws);
+
+  // eslint-disable-next-line no-console
+  console.log('Seed complete:', { user: demoUser.id, workspace: ws.id });
+}
+
+main().catch((e) => {
+  // eslint-disable-next-line no-console
+  console.error(e);
+  process.exit(1);
+});
+
+
+// File: package.json (snippets)
+{
+  "scripts": {
+    "db:migrate": "psql $DATABASE_URL -f db/migrations/001_init.sql",
+    "db:seed": "ts-node --transpile-only db/seed/seed.ts"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "pg": "^8.11.5",
+    "dotenv": "^16.4.5"
+  }
+}
+
+
+// File: .env.example
+DATABASE_URL=postgres://user:pass@localhost:5432/yourdb
+PGSSL=false
+
+
+// File: src/services/storage.ts  (FULL FILE - paste ready)
+import { Pool, PoolClient } from 'pg';
+
+export type UUID = string;
+
+export interface UserRow {
+  id: UUID;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  profileImageUrl: string | null;
+  role: 'user' | 'admin';
+  isDemo: boolean;
+  plan: 'free' | 'demo' | 'pro' | 'enterprise' | 'custom';
+}
+
+export interface WorkspaceRow {
+  id: string; // allow slug-like id `demo-ws-<userId>`
+  name: string;
+  ownerUserId: UUID;
+  isDemo: boolean;
+  seeded: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface DemoDocRow {
+  id: string;
+  workspaceId: string;
+  title: string;
+  content: string;
+  createdAt: Date;
+}
+
+export interface Storage {
+  // Users/session
+  upsertUser(user: Partial<UserRow> & { id: UUID; email: string }): Promise<void>;
+  updateUser(id: UUID, patch: Partial<Pick<UserRow, 'isDemo' | 'plan'>>): Promise<void>;
+  upsertSession(session: any): Promise<void>;
+
+  // Workspaces
+  getWorkspace(id: string): Promise<WorkspaceRow | null>;
+  getWorkspaceBySlugOrOwner(arg: { ownerUserId: UUID; slug: string }): Promise<WorkspaceRow | null>;
+  createWorkspace(ws: { id: string; name: string; ownerUserId: UUID; isDemo: boolean; seeded?: boolean }): Promise<void>;
+  updateWorkspace(id: string, patch: Partial<Pick<WorkspaceRow, 'name' | 'seeded'>>): Promise<void>;
+  deleteWorkspace(id: string): Promise<void>;
+
+  // Demo docs
+  upsertDemoDocs(workspaceId: string, docs: { id: string; title: string; content: string; createdAt: string }[]): Promise<void>;
+  getDemoDocs(workspaceId: string): Promise<DemoDocRow[]>;
+  deleteDemoDocsByWorkspace(workspaceId: string): Promise<void>;
+}
+
+export class PgStorage implements Storage {
+  private pool: Pool;
+
+  constructor(config?: ConstructorParameters<typeof Pool>[0]) {
+    this.pool = new Pool(config);
+  }
+
+  private async tx<T>(fn: (c: PoolClient) => Promise<T>): Promise<T> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const res = await fn(client);
+      await client.query('COMMIT');
+      return res;
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  async upsertUser(user: Partial<UserRow> & { id: UUID; email: string }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO users (id, email, first_name, last_name, profile_image_url, role, is_demo, plan)
+       VALUES ($1,$2,$3,$4,$5, COALESCE($6,'user'), COALESCE($7,false), COALESCE($8,'free'))
+       ON CONFLICT (id) DO UPDATE SET
+         email = EXCLUDED.email,
+         first_name = EXCLUDED.first_name,
+         last_name = EXCLUDED.last_name,
+         profile_image_url = EXCLUDED.profile_image_url,
+         role = EXCLUDED.role,
+         is_demo = EXCLUDED.is_demo,
+         plan = EXCLUDED.plan`,
+      [
+        user.id,
+        user.email,
+        user.firstName ?? null,
+        user.lastName ?? null,
+        user.profileImageUrl ?? null,
+        (user as any).role ?? 'user',
+        (user as any).isDemo ?? false,
+        (user as any).subscription?.plan ?? (user as any).plan ?? 'free',
+      ]
+    );
+  }
+
+  async updateUser(id: UUID, patch: Partial<Pick<UserRow, 'isDemo' | 'plan'>>): Promise<void> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let i = 1;
+    if (patch.isDemo !== undefined) { fields.push(`is_demo = $${i++}`); values.push(patch.isDemo); }
+    if (patch.plan !== undefined) { fields.push(`plan = $${i++}`); values.push(patch.plan); }
+    if (!fields.length) return;
+    values.push(id);
+    await this.pool.query(`UPDATE users SET ${fields.join(', ')}, updated_at = NOW() WHERE id = $${i}` , values);
+  }
+
+  async upsertSession(_session: any): Promise<void> {
+    // No-op stub; wire your real session store if needed
+    return;
+  }
+
+  async getWorkspace(id: string): Promise<WorkspaceRow | null> {
+    const { rows } = await this.pool.query(
+      `SELECT id, name, owner_user_id as "ownerUserId", is_demo as "isDemo", seeded, created_at as "createdAt", updated_at as "updatedAt"
+       FROM workspaces WHERE id = $1`,
+      [id]
+    );
+    return rows[0] ?? null;
+  }
+
+  async getWorkspaceBySlugOrOwner(arg: { ownerUserId: UUID; slug: string }): Promise<WorkspaceRow | null> {
+    const { rows } = await this.pool.query(
+      `SELECT id, name, owner_user_id as "ownerUserId", is_demo as "isDemo", seeded, created_at as "createdAt", updated_at as "updatedAt"
+       FROM workspaces WHERE id = $1 OR (owner_user_id = $2 AND is_demo = true)
+       ORDER BY created_at ASC LIMIT 1`,
+      [arg.slug, arg.ownerUserId]
+    );
+    return rows[0] ?? null;
+  }
+
+  async createWorkspace(ws: { id: string; name: string; ownerUserId: UUID; isDemo: boolean; seeded?: boolean }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO workspaces (id, name, owner_user_id, is_demo, seeded)
+       VALUES ($1,$2,$3,$4, COALESCE($5,false)) ON CONFLICT (id) DO NOTHING`,
+      [ws.id, ws.name, ws.ownerUserId, ws.isDemo, ws.seeded ?? false]
+    );
+  }
+
+  async updateWorkspace(id: string, patch: Partial<Pick<WorkspaceRow, 'name' | 'seeded'>>): Promise<void> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let i = 1;
+    if (patch.name !== undefined) { fields.push(`name = $${i++}`); values.push(patch.name); }
+    if (patch.seeded !== undefined) { fields.push(`seeded = $${i++}`); values.push(patch.seeded); }
+    if (!fields.length) return;
+    values.push(id);
+    await this.pool.query(`UPDATE workspaces SET ${fields.join(', ')}, updated_at = NOW() WHERE id = $${i}`, values);
+  }
+
+  async deleteWorkspace(id: string): Promise<void> {
+    await this.pool.query(`DELETE FROM workspaces WHERE id = $1`, [id]);
+  }
+
+  async upsertDemoDocs(workspaceId: string, docs: { id: string; title: string; content: string; createdAt: string }[]): Promise<void> {
+    await this.tx(async (c) => {
+      for (const d of docs) {
+        await c.query(
+          `INSERT INTO demo_docs (id, workspace_id, title, content, created_at)
+           VALUES ($1,$2,$3,$4,$5)
+           ON CONFLICT (id) DO NOTHING`,
+          [d.id, workspaceId, d.title, d.content, d.createdAt]
+        );
+      }
+    });
+  }
+
+  async getDemoDocs(workspaceId: string): Promise<DemoDocRow[]> {
+    const { rows } = await this.pool.query(
+      `SELECT id, workspace_id as "workspaceId", title, content, created_at as "createdAt"
+       FROM demo_docs WHERE workspace_id = $1 ORDER BY created_at ASC`,
+      [workspaceId]
+    );
+    return rows as DemoDocRow[];
+  }
+
+  async deleteDemoDocsByWorkspace(workspaceId: string): Promise<void> {
+    await this.pool.query(`DELETE FROM demo_docs WHERE workspace_id = $1`, [workspaceId]);
+  }
+}
+
+export const storage: Storage = new PgStorage({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : undefined,
+});
+
+
+// File: db/seed/seed.ts  (FULL FILE - paste ready)
+import { PgStorage } from '../../src/services/storage';
+import { ensureDemoWorkspace, seedDemoWorkspace, purgeDemoArtifacts } from '../../src/services/workspaces';
+import 'dotenv/config';
+
+async function main() {
+  const storage = new PgStorage({ connectionString: process.env.DATABASE_URL });
+  const demoUser = {
+    id: 'demo-user-12345',
+    email: 'demo@ifwhenalways.com',
+    firstName: 'Demo',
+    lastName: 'User',
+    profileImageUrl: null,
+    role: 'user' as const,
+    isDemo: true,
+    plan: 'demo' as const,
+  };
+  await storage.upsertUser(demoUser);
+
+  const ws = await ensureDemoWorkspace(demoUser.id);
+  await seedDemoWorkspace(ws);
+
+  if (process.env.SEED_PURGE_ON_UPGRADE === 'true') {
+    await storage.updateUser(demoUser.id, { isDemo: false, plan: 'pro' });
+    await purgeDemoArtifacts(demoUser.id);
+  }
+
+  // eslint-disable-next-line no-console
+  console.log('Seed complete', { user: demoUser.id, workspace: ws.id, purgedOnUpgrade: process.env.SEED_PURGE_ON_UPGRADE === 'true' });
+}
+
+main().catch((e) => { console.error(e); process.exit(1); });
+
+
+// File: src/server.ts  (wire after session deserialization)
+// import { loadEntitlementsContext } from './middleware/loadEntitlementsContext';
+// import { reconcileEntitlementsOnAuth } from './middleware/ensureDemoWorkspace';
+// import { thinkRouter } from './routes/think';
+// import { exportRouter } from './routes/export';
+// import { analyticsRouter } from './routes/analytics';
+// import { upgradeRouter } from './routes/upgrade';
+//
+// app.use(loadEntitlementsContext, reconcileEntitlementsOnAuth);
+// app.use(thinkRouter);
+// app.use(exportRouter);
+// app.use(analyticsRouter);
+// app.use(upgradeRouter);
+

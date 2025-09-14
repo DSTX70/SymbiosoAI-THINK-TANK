@@ -1,0 +1,264 @@
+// File: src/pages/DemoWalkthrough.tsx
+// Demo Walkthrough — shadcn/ui + tiny state machine + framer-motion
+// Runs: login → expert → export → analytics → upgrade → export again
+import React, { useCallback, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+
+const API_BASE = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+
+type Json = Record<string, any>;
+
+type StepId =
+  | 'login'
+  | 'expert'
+  | 'export'
+  | 'analytics'
+  | 'upgrade'
+  | 'exportAfterUpgrade';
+
+interface StepDef {
+  id: StepId;
+  title: string;
+  desc: string;
+  endpoint: string;
+  method: 'POST';
+  body?: Json;
+  expect: number | ((status: number) => boolean); // expected status
+}
+
+const steps: StepDef[] = [
+  { id: 'login', title: 'Demo Login', desc: 'Creates a demo user (isDemo=true, plan=demo).', endpoint: '/api/demo-login', method: 'POST', body: { username: 'demo', password: 'demo123' }, expect: 200 },
+  { id: 'expert', title: 'Expert Mode', desc: 'Allowed without workspace (ADVANCED_AI).', endpoint: '/api/think', method: 'POST', body: { mode: 'expert', prompt: 'Hello from Demo UI' }, expect: 200 },
+  { id: 'export', title: 'Export (guarded)', desc: 'Auto-provisions demo workspace → expect 402 upgrade.', endpoint: '/api/export', method: 'POST', body: {}, expect: 402 },
+  { id: 'analytics', title: 'Analytics (guarded)', desc: 'Seeds demo data → expect 402 upgrade.', endpoint: '/api/analytics/run', method: 'POST', body: {}, expect: 402 },
+  { id: 'upgrade', title: 'Upgrade Demo → Pro', desc: 'Flips to pro and purges demo artifacts.', endpoint: '/api/upgrade-demo', method: 'POST', body: {}, expect: 200 },
+  { id: 'exportAfterUpgrade', title: 'Export After Upgrade', desc: 'Now returns 400 (workspace required).', endpoint: '/api/export', method: 'POST', body: {}, expect: 400 },
+];
+
+function isExpected(step: StepDef, status: number) {
+  return typeof step.expect === 'function' ? step.expect(status) : step.expect === status;
+}
+
+async function callApi(path: string, method: 'POST', body?: Json) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let json: Json | null = null;
+  try { json = await res.json(); } catch {}
+  return { status: res.status, ok: res.ok, json };
+}
+
+export default function DemoWalkthrough() {
+  const [active, setActive] = useState<StepId | null>(null);
+  const [log, setLog] = useState<string[]>([]);
+  const [done, setDone] = useState<Record<StepId, boolean>>({} as any);
+  const [statusMap, setStatusMap] = useState<Record<StepId, number | null>>({} as any);
+
+  const idxMap = useMemo(() => Object.fromEntries(steps.map((s, i) => [s.id, i])), []);
+  const percent = useMemo(() => {
+    const completed = Object.values(done).filter(Boolean).length;
+    return Math.round((completed / steps.length) * 100);
+  }, [done]);
+
+  const append = useCallback((line: string) => setLog((l) => [...l, line]), []);
+  const clear = useCallback(() => { setLog([]); setDone({} as any); setStatusMap({} as any); setActive(null); }, []);
+
+  const canRun = useCallback((s: StepDef) => {
+    const i = idxMap[s.id];
+    if (i === 0) return true;
+    const prev = steps[i - 1];
+    return !!done[prev.id];
+  }, [done, idxMap]);
+
+  const runStep = useCallback(async (s: StepDef) => {
+    if (active) return;
+    setActive(s.id);
+    append(`→ ${s.title}`);
+    const { status, json } = await callApi(s.endpoint, s.method, s.body);
+    setStatusMap((m) => ({ ...m, [s.id]: status }));
+    const ok = isExpected(s, status);
+    if (ok) setDone((d) => ({ ...d, [s.id]: true }));
+    append(`← HTTP ${status}${ok ? ' (expected)' : ' (unexpected)'}\n${JSON.stringify(json ?? {}, null, 2)}`);
+    setActive(null);
+  }, [active, append]);
+
+  const runAll = useCallback(async () => {
+    clear();
+    for (const s of steps) {
+      // eslint-disable-next-line no-await-in-loop
+      await runStep(s);
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => setTimeout(r, 150));
+    }
+  }, [clear, runStep]);
+
+  return (
+    <div className="mx-auto max-w-5xl space-y-6 p-6">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Demo Mode — Interactive Walkthrough</h1>
+          <p className="text-sm text-muted-foreground">Login, Expert, Export, Analytics, Upgrade, Export again.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={runAll} disabled={!!active}>Run All</Button>
+          <Button variant="outline" onClick={clear} disabled={!!active}>Clear Log</Button>
+        </div>
+      </header>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">Progress</span>
+          <Badge variant={percent === 100 ? 'default' : 'secondary'}>{percent}%</Badge>
+        </div>
+        <Progress value={percent} />
+      </div>
+
+      <section className="grid gap-4 sm:grid-cols-2">
+        {steps.map((s, i) => (
+          <motion.div key={s.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+            <Card className={active === s.id ? 'ring-2 ring-primary' : ''}>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between gap-3">
+                  <span>{i + 1}) {s.title}</span>
+                  <Badge variant={done[s.id] ? 'default' : 'outline'}>
+                    {statusMap[s.id] ?? '—'}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">{s.desc}</p>
+                <div className="text-xs">
+                  <div><span className="rounded bg-muted px-2 py-0.5">{s.method}</span> <code className="rounded bg-muted px-2 py-0.5">{s.endpoint}</code></div>
+                  {s.body && <pre className="mt-2 max-h-40 overflow-auto rounded bg-muted p-2">{JSON.stringify(s.body, null, 2)}</pre>}
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={() => runStep(s)} disabled={!!active || !canRun(s)}>
+                    {done[s.id] ? 'Re-run' : 'Run'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
+      </section>
+
+      <section className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Live Log</h2>
+          <span className="text-xs text-muted-foreground">{active ? 'Running…' : 'Idle'}</span>
+        </div>
+        <pre className="h-80 overflow-auto rounded-md border bg-black p-3 text-xs text-green-200">
+{log.length ? log.join('\n\n') : 'No output yet. Click Run on a step or Run All.'}
+        </pre>
+      </section>
+    </div>
+  );
+}
+
+// ————————————————————————————————————————————————————————————————
+// Vite bundling: build this page to /public/demo-walkthrough.bundle.js
+
+// File: index.html (at repo root for Vite dev)
+/*
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Demo Walkthrough</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+*/
+
+// File: src/main.tsx
+/*
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import DemoWalkthrough from './pages/DemoWalkthrough';
+import './index.css'; // include tailwind build if you use it
+
+const root = createRoot(document.getElementById('root')!);
+root.render(<DemoWalkthrough />);
+*/
+
+// File: vite.config.ts
+/*
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'node:path';
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+    },
+  },
+  build: {
+    outDir: 'public',
+    emptyOutDir: false,
+    rollupOptions: {
+      input: path.resolve(__dirname, 'index.html'),
+      output: {
+        entryFileNames: 'demo-walkthrough.bundle.js',
+        chunkFileNames: 'demo-[name].js',
+        assetFileNames: 'demo-[name][extname]',
+      },
+    },
+  },
+});
+*/
+
+// File: tailwind.config.ts (optional if using Tailwind)
+/*
+import type { Config } from 'tailwindcss';
+export default {
+  content: ['./index.html', './src/**/*.{ts,tsx}'],
+  theme: { extend: {} },
+  plugins: [],
+} satisfies Config;
+*/
+
+// File: src/index.css (optional)
+/*
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+*/
+
+// Package.json additions
+/*
+{
+  "scripts": {
+    "dev": "vite",
+    "build:demo": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.0",
+    "vite": "^5.4.0",
+    "tailwindcss": "^3.4.10",
+    "postcss": "^8.4.47",
+    "autoprefixer": "^10.4.20",
+    "framer-motion": "^11.0.0"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}
+*/
+
+// shadcn/ui setup (quick): ensure you have generated Button/Card/Badge/Progress under @/components/ui/*
+// If not, either generate via shadcn CLI or replace imports with your design system.
