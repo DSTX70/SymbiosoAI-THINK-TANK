@@ -1,0 +1,87 @@
+// File: tests/health.spec.ts
+import request from 'supertest';
+import { app } from '../src/server';
+
+describe('Health endpoint', () => {
+  it('returns 200 OK with { ok: true }', async () => {
+    const res = await request(app).get('/health');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true });
+  });
+});
+
+
+// File: jest.config.ts (updated with coverage thresholds)
+import type { Config } from 'jest';
+
+const config: Config = {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
+  roots: ['<rootDir>/tests'],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'json'],
+  transform: { '^.+\.(ts|tsx)$': 'ts-jest' },
+  collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/index.{ts,tsx}'],
+  coverageReporters: ['text', 'lcov', 'json', 'cobertura'],
+  coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
+  },
+  reporters: [
+    'default',
+    ['jest-junit', { outputDirectory: 'reports', outputName: 'jest.junit.xml' }],
+  ],
+};
+export default config;
+
+// File: tests/health.spec.ts
+import request from 'supertest';
+import { app } from '../src/server';
+
+describe('Health endpoint', () => {
+  it('responds 200 OK with { ok: true }', async () => {
+    const res = await request(app).get('/health').expect(200);
+    expect(res.body).toEqual({ ok: true });
+  });
+});
+
+// File: tests/demo-flow.spec.ts
+import request from 'supertest';
+import { app } from '../src/server';
+
+describe('Demo flow smoke', () => {
+  const agent = request.agent(app);
+
+  it('logs in as demo', async () => {
+    const res = await agent
+      .post('/api/demo-login')
+      .send({ username: 'demo', password: 'demo123' })
+      .expect(200);
+    expect(res.body?.user?.email).toBe('demo@example.com');
+  });
+
+  it('runs Expert mode without workspace', async () => {
+    await agent
+      .post('/api/think')
+      .send({ mode: 'expert', prompt: 'ping' })
+      .expect(200);
+  });
+});
+
+
+// package.json script tweaks (ensure coverage collection in CI)
+// "test": "jest --runInBand --coverage"
+// "test:ci": "jest --ci --coverage --reporters=default --reporters=jest-junit"
+
+// .github/workflows/api-demo-postman.yml — add Codecov after Jest
+//  - name: Upload coverage to Codecov
+//    uses: codecov/codecov-action@v4
+//    with:
+//      token: ${{ secrets.CODECOV_TOKEN }}
+//      files: ./coverage/lcov.info
+//      flags: unittests
+//      fail_ci_if_error: true
+

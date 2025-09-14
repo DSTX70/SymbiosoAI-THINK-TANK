@@ -1,0 +1,88 @@
+name: API Demo — Postman (Newman)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  postman:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: app
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U postgres" 
+          --health-interval=10s 
+          --health-timeout=5s 
+          --health-retries=5
+
+    env:
+      NODE_ENV: development
+      ENABLE_DEMO_LOGIN: "true"
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/app
+      BASE_URL: http://localhost:3000
+      PGSSL: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: DB migrate
+        run: npm run db:migrate
+
+      - name: DB seed (demo user/workspace/docs)
+        run: npm run db:seed
+
+      - name: Start API server
+        run: |
+          npm start &
+          echo $! > server.pid
+
+      - name: Wait for API
+        run: |
+          for i in {1..60}; do
+            curl -sSf ${BASE_URL}/health || true
+            # fallback to root if /health not present
+            if curl -sSf ${BASE_URL} > /dev/null; then echo "API ready"; break; fi
+            echo "Waiting for API..."; sleep 2;
+          done
+
+      - name: Run Newman
+        run: npx newman run ./postman/demo-collection.json \
+               --env-var baseUrl=${BASE_URL} \
+               --reporters cli,json,junit,htmlextra \
+               --reporter-json-export ./reports/postman.json \
+               --reporter-junit-export ./reports/postman.junit.xml \
+               --reporter-htmlextra-export ./reports/postman.html \
+               --timeout-request 60000 --delay-request 100
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: postman-reports
+          path: reports
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f server.pid ]; then kill $(cat server.pid) || true; fi

@@ -265,6 +265,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Sprint 8 - Register ops endpoints early (before auth for health checks)
   registerOpsRoutes(app);
+  
+  // Health endpoint for CI/CD and monitoring
+  app.get('/health', (_req: Request, res: Response) => {
+    res.status(200).json({ 
+      ok: true, 
+      timestamp: new Date().toISOString(),
+      service: 'SymbiosoAi ThinkTank API'
+    });
+  });
+  
   console.log('🔧 Sprint 8 ops routes registered');
 
   // Sprint 8 - Apply circuit breaker middleware for external services

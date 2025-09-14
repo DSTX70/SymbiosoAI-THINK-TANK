@@ -1,0 +1,173 @@
+// File: src/server/health.ts
+import type { Express, Request, Response } from 'express';
+
+/**
+ * Minimal health endpoint.
+ * Why: CI/Newman waits on /health for readiness; also useful for uptime checks.
+ */
+export function registerHealth(app: Express) {
+  app.get('/health', (_req: Request, res: Response) => res.status(200).json({ ok: true }));
+}
+
+
+// File: src/server.ts (bootstrap excerpt)
+// NOTE: Merge with your existing server bootstrap. Key lines are marked.
+import express from 'express';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
+import { registerHealth } from './server/health';
+import { loadEntitlementsContext } from './middleware/loadEntitlementsContext';
+import { reconcileEntitlementsOnAuth } from './middleware/ensureDemoWorkspace';
+import { thinkRouter } from './routes/think';
+import { exportRouter } from './routes/export';
+import { analyticsRouter } from './routes/analytics';
+import { upgradeRouter } from './routes/upgrade';
+
+const app = express();
+app.use(cors({ origin: true, credentials: true }));
+app.use(cookieParser());
+app.use(express.json());
+
+// 1) Health first — so CI can detect readiness ASAP
+registerHealth(app);
+
+// 2) Auth context + entitlement reconciliation
+app.use(loadEntitlementsContext, reconcileEntitlementsOnAuth);
+
+// 3) Feature routers
+app.use(thinkRouter);
+app.use(exportRouter);
+app.use(analyticsRouter);
+app.use(upgradeRouter);
+
+// 4) Fallback (optional)
+app.get('/', (_req, res) => res.status(200).send('API online'));
+
+// 5) Start
+const PORT = Number(process.env.PORT || 3000);
+app.listen(PORT, () => {
+  // eslint-disable-next-line no-console
+  console.log(`API listening on http://localhost:${PORT}`);
+});
+
+export { app };
+
+
+// File: jest.config.ts (Jest + ts-jest config)
+import type { Config } from 'jest';
+
+const config: Config = {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
+  roots: ['<rootDir>/tests'],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'json'],
+  transform: { '^.+\\.(ts|tsx)$': 'ts-jest' },
+  collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/index.{ts,tsx}'],
+  coverageReporters: ['text', 'lcov'],
+};
+export default config;
+
+
+// File: package.json (merge these fields)
+// Add Jest scripts + deps alongside your existing ones
+{
+  "scripts": {
+    "test": "jest --runInBand",
+    "test:ci": "jest --ci --reporters=default --reporters=jest-junit",
+    "postman:test": "mkdir -p reports && newman run ./postman/demo-collection.json --env-var baseUrl=$BASE_URL --reporters cli,json,junit,htmlextra --reporter-json-export ./reports/postman.json --reporter-junit-export ./reports/postman.junit.xml --reporter-htmlextra-export ./reports/postman.html --timeout-request 60000 --delay-request 100"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "@types/jest": "^29.5.12",
+    "jest-junit": "^16.0.0",
+    "newman": "^6.2.0",
+    "newman-reporter-htmlextra": "^1.23.1"
+  }
+}
+
+
+// File: .github/workflows/api-demo-postman.yml (updated)
+name: API Demo — Jest + Postman (Newman)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: app
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U postgres" 
+          --health-interval=10s 
+          --health-timeout=5s 
+          --health-retries=5
+
+    env:
+      NODE_ENV: development
+      ENABLE_DEMO_LOGIN: "true"
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/app
+      BASE_URL: http://localhost:3000
+      PGSSL: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: DB migrate
+        run: npm run db:migrate
+
+      - name: DB seed (demo user/workspace/docs)
+        run: npm run db:seed
+
+      - name: Run Jest tests
+        run: npm run test:ci
+
+      - name: Start API server
+        run: |
+          npm start &
+          echo $! > server.pid
+
+      - name: Wait for /health
+        run: |
+          for i in {1..60}; do
+            if curl -sSf ${BASE_URL}/health > /dev/null; then echo "API ready"; break; fi
+            echo "Waiting for API..."; sleep 2;
+          done
+
+      - name: Run Newman
+        run: npm run postman:test
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reports
+          path: reports
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f server.pid ]; then kill $(cat server.pid) || true; fi
