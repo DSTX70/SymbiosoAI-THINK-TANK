@@ -1,9 +1,51 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="Demo Mode — Example API" tests="6" time="0.331">
-  <testsuite name="1) Demo Login" id="dfe4350a-b30a-40c7-a2f2-06e9acd85083" timestamp="2025-09-14T22:57:33.938Z" tests="0" failures="0" errors="0" time="0.240"/>
-  <testsuite name="2) Expert Mode (ADVANCED_AI)" id="3bd66c05-2ebf-4f43-bd87-f711664aea26" timestamp="2025-09-14T22:57:33.938Z" tests="0" failures="0" errors="0" time="0.007"/>
-  <testsuite name="3) Export (expect 402, auto-provision demo workspace)" id="e380d7eb-5f17-47fc-ac14-444ece0afa39" timestamp="2025-09-14T22:57:33.938Z" tests="0" failures="0" errors="0" time="0.004"/>
-  <testsuite name="4) Analytics (expect 402, seeded)" id="439e23ab-4284-4ab9-a56f-8541c5f8dede" timestamp="2025-09-14T22:57:33.938Z" tests="0" failures="0" errors="0" time="0.030"/>
-  <testsuite name="5) Upgrade Demo → Pro (purge demo artifacts)" id="33b4e2bc-3da7-4535-a7cd-ea9915506b8f" timestamp="2025-09-14T22:57:33.938Z" tests="0" failures="0" errors="0" time="0.043"/>
-  <testsuite name="6) Export After Upgrade (expect 400 workspace required)" id="efe7a33a-7e72-48c2-831c-d92f8aed5552" timestamp="2025-09-14T22:57:33.938Z" tests="0" failures="0" errors="0" time="0.007"/>
+<testsuites name="Demo Mode — Example API" tests="6" time="0.000">
+  <testsuite name="1) Demo Login" id="bc9cb061-66a3-47b5-ba89-ad5a52686a7d" timestamp="2025-09-14T23:20:18.754Z" tests="0" failures="0" errors="1" time="0.000">
+    <system-err><![CDATA[Iteration: 0
+RequestError: Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+
+---
+]]></system-err>
+  </testsuite>
+  <testsuite name="2) Expert Mode (ADVANCED_AI)" id="bd517aa5-9ddc-4b22-86c1-afa3a3a52479" timestamp="2025-09-14T23:20:18.754Z" tests="0" failures="0" errors="1" time="0.000">
+    <system-err><![CDATA[Iteration: 0
+RequestError: Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+
+---
+]]></system-err>
+  </testsuite>
+  <testsuite name="3) Export (expect 402, auto-provision demo workspace)" id="66ceb882-0120-4fa2-a4a3-0b51567a4683" timestamp="2025-09-14T23:20:18.754Z" tests="0" failures="0" errors="1" time="0.000">
+    <system-err><![CDATA[Iteration: 0
+RequestError: Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+
+---
+]]></system-err>
+  </testsuite>
+  <testsuite name="4) Analytics (expect 402, seeded)" id="e7ef352e-f376-4dd6-839f-1be329c0c097" timestamp="2025-09-14T23:20:18.754Z" tests="0" failures="0" errors="1" time="0.000">
+    <system-err><![CDATA[Iteration: 0
+RequestError: Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+
+---
+]]></system-err>
+  </testsuite>
+  <testsuite name="5) Upgrade Demo → Pro (purge demo artifacts)" id="7bbefe56-44bd-415b-be01-606a09ba77a6" timestamp="2025-09-14T23:20:18.754Z" tests="0" failures="0" errors="1" time="0.000">
+    <system-err><![CDATA[Iteration: 0
+RequestError: Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+
+---
+]]></system-err>
+  </testsuite>
+  <testsuite name="6) Export After Upgrade (expect 400 workspace required)" id="92e54a43-67b0-4393-bb97-2176403b7857" timestamp="2025-09-14T23:20:18.754Z" tests="0" failures="0" errors="1" time="0.000">
+    <system-err><![CDATA[Iteration: 0
+RequestError: Error: connect ECONNREFUSED 127.0.0.1:3000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1611:16)
+
+---
+]]></system-err>
+  </testsuite>
 </testsuites>
