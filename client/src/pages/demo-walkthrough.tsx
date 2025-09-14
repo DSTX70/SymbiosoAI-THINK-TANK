@@ -32,7 +32,7 @@ const steps: StepDef[] = [
   { 
     id: 'login', 
     title: 'Demo Login', 
-    desc: 'Creates a demo user (isDemo=true, plan=demo).', 
+    desc: 'Creates demo@example.com user (isDemo=true, plan=demo, features=["ADVANCED_AI"]).', 
     endpoint: '/api/demo-login', 
     method: 'POST', 
     body: { username: 'demo', password: 'demo123' }, 
