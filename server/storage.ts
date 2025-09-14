@@ -1165,6 +1165,18 @@ export class MemStorage implements IStorage {
   async checkExistingPurchase(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
   async getUserPurchases(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
   async getWorkspacePurchases(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+
+  // Documentation methods (Sprint 12)
+  async createDoc(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getDoc(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getDocBySlug(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getAllDocs(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getDocsByCategory(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getPublishedDocs(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateDoc(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteDoc(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async incrementDocViewCount(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async searchDocs(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3956,6 +3968,134 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Failed to update seats:', error);
       return undefined;
+    }
+  }
+
+  // ============================================
+  // SPRINT 12 - DOCUMENTATION OPERATIONS
+  // ============================================
+
+  // Documentation CRUD operations
+  async createDoc(doc: InsertDocs): Promise<Docs> {
+    try {
+      const [newDoc] = await db.insert(docs).values({
+        ...doc,
+        id: randomUUID(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+      return newDoc;
+    } catch (error) {
+      console.error('Failed to create document:', error);
+      throw error;
+    }
+  }
+
+  async getDoc(id: string): Promise<Docs | undefined> {
+    try {
+      const [doc] = await db.select().from(docs).where(eq(docs.id, id));
+      return doc;
+    } catch (error) {
+      console.error('Failed to get document:', error);
+      return undefined;
+    }
+  }
+
+  async getDocBySlug(slug: string): Promise<Docs | undefined> {
+    try {
+      const [doc] = await db.select().from(docs).where(eq(docs.slug, slug));
+      return doc;
+    } catch (error) {
+      console.error('Failed to get document by slug:', error);
+      return undefined;
+    }
+  }
+
+  async getAllDocs(): Promise<Docs[]> {
+    try {
+      return await db.select().from(docs).orderBy(docs.createdAt);
+    } catch (error) {
+      console.error('Failed to get all documents:', error);
+      return [];
+    }
+  }
+
+  async getDocsByCategory(category: string): Promise<Docs[]> {
+    try {
+      return await db.select().from(docs)
+        .where(eq(docs.category, category))
+        .orderBy(docs.createdAt);
+    } catch (error) {
+      console.error('Failed to get documents by category:', error);
+      return [];
+    }
+  }
+
+  async getPublishedDocs(): Promise<Docs[]> {
+    try {
+      return await db.select().from(docs)
+        .where(eq(docs.status, 'published'))
+        .orderBy(docs.createdAt);
+    } catch (error) {
+      console.error('Failed to get published documents:', error);
+      return [];
+    }
+  }
+
+  async updateDoc(id: string, updates: Partial<Docs>): Promise<Docs | undefined> {
+    try {
+      const [updatedDoc] = await db.update(docs)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(docs.id, id))
+        .returning();
+      return updatedDoc;
+    } catch (error) {
+      console.error('Failed to update document:', error);
+      return undefined;
+    }
+  }
+
+  async deleteDoc(id: string): Promise<boolean> {
+    try {
+      const result = await db.delete(docs).where(eq(docs.id, id));
+      return (result.rowCount || 0) > 0;
+    } catch (error) {
+      console.error('Failed to delete document:', error);
+      return false;
+    }
+  }
+
+  async incrementDocViewCount(id: string): Promise<Docs | undefined> {
+    try {
+      const [updatedDoc] = await db.update(docs)
+        .set({ 
+          viewCount: sql`${docs.viewCount} + 1`,
+          updatedAt: new Date()
+        })
+        .where(eq(docs.id, id))
+        .returning();
+      return updatedDoc;
+    } catch (error) {
+      console.error('Failed to increment document view count:', error);
+      return undefined;
+    }
+  }
+
+  async searchDocs(query: string): Promise<Docs[]> {
+    try {
+      // Search in title, content, and summary fields
+      return await db.select().from(docs)
+        .where(
+          sql`(
+            LOWER(${docs.title}) LIKE LOWER(${`%${query}%`}) OR
+            LOWER(${docs.content}) LIKE LOWER(${`%${query}%`}) OR
+            LOWER(${docs.summary}) LIKE LOWER(${`%${query}%`})
+          )`
+        )
+        .orderBy(docs.updatedAt);
+    } catch (error) {
+      console.error('Failed to search documents:', error);
+      return [];
     }
   }
 }
