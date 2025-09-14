@@ -730,6 +730,7 @@ export class MemStorage implements IStorage {
         lastName: upsertData.lastName || null,
         profileImageUrl: upsertData.profileImageUrl || null,
         role: "user",
+        stripeCustomerId: null,
         preferences: {
           theme: "light",
           language: "en", 
@@ -1236,6 +1237,485 @@ export class MemStorage implements IStorage {
   async deleteDoc(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
   async incrementDocViewCount(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
   async searchDocs(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+
+  // Workspace Synchronization methods - Production-Ready Implementation
+  async createWorkspaceEvent(event: InsertWorkspaceEvent): Promise<WorkspaceEvent> {
+    const id = randomUUID();
+    const now = new Date();
+    
+    // Get next sequence number for workspace
+    const currentSequence = this.workspaceSequenceNumbers.get(event.workspaceId) || 0;
+    const nextSequence = currentSequence + 1;
+    this.workspaceSequenceNumbers.set(event.workspaceId, nextSequence);
+    
+    const workspaceEvent: WorkspaceEvent = {
+      id,
+      workspaceId: event.workspaceId,
+      eventType: event.eventType,
+      eventData: event.eventData,
+      userId: event.userId || null,
+      sessionId: event.sessionId || null,
+      sequenceNumber: nextSequence,
+      metadata: event.metadata || {},
+      isSystem: event.isSystem || false,
+      broadcastTo: event.broadcastTo || [],
+      createdAt: now
+    };
+    
+    this.workspaceEvents.set(id, workspaceEvent);
+    return workspaceEvent;
+  }
+
+  async createWorkspaceEventAtomic(event: InsertWorkspaceEvent): Promise<WorkspaceEvent> {
+    // In MemStorage, atomicity is guaranteed by single-threaded Node.js
+    // In production, this would use database transactions
+    return this.createWorkspaceEvent(event);
+  }
+
+  async getWorkspaceEvent(id: string): Promise<WorkspaceEvent | undefined> {
+    return this.workspaceEvents.get(id);
+  }
+
+  async getWorkspaceEvents(workspaceId: string, limit: number = 50, offset: number = 0): Promise<WorkspaceEvent[]> {
+    const allEvents = Array.from(this.workspaceEvents.values())
+      .filter(event => event.workspaceId === workspaceId)
+      .sort((a, b) => b.sequenceNumber - a.sequenceNumber); // DESC order
+    
+    return allEvents.slice(offset, offset + limit);
+  }
+
+  async getWorkspaceEventsSince(workspaceId: string, sequenceNumber: number): Promise<WorkspaceEvent[]> {
+    return Array.from(this.workspaceEvents.values())
+      .filter(event => 
+        event.workspaceId === workspaceId && 
+        event.sequenceNumber > sequenceNumber
+      )
+      .sort((a, b) => a.sequenceNumber - b.sequenceNumber); // ASC order for replay
+  }
+
+  async deleteWorkspaceEvent(id: string): Promise<boolean> {
+    return this.workspaceEvents.delete(id);
+  }
+
+  async cleanupWorkspaceEvents(workspaceId: string, olderThanDays: number): Promise<number> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+    
+    let cleanedCount = 0;
+    for (const [id, event] of this.workspaceEvents.entries()) {
+      if (event.workspaceId === workspaceId && event.createdAt < cutoffDate) {
+        this.workspaceEvents.delete(id);
+        cleanedCount++;
+      }
+    }
+    return cleanedCount;
+  }
+
+  async getNextSequenceNumber(workspaceId: string): Promise<number> {
+    const currentSequence = this.workspaceSequenceNumbers.get(workspaceId) || 0;
+    return currentSequence + 1;
+  }
+
+  async createWorkspaceConnection(connection: InsertWorkspaceConnection): Promise<WorkspaceConnection> {
+    const id = randomUUID();
+    const now = new Date();
+    
+    const workspaceConnection: WorkspaceConnection = {
+      id,
+      workspaceId: connection.workspaceId,
+      userId: connection.userId,
+      connectionId: connection.connectionId,
+      userAgent: connection.userAgent || null,
+      ipAddress: connection.ipAddress || null,
+      metadata: connection.metadata || {},
+      isActive: true,
+      lastPing: now,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.workspaceConnections.set(id, workspaceConnection);
+    return workspaceConnection;
+  }
+
+  async getWorkspaceConnection(id: string): Promise<WorkspaceConnection | undefined> {
+    return this.workspaceConnections.get(id);
+  }
+
+  async getActiveWorkspaceConnections(workspaceId: string): Promise<WorkspaceConnection[]> {
+    return Array.from(this.workspaceConnections.values())
+      .filter(conn => conn.workspaceId === workspaceId && conn.isActive)
+      .sort((a, b) => (b.updatedAt?.getTime() || 0) - (a.updatedAt?.getTime() || 0));
+  }
+
+  async getUserWorkspaceConnections(workspaceId: string, userId: string): Promise<WorkspaceConnection[]> {
+    return Array.from(this.workspaceConnections.values())
+      .filter(conn => 
+        conn.workspaceId === workspaceId && 
+        conn.userId === userId && 
+        conn.isActive
+      )
+      .sort((a, b) => (b.updatedAt?.getTime() || 0) - (a.updatedAt?.getTime() || 0));
+  }
+
+  async updateConnectionPing(connectionId: string): Promise<WorkspaceConnection | undefined> {
+    // Find connection by connectionId
+    for (const [id, conn] of this.workspaceConnections.entries()) {
+      if (conn.connectionId === connectionId) {
+        const updated = {
+          ...conn,
+          lastPing: new Date(),
+          updatedAt: new Date()
+        };
+        this.workspaceConnections.set(id, updated);
+        return updated;
+      }
+    }
+    return undefined;
+  }
+
+  async deactivateConnection(connectionId: string): Promise<boolean> {
+    // Find connection by connectionId and deactivate
+    for (const [id, conn] of this.workspaceConnections.entries()) {
+      if (conn.connectionId === connectionId) {
+        const updated = {
+          ...conn,
+          isActive: false,
+          updatedAt: new Date()
+        };
+        this.workspaceConnections.set(id, updated);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  async deactivateUserConnections(workspaceId: string, userId: string): Promise<number> {
+    let deactivatedCount = 0;
+    for (const [id, conn] of this.workspaceConnections.entries()) {
+      if (conn.workspaceId === workspaceId && conn.userId === userId && conn.isActive) {
+        const updated = {
+          ...conn,
+          isActive: false,
+          updatedAt: new Date()
+        };
+        this.workspaceConnections.set(id, updated);
+        deactivatedCount++;
+      }
+    }
+    return deactivatedCount;
+  }
+
+  async cleanupStaleConnections(olderThanMinutes: number): Promise<number> {
+    const cutoffTime = new Date();
+    cutoffTime.setMinutes(cutoffTime.getMinutes() - olderThanMinutes);
+    
+    let cleanedCount = 0;
+    for (const [id, conn] of this.workspaceConnections.entries()) {
+      if (conn.lastPing && conn.lastPing < cutoffTime) {
+        const updated = {
+          ...conn,
+          isActive: false,
+          updatedAt: new Date()
+        };
+        this.workspaceConnections.set(id, updated);
+        cleanedCount++;
+      }
+    }
+    return cleanedCount;
+  }
+
+  async getWorkspaceActiveUsers(workspaceId: string): Promise<{ userId: string; user: User; connectionsCount: number; lastActivity: Date }[]> {
+    const activeConnections = await this.getActiveWorkspaceConnections(workspaceId);
+    const userConnectionsMap = new Map<string, { count: number; lastActivity: Date }>();
+    
+    // Group connections by user
+    for (const conn of activeConnections) {
+      const existing = userConnectionsMap.get(conn.userId);
+      const lastActivity = conn.lastPing || conn.updatedAt || conn.createdAt;
+      
+      if (!existing || lastActivity > existing.lastActivity) {
+        userConnectionsMap.set(conn.userId, {
+          count: (existing?.count || 0) + 1,
+          lastActivity
+        });
+      }
+    }
+    
+    // Build result with user data
+    const result: { userId: string; user: User; connectionsCount: number; lastActivity: Date }[] = [];
+    for (const [userId, data] of userConnectionsMap.entries()) {
+      const user = this.users.get(userId);
+      if (user) {
+        result.push({
+          userId,
+          user,
+          connectionsCount: data.count,
+          lastActivity: data.lastActivity
+        });
+      }
+    }
+    
+    return result.sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime());
+  }
+
+  async isUserActiveInWorkspace(workspaceId: string, userId: string): Promise<boolean> {
+    const userConnections = await this.getUserWorkspaceConnections(workspaceId, userId);
+    return userConnections.length > 0;
+  }
+
+  async getWorkspaceConnectionsCount(workspaceId: string): Promise<number> {
+    const activeConnections = await this.getActiveWorkspaceConnections(workspaceId);
+    return activeConnections.length;
+  }
+
+  // Sprint 1 methods
+  async createDebateRun(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getDebateRun(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateDebateRunStatus(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createExportLog(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getExportLogs(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createExportProvenance(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getExportProvenance(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getExportProvenanceHistory(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+
+  // Stripe integration methods
+  async getStripeCustomerByUserId(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateUserStripeCustomerId(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createSubscription(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getSubscriptionByStripeId(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateSubscriptionByStripeId(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getActiveSubscriptionByWorkspaceId(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async grantPlanEntitlements(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async revokeAllEntitlements(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async isWorkspaceAdmin(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+
+  // Sprint 5 - Reviews/Approvals system methods
+  async createReview(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getReview(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getReviews(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getReviewsByResource(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getReviewsByInitiator(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getReviewsByStatus(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateReview(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteReview(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async approveReview(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async rejectReview(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createReviewStep(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getReviewStep(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getReviewSteps(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateReviewStep(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteReviewStep(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async completeReviewStep(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async skipReviewStep(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createReviewAssignment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getReviewAssignment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getReviewAssignments(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getAssignmentsByAssignee(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateReviewAssignment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteReviewAssignment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async respondToAssignment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async delegateAssignment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createReviewComment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getReviewComment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getReviewComments(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getCommentsByStep(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getCommentsByAssignment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateReviewComment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteReviewComment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async resolveComment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+
+  // Sprint 5 - Retention/Legal Hold system methods
+  async createRetentionPolicy(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getRetentionPolicy(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getRetentionPolicies(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getRetentionPoliciesByDataType(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getActiveRetentionPolicies(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateRetentionPolicy(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteRetentionPolicy(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async activateRetentionPolicy(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deactivateRetentionPolicy(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createLegalHold(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getLegalHold(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getLegalHolds(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getActiveLegalHolds(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getLegalHoldsByCustodian(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getLegalHoldsByDateRange(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateLegalHold(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteLegalHold(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async releaseLegalHold(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createRetentionJob(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getRetentionJob(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getRetentionJobs(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getRetentionJobsByPolicy(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getRetentionJobsByStatus(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScheduledRetentionJobs(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateRetentionJob(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteRetentionJob(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async startRetentionJob(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async completeRetentionJob(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async failRetentionJob(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createDataClassification(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getDataClassification(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getDataClassifications(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getDataClassificationByResource(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getDataClassificationsByClassification(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getDataClassificationsBySensitivity(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getDataClassificationsRequiringReview(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateDataClassification(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteDataClassification(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async reviewDataClassification(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+
+  // Sprint 5 - SCIM provisioning system methods
+  async createScimUser(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScimUser(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScimUsers(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScimUserByExternalId(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScimUserByEmail(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScimUsersByOrganization(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScimUsersBySyncStatus(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateScimUser(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteScimUser(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async activateScimUser(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deactivateScimUser(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createScimGroup(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScimGroup(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScimGroups(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScimGroupByExternalId(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScimGroupsByOrganization(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScimGroupsBySyncStatus(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateScimGroup(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteScimGroup(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createScimGroupMembership(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScimGroupMembership(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScimGroupMemberships(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScimUserMemberships(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScimGroupMembershipByIds(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScimGroupMembershipsBySyncStatus(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateScimGroupMembership(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteScimGroupMembership(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async addUserToScimGroup(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async removeUserFromScimGroup(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createProvisioningLog(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getProvisioningLog(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getProvisioningLogs(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getProvisioningLogsByOperation(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getProvisioningLogsByResourceType(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getProvisioningLogsByStatus(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getProvisioningLogsByRequestId(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getProvisioningLogsByBatch(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getProvisioningLogsByDateRange(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateProvisioningLog(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteProvisioningLog(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+
+  // Sprint 6 - Template builder methods
+  async publishTemplate(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async unpublishTemplate(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getTemplatesByStatus(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getTemplateVersions(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createTemplateVersion(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+
+  // Sprint 6 - Workflow automation methods
+  async createWorkflowDefinition(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getWorkflowDefinition(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateWorkflowDefinition(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteWorkflowDefinition(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getOrganizationWorkflowDefinitions(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createWorkflowExecution(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getWorkflowExecution(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateWorkflowExecution(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getWorkflowExecutions(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createWorkflowEvent(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getWorkflowEvent(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateWorkflowEvent(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getPendingWorkflowEvents(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+
+  // Sprint 6 - Organization insights methods
+  async createOrganizationAnalytics(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getOrganizationAnalytics(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getOrganizationAnalyticsRange(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateOrganizationAnalytics(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createOrganizationDailyReport(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getOrganizationDailyReport(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getOrganizationDailyReports(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async recordEnhancedUsageMetric(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getEnhancedUsageMetrics(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getOrganizationInsightsSummary(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async generateDailyInsightsReport(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async startTrial(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getTrialStatus(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+
+  // Sprint 11 - Billing & entitlements methods
+  async createInvoice(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getInvoice(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getInvoicesByOrg(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateInvoice(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createDunningEvent(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getDunningEvent(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getDunningEventsByInvoice(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getDunningEventsByOrg(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createSeats(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getSeats(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateSeats(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+
+  // Sprint 12 - Admin settings methods
+  async createAdminSetting(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getAdminSetting(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getAllAdminSettings(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getAdminSettingsByCategory(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateAdminSetting(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteAdminSetting(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+
+  // Sprint 12 - Marketplace methods
+  async createMarketplaceItem(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getMarketplaceItem(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getAllMarketplaceItems(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getMarketplaceItemsByCategory(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getPublishedMarketplaceItems(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getFeaturedMarketplaceItems(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getMarketplaceItemsByPublisher(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateMarketplaceItem(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteMarketplaceItem(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async incrementMarketplaceItemViews(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async incrementMarketplaceItemDownloads(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async searchMarketplaceItems(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+
+  // Sprint 12 - Changelog methods
+  async createChangelogEntry(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getChangelogEntry(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getChangelogEntryByVersion(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getAllChangelogEntries(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getPublishedChangelogEntries(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getPinnedChangelogEntries(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getChangelogEntriesByType(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updateChangelogEntry(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deleteChangelogEntry(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async publishChangelogEntry(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+
+  // Sprint 12 - Playbooks methods
+  async createPlaybook(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getPlaybook(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getAllPlaybooks(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getPlaybooksByType(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getPlaybooksByRole(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getPlaybooksByCategory(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getActivePlaybooks(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async updatePlaybook(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deletePlaybook(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async incrementPlaybookUsage(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async searchPlaybooks(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+
+  // Additional SCIM methods that were missing
+  async getScimUserByScimId(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getActiveScimUsers(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async linkScimUserToLocal(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async syncScimUser(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async bulkSyncScimUsers(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deprovisionScimUser(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScimGroupByScimId(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScimGroupsByType(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async syncScimGroup(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async deprovisionScimGroup(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4714,6 +5194,79 @@ export class DatabaseStorage implements IStorage {
       return 0;
     }
   }
+
+  // ============================================
+  // MISSING METHODS - Sprint 12 Admin Settings
+  // ============================================
+  async createAdminSetting(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getAdminSetting(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getAllAdminSettings(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getAdminSettingsByCategory(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async updateAdminSetting(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async deleteAdminSetting(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+
+  // Sprint 12 Marketplace
+  async createMarketplaceItem(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getMarketplaceItem(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getAllMarketplaceItems(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getMarketplaceItemsByCategory(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getPublishedMarketplaceItems(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getFeaturedMarketplaceItems(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getMarketplaceItemsByPublisher(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async updateMarketplaceItem(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async deleteMarketplaceItem(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async incrementMarketplaceItemViews(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async incrementMarketplaceItemDownloads(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async searchMarketplaceItems(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+
+  // Sprint 12 Changelog  
+  async createChangelogEntry(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getChangelogEntry(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getChangelogEntryByVersion(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getAllChangelogEntries(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getPublishedChangelogEntries(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getPinnedChangelogEntries(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getChangelogEntriesByType(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async updateChangelogEntry(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async deleteChangelogEntry(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async publishChangelogEntry(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+
+  // Sprint 12 Playbooks
+  async createPlaybook(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getPlaybook(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getAllPlaybooks(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getPlaybooksByType(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getPlaybooksByRole(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getPlaybooksByCategory(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getActivePlaybooks(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async updatePlaybook(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async deletePlaybook(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async incrementPlaybookUsage(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async searchPlaybooks(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+
+  // Sprint 12 Documentation
+  async createDoc(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getDoc(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getDocBySlug(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getAllDocs(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getDocsByCategory(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getPublishedDocs(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async updateDoc(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async deleteDoc(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async incrementDocViewCount(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async searchDocs(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+
+  // Additional SCIM methods that may be missing
+  async getScimUserByScimId(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getActiveScimUsers(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async linkScimUserToLocal(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async syncScimUser(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async bulkSyncScimUsers(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async deprovisionScimUser(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getScimGroupByScimId(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getScimGroupsByType(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async syncScimGroup(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async deprovisionScimGroup(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
 }
 
 // Use database storage instead of memory storage

@@ -28,6 +28,11 @@ export class ConnectionManager {
     this.cleanupInterval = setInterval(() => {
       this.cleanupStaleConnections();
     }, 30000);
+    
+    // Send heartbeats every 60 seconds to validate connections
+    setInterval(() => {
+      this.sendHeartbeats();
+    }, 60000);
   }
 
   /**
@@ -176,23 +181,30 @@ export class ConnectionManager {
     const connection = this.connections.get(connectionId);
     if (!connection) return false;
 
+    // Validate connection before sending
+    if (!this.isConnectionValid(connection)) {
+      this.removeConnection(connectionId);
+      return false;
+    }
+
     try {
       const response = connection.response;
-      if (!response.writableEnded && !response.destroyed) {
-        // Include sequence number as SSE id for resumption
-        if (data.sequenceNumber) {
-          response.write(`id: ${data.sequenceNumber}\n`);
-        }
-        response.write(`event: ${eventType}\n`);
-        response.write(`data: ${JSON.stringify(data)}\n\n`);
-        return true;
+      // Include sequence number as SSE id for resumption
+      if (data.sequenceNumber) {
+        response.write(`id: ${data.sequenceNumber}\n`);
       }
+      response.write(`event: ${eventType}\n`);
+      response.write(`data: ${JSON.stringify(data)}\n\n`);
+      
+      // Update last ping on successful send
+      connection.lastPing = new Date();
+      return true;
     } catch (error) {
       console.error(`Failed to send SSE event to connection ${connectionId}:`, error);
       // Remove the connection if it's no longer valid
       this.removeConnection(connectionId);
+      return false;
     }
-    return false;
   }
 
   /**
@@ -259,6 +271,50 @@ export class ConnectionManager {
         connections
       }))
     };
+  }
+
+  /**
+   * Send heartbeat to all active connections to validate they're still alive
+   */
+  private sendHeartbeats(): void {
+    let successCount = 0;
+    let failureCount = 0;
+    
+    for (const [connectionId, connection] of this.connections.entries()) {
+      try {
+        const response = connection.response;
+        if (!response.writableEnded && !response.destroyed) {
+          response.write(`event: heartbeat\n`);
+          response.write(`data: ${JSON.stringify({ timestamp: Date.now(), status: 'alive' })}\n\n`);
+          connection.lastPing = new Date();
+          successCount++;
+        } else {
+          // Connection is dead, mark for cleanup
+          this.removeConnection(connectionId);
+          failureCount++;
+        }
+      } catch (error) {
+        // Connection failed, mark for cleanup
+        this.removeConnection(connectionId);
+        failureCount++;
+      }
+    }
+    
+    if (successCount > 0 || failureCount > 0) {
+      console.log(`💓 Heartbeat: ${successCount} alive, ${failureCount} removed`);
+    }
+  }
+
+  /**
+   * Validate connection before sending events
+   */
+  private isConnectionValid(connection: SSEConnection): boolean {
+    try {
+      const response = connection.response;
+      return !response.writableEnded && !response.destroyed && response.writable;
+    } catch {
+      return false;
+    }
   }
 
   /**

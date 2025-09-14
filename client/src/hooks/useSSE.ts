@@ -187,6 +187,45 @@ export function useSSE(url: string, options: SSEOptions = {}) {
       });
     });
 
+    // Handle workspace-specific events for real-time collaboration
+    [
+      'workspace_debate_progress', 'workspace_debate_completed', 'workspace_user_join',
+      'workspace_user_leave', 'workspace_user_activity', 'workspace_document_change',
+      'workspace_analysis_update', 'workspace_template_progress', 'workspace_template_completed',
+      'workspace_system_event', 'workspace_workspace_updated', 'workspace_member_added',
+      'workspace_member_removed', 'workspace_role_changed'
+    ].forEach(eventType => {
+      es.addEventListener(eventType, (e: MessageEvent) => {
+        try {
+          const payload = JSON.parse(e.data);
+          // Handle specific workspace events
+          if (eventType === 'workspace_debate_progress' && payload.eventData?.progress) {
+            updateState(prev => ({ 
+              ...prev,
+              progress: typeof payload.eventData.progress === 'number' ? payload.eventData.progress : prev.progress 
+            }));
+          }
+          onEvent?.(eventType, payload);
+        } catch (error) {
+          console.warn(`Failed to parse ${eventType} event data:`, error);
+          onEvent?.(eventType, { raw: e.data });
+        }
+      });
+    });
+
+    // Handle heartbeat events for connection monitoring
+    es.addEventListener('heartbeat', (e: MessageEvent) => {
+      try {
+        const payload = JSON.parse(e.data);
+        // Update connection state if needed
+        updateState({ isConnected: true });
+        onEvent?.('heartbeat', payload);
+      } catch (error) {
+        // Heartbeat might not have JSON data, just acknowledge it
+        updateState({ isConnected: true });
+      }
+    });
+
     // Handle connection errors and reconnection
     es.onerror = (error: Event) => {
       console.warn('SSE connection error:', error);
@@ -197,21 +236,19 @@ export function useSSE(url: string, options: SSEOptions = {}) {
                              !isCancelledRef.current;
 
       if (shouldReconnect) {
-        updateState(prev => ({
-          ...prev,
+        updateState({
           isConnected: false
-        }));
+        });
 
         reconnectTimeoutRef.current = setTimeout(() => {
           connect(true);
         }, reconnectDelay * Math.pow(2, currentAttempt)); // Exponential backoff
       } else {
-        updateState(prev => ({
-          ...prev,
+        updateState({
           status: 'failed',
           error: 'Connection failed after multiple attempts',
           isConnected: false
-        }));
+        });
       }
     };
   }, [url, timeout, reconnectAttempts, reconnectDelay, onEvent, onError, onReconnect, cleanup, updateState]);
@@ -229,11 +266,10 @@ export function useSSE(url: string, options: SSEOptions = {}) {
   const retry = useCallback(() => {
     isCancelledRef.current = false;
     reconnectAttemptRef.current = 0;
-    updateState(prev => ({
-      ...prev,
+    updateState({
       reconnectAttempt: 0,
       error: null
-    }));
+    });
     connect(false);
   }, [connect, updateState]);
 

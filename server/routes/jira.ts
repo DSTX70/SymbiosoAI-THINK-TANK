@@ -8,9 +8,37 @@ import { WORKSPACE_PERMISSIONS } from '../middleware/rbac';
 
 const router = Router();
 
-// Jira configuration schema
+/**
+ * Validate Jira base URL to prevent SSRF attacks
+ * Only allow trusted Atlassian domains
+ */
+function isValidJiraBaseUrl(url: string): boolean {
+  try {
+    const parsedUrl = new URL(url);
+    const hostname = parsedUrl.hostname.toLowerCase();
+    
+    // Allow official Atlassian domains
+    const allowedDomains = [
+      '.atlassian.net',
+      '.atlassian.com',
+      '.jira.com'
+    ];
+    
+    // Check if hostname ends with any allowed domain
+    return allowedDomains.some(domain => hostname.endsWith(domain)) &&
+           parsedUrl.protocol === 'https:'; // Enforce HTTPS
+  } catch {
+    return false;
+  }
+}
+
+// Jira configuration schema with SSRF protection
 const JiraConfigSchema = z.object({
-  baseUrl: z.string().url('Invalid Jira base URL'),
+  baseUrl: z.string()
+    .url('Invalid Jira base URL')
+    .refine(isValidJiraBaseUrl, {
+      message: 'Base URL must be a valid Atlassian domain (*.atlassian.net, *.atlassian.com, *.jira.com) using HTTPS'
+    }),
   email: z.string().email('Invalid email address'),
   apiToken: z.string().min(1, 'API token required'),
   projectKey: z.string().min(1, 'Project key required')
