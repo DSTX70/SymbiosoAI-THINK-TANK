@@ -110,7 +110,8 @@ export default function DemoWalkthrough() {
   const [log, setLog] = useState<string[]>([]);
   const [done, setDone] = useState<Record<StepId, boolean>>({} as any);
   const [statusMap, setStatusMap] = useState<Record<StepId, number | null>>({} as any);
-  const [demoAvailable, setDemoAvailable] = useState<boolean | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [preflightRan, setPreflightRan] = useState(false);
 
   const idxMap = useMemo(() => Object.fromEntries(steps.map((s, i) => [s.id, i])), []);
   const percent = useMemo(() => {
@@ -119,12 +120,7 @@ export default function DemoWalkthrough() {
   }, [done]);
 
   const append = useCallback((line: string) => setLog((l) => [...l, line]), []);
-  const clear = useCallback(() => { 
-    setLog([]); 
-    setDone({} as any); 
-    setStatusMap({} as any); 
-    setActive(null); 
-  }, []);
+  const clear = useCallback(() => { setLog([]); setDone({} as any); setStatusMap({} as any); setActive(null); setWarnings([]); setPreflightRan(false); }, []);
 
   const canRun = useCallback((s: StepDef) => {
     const i = idxMap[s.id];
@@ -137,18 +133,11 @@ export default function DemoWalkthrough() {
     if (active) return;
     setActive(s.id);
     append(`→ ${s.title}`);
-    
-    try {
-      const { status, json } = await callApi(s.endpoint, s.method, s.body);
-      setStatusMap((m) => ({ ...m, [s.id]: status }));
-      const ok = isExpected(s, status);
-      if (ok) setDone((d) => ({ ...d, [s.id]: true }));
-      append(`← HTTP ${status}${ok ? ' (expected)' : ' (unexpected)'}\n${JSON.stringify(json ?? {}, null, 2)}`);
-    } catch (error) {
-      append(`← Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setStatusMap((m) => ({ ...m, [s.id]: 0 }));
-    }
-    
+    const { status, json } = await callApi(s.endpoint, s.method, s.body);
+    setStatusMap((m) => ({ ...m, [s.id]: status }));
+    const ok = isExpected(s, status);
+    if (ok) setDone((d) => ({ ...d, [s.id]: true }));
+    append(`← HTTP ${status}${ok ? ' (expected)' : ' (unexpected)'}\n${JSON.stringify(json ?? {}, null, 2)}`);
     setActive(null);
   }, [active, append]);
 
@@ -162,83 +151,65 @@ export default function DemoWalkthrough() {
     }
   }, [clear, runStep]);
 
-  // Check if demo login is available
-  useEffect(() => {
-    fetch(`${API_BASE}/api/demo-login`, { 
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include'
-    })
-      .then((r) => setDemoAvailable(r.status !== 404))
-      .catch(() => setDemoAvailable(false));
-  }, []);
-
-  // Show warning if demo is not available
-  if (demoAvailable === false) {
-    return (
-      <div className="mx-auto max-w-5xl space-y-6 p-6">
-        <Alert variant="destructive">
-          <AlertDescription>
-            <strong>Demo login is disabled.</strong> 
-            <br />
-            Ensure <code>ENABLE_DEMO_LOGIN=true</code> environment variable is set and you're running in development mode.
-            <br />
-            <code>NODE_ENV=development</code>
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
-  // Show loading state while checking demo availability
-  if (demoAvailable === null) {
-    return (
-      <div className="mx-auto max-w-5xl space-y-6 p-6">
-        <div className="flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <span className="ml-2 text-muted-foreground">Checking demo availability...</span>
-        </div>
-      </div>
-    );
-  }
+  // ——— Preflight ———
+  const preflight = useCallback(async () => {
+    const warns: string[] = [];
+    if (typeof navigator !== 'undefined' && !navigator.cookieEnabled) {
+      warns.push('Cookies are disabled; session-based demo login may fail.');
+    }
+    try {
+      // Probe /api/demo-login with a wrong password to avoid taking a real session
+      const probe = await fetch(`${API_BASE}/api/demo-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ username: 'demo', password: 'wrong' }),
+      });
+      if (probe.status === 404) warns.push('Demo login disabled. In production, set ENABLE_DEMO_LOGIN=true.');
+      if (probe.status >= 500) warns.push('Server 5xx on /api/demo-login; check server logs.');
+    } catch {
+      warns.push('Network/CORS error contacting /api/demo-login. Verify API_BASE and server CORS.');
+    }
+    setWarnings(warns);
+    setPreflightRan(true);
+    if (!warns.length) append('Preflight OK: demo route reachable & cookies enabled.');
+  }, [append]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Demo Mode — Interactive Walkthrough</h1>
-          <p className="text-sm text-muted-foreground">
-            Tests our demo user access control fix: Login → Expert → Export → Analytics → Upgrade → Export again
-          </p>
+          <p className="text-sm text-muted-foreground">Login, Expert, Export, Analytics, Upgrade, Export again.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={runAll} disabled={!!active}>
-            Run All
-          </Button>
-          <Button variant="outline" onClick={clear} disabled={!!active}>
-            Clear Log
-          </Button>
+          <Button variant="secondary" onClick={runAll} disabled={!!active}>Run All</Button>
+          <Button variant="outline" onClick={clear} disabled={!!active}>Clear Log</Button>
+          <Button variant="default" onClick={preflight} disabled={!!active}>Preflight</Button>
         </div>
       </header>
+
+      {!!warnings.length && (
+        <div className="space-y-2">
+          {warnings.map((w, i) => (
+            <div key={i} className="rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-900">
+              ⚠️ {w}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">Progress</span>
-          <Badge variant={percent === 100 ? 'default' : 'secondary'}>
-            {percent}%
-          </Badge>
+          <Badge variant={percent === 100 ? 'default' : 'secondary'}>{percent}%</Badge>
         </div>
         <Progress value={percent} />
       </div>
 
       <section className="grid gap-4 sm:grid-cols-2">
         {steps.map((s, i) => (
-          <motion.div 
-            key={s.id} 
-            initial={{ opacity: 0, y: 8 }} 
-            animate={{ opacity: 1, y: 0 }} 
-            transition={{ delay: i * 0.05 }}
-          >
+          <motion.div key={s.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
             <Card className={active === s.id ? 'ring-2 ring-primary' : ''}>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between gap-3">
@@ -251,22 +222,11 @@ export default function DemoWalkthrough() {
               <CardContent className="space-y-3">
                 <p className="text-sm text-muted-foreground">{s.desc}</p>
                 <div className="text-xs">
-                  <div>
-                    <span className="rounded bg-muted px-2 py-0.5">{s.method}</span>{' '}
-                    <code className="rounded bg-muted px-2 py-0.5">{s.endpoint}</code>
-                  </div>
-                  {s.body && (
-                    <pre className="mt-2 max-h-40 overflow-auto rounded bg-muted p-2">
-                      {JSON.stringify(s.body, null, 2)}
-                    </pre>
-                  )}
+                  <div><span className="rounded bg-muted px-2 py-0.5">{s.method}</span> <code className="rounded bg-muted px-2 py-0.5">{s.endpoint}</code></div>
+                  {s.body && <pre className="mt-2 max-h-40 overflow-auto rounded bg-muted p-2">{JSON.stringify(s.body, null, 2)}</pre>}
                 </div>
                 <div className="flex gap-2">
-                  <Button 
-                    onClick={() => runStep(s)} 
-                    disabled={!!active || !canRun(s)}
-                    data-testid={`button-run-${s.id}`}
-                  >
+                  <Button onClick={() => runStep(s)} disabled={!!active || !canRun(s)}>
                     {done[s.id] ? 'Re-run' : 'Run'}
                   </Button>
                 </div>
@@ -279,31 +239,12 @@ export default function DemoWalkthrough() {
       <section className="space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Live Log</h2>
-          <span className="text-xs text-muted-foreground">
-            {active ? 'Running…' : 'Idle'}
-          </span>
+          <span className="text-xs text-muted-foreground">{active ? 'Running…' : (preflightRan ? 'Preflight done' : 'Idle')}</span>
         </div>
         <pre className="h-80 overflow-auto rounded-md border bg-black p-3 text-xs text-green-200">
-          {log.length 
-            ? log.join('\n\n') 
-            : 'No output yet. Click Run on a step or Run All.'
-          }
+{log.length ? log.join('\n\n') : 'No output yet. Click Preflight, then Run on a step or Run All.'}
         </pre>
       </section>
-
-      <footer className="text-xs text-muted-foreground space-y-1">
-        <div>
-          <strong>Expected Results:</strong>
-        </div>
-        <ul className="list-disc ml-4 space-y-1">
-          <li><strong>Demo Login:</strong> Should succeed (200) and create demo user with 'demo' plan</li>
-          <li><strong>Expert Mode:</strong> Should succeed (200) because demo plan includes ADVANCED_AI</li>
-          <li><strong>Export/Analytics/Upgrade:</strong> May return 404 if endpoints aren't implemented</li>
-        </ul>
-        <div className="mt-2">
-          This interface validates that our demo user access control fix is working properly.
-        </div>
-      </footer>
     </div>
   );
 }
