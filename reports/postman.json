@@ -2,7 +2,7 @@
   "collection": {
     "item": [
       {
-        "id": "b5113c23-4a8f-4b73-825c-40c98d99f1a3",
+        "id": "dfe4350a-b30a-40c7-a2f2-06e9acd85083",
         "name": "1) Demo Login",
         "request": {
           "url": {
@@ -33,7 +33,7 @@
             "_": {
               "postman_previewlanguage": "json"
             },
-            "id": "b0543620-6e02-446f-8fa6-b94332fa2254",
+            "id": "2e07c3a1-674b-4584-8e59-f98d4c09ae62",
             "name": "Demo Login Success",
             "originalRequest": {
               "url": {
@@ -52,7 +52,7 @@
         "event": []
       },
       {
-        "id": "c45f456a-d133-49b1-bdc0-9d5fcbf32ca9",
+        "id": "3bd66c05-2ebf-4f43-bd87-f711664aea26",
         "name": "2) Expert Mode (ADVANCED_AI)",
         "request": {
           "url": {
@@ -83,7 +83,7 @@
             "_": {
               "postman_previewlanguage": "json"
             },
-            "id": "c8546610-d100-4e62-bd52-b13caac9ddcc",
+            "id": "aba601cc-c914-4c51-a24d-2b1474b78fb3",
             "name": "Expert OK",
             "status": "OK",
             "code": 200,
@@ -95,7 +95,7 @@
         "event": []
       },
       {
-        "id": "72463d2f-e49e-49ed-8a28-c1c34045671a",
+        "id": "e380d7eb-5f17-47fc-ac14-444ece0afa39",
         "name": "3) Export (expect 402, auto-provision demo workspace)",
         "request": {
           "url": {
@@ -126,7 +126,7 @@
             "_": {
               "postman_previewlanguage": "json"
             },
-            "id": "e65692f3-f2fa-4468-a231-cebab2089317",
+            "id": "9133be9e-1bdc-46d5-90c7-9f9949546cca",
             "name": "Export Requires Upgrade",
             "status": "Payment Required",
             "code": 402,
@@ -138,7 +138,7 @@
         "event": []
       },
       {
-        "id": "fa30c227-18e1-45cf-90f9-98462a52a457",
+        "id": "439e23ab-4284-4ab9-a56f-8541c5f8dede",
         "name": "4) Analytics (expect 402, seeded)",
         "request": {
           "url": {
@@ -170,7 +170,7 @@
             "_": {
               "postman_previewlanguage": "json"
             },
-            "id": "d93275fd-41c2-4e1c-bd22-d525d753d899",
+            "id": "18ba5127-1092-4172-b7e9-b851bef0faae",
             "name": "Analytics Requires Upgrade",
             "status": "Payment Required",
             "code": 402,
@@ -182,7 +182,7 @@
         "event": []
       },
       {
-        "id": "4748b6c0-6749-4349-879f-ab2bae296b35",
+        "id": "33b4e2bc-3da7-4535-a7cd-ea9915506b8f",
         "name": "5) Upgrade Demo → Pro (purge demo artifacts)",
         "request": {
           "url": {
@@ -213,7 +213,7 @@
             "_": {
               "postman_previewlanguage": "json"
             },
-            "id": "1fcaf472-dd16-4f81-956f-7ba7bc628d37",
+            "id": "d0c4ad1f-6b40-44ad-b0cd-8fb239323020",
             "name": "Upgrade Success",
             "status": "OK",
             "code": 200,
@@ -225,7 +225,7 @@
         "event": []
       },
       {
-        "id": "908a22a6-db7d-49e9-b4ff-4e0b3c5fb8a2",
+        "id": "efe7a33a-7e72-48c2-831c-d92f8aed5552",
         "name": "6) Export After Upgrade (expect 400 workspace required)",
         "request": {
           "url": {
@@ -256,7 +256,7 @@
             "_": {
               "postman_previewlanguage": "json"
             },
-            "id": "656f733b-8c69-4d4e-9d9a-a815923f492b",
+            "id": "0255c5e4-a6d8-4916-a9e5-6f6c11198b50",
             "name": "Workspace Context Required",
             "status": "Bad Request",
             "code": 400,
@@ -282,7 +282,7 @@
       }
     ],
     "info": {
-      "_postman_id": "6c34482d-eff6-4c3b-ba24-eace14d21563",
+      "_postman_id": "558c70ab-8cbf-4d0e-a091-23c286bf8428",
       "name": "Demo Mode — Example API",
       "version": {
         "raw": "1.1.0",
@@ -301,7 +301,7 @@
     }
   },
   "environment": {
-    "id": "ff56a107-ab07-4232-bc76-737eaf285d7a",
+    "id": "a09114c3-57f4-4532-a719-55f50f85af57",
     "values": [
       {
         "type": "any",
@@ -311,7 +311,7 @@
     ]
   },
   "globals": {
-    "id": "e97f9ab9-5585-4b21-8034-7098af89b468",
+    "id": "eb6a1e6b-c2fb-436f-988e-874b37b8cc01",
     "values": []
   },
   "run": {
@@ -363,10 +363,10 @@
       }
     },
     "timings": {
-      "responseAverage": 54.5,
-      "responseMin": 6,
-      "responseMax": 257,
-      "responseSd": 90.74093159465946,
+      "responseAverage": 55.166666666666664,
+      "responseMin": 4,
+      "responseMax": 240,
+      "responseSd": 83.8677861610497,
       "dnsAverage": 0,
       "dnsMin": 0,
       "dnsMax": 0,
@@ -375,8 +375,8 @@
       "firstByteMin": 0,
       "firstByteMax": 0,
       "firstByteSd": 0,
-      "started": 1757890398657,
-      "completed": 1757890399722
+      "started": 1757890653938,
+      "completed": 1757890655017
     },
     "executions": [
       {
@@ -389,11 +389,11 @@
           "eof": false,
           "bof": true,
           "cr": false,
-          "ref": "dc12a04f-3dc4-455f-b5fe-eb202ef875b9",
-          "httpRequestId": "cc6eb846-d997-455b-a2b6-a340bcecc376"
+          "ref": "622a6f62-9f57-45c7-8e24-9e3d52cb9f02",
+          "httpRequestId": "6139aaa6-81e9-446f-9724-01599e385bcd"
         },
         "item": {
-          "id": "b5113c23-4a8f-4b73-825c-40c98d99f1a3",
+          "id": "dfe4350a-b30a-40c7-a2f2-06e9acd85083",
           "name": "1) Demo Login",
           "request": {
             "url": {
@@ -424,7 +424,7 @@
               "_": {
                 "postman_previewlanguage": "json"
               },
-              "id": "b0543620-6e02-446f-8fa6-b94332fa2254",
+              "id": "2e07c3a1-674b-4584-8e59-f98d4c09ae62",
               "name": "Demo Login Success",
               "originalRequest": {
                 "url": {
@@ -478,7 +478,7 @@
             },
             {
               "key": "Postman-Token",
-              "value": "e2a82ec0-4f98-47f9-b570-4e7bdbd4e7da",
+              "value": "34f8a04f-91be-4f9b-9b1c-252b85805b71",
               "system": true
             },
             {
@@ -509,7 +509,7 @@
           }
         },
         "response": {
-          "id": "b3a8ca1f-2763-4f4e-84a1-d65997c30118",
+          "id": "d528c7e6-552a-4f94-813f-9ec0a654dfd5",
           "status": "Internal Server Error",
           "code": 500,
           "header": [
@@ -599,7 +599,7 @@
             },
             {
               "key": "Date",
-              "value": "Sun, 14 Sep 2025 22:53:18 GMT"
+              "value": "Sun, 14 Sep 2025 22:57:34 GMT"
             },
             {
               "key": "Connection",
@@ -647,22 +647,22 @@
             ]
           },
           "cookie": [],
-          "responseTime": 257,
+          "responseTime": 240,
           "responseSize": 31
         },
-        "id": "b5113c23-4a8f-4b73-825c-40c98d99f1a3"
+        "id": "dfe4350a-b30a-40c7-a2f2-06e9acd85083"
       },
       {
         "cursor": {
-          "ref": "bf24fe3d-e0af-498d-89d7-ddbbfc88c94a",
+          "ref": "a63f63e3-fcae-42de-aad1-96cbdcc1393a",
           "length": 6,
           "cycles": 1,
           "position": 1,
           "iteration": 0,
-          "httpRequestId": "732bae4d-7679-4a86-b3bf-9a6d75b9ef1e"
+          "httpRequestId": "20eb33ed-cbb5-44ce-86a0-6f42de75dcd6"
         },
         "item": {
-          "id": "c45f456a-d133-49b1-bdc0-9d5fcbf32ca9",
+          "id": "3bd66c05-2ebf-4f43-bd87-f711664aea26",
           "name": "2) Expert Mode (ADVANCED_AI)",
           "request": {
             "url": {
@@ -693,7 +693,7 @@
               "_": {
                 "postman_previewlanguage": "json"
               },
-              "id": "c8546610-d100-4e62-bd52-b13caac9ddcc",
+              "id": "aba601cc-c914-4c51-a24d-2b1474b78fb3",
               "name": "Expert OK",
               "status": "OK",
               "code": 200,
@@ -740,7 +740,7 @@
             },
             {
               "key": "Postman-Token",
-              "value": "dc91433c-d656-4fbd-8450-c4bc38a6614e",
+              "value": "c3fd8777-db61-4211-9a38-bd4d100964e2",
               "system": true
             },
             {
@@ -771,7 +771,7 @@
           }
         },
         "response": {
-          "id": "8fce8ad5-fa28-4d3c-995b-eb5ae0f767d2",
+          "id": "8227bfca-f68e-416f-87d0-5485c408a13b",
           "status": "Unauthorized",
           "code": 401,
           "header": [
@@ -861,7 +861,7 @@
             },
             {
               "key": "Date",
-              "value": "Sun, 14 Sep 2025 22:53:19 GMT"
+              "value": "Sun, 14 Sep 2025 22:57:34 GMT"
             },
             {
               "key": "Connection",
@@ -936,22 +936,22 @@
             ]
           },
           "cookie": [],
-          "responseTime": 13,
+          "responseTime": 7,
           "responseSize": 58
         },
-        "id": "c45f456a-d133-49b1-bdc0-9d5fcbf32ca9"
+        "id": "3bd66c05-2ebf-4f43-bd87-f711664aea26"
       },
       {
         "cursor": {
-          "ref": "b34c9ba0-1d1b-415b-ac9e-6a2c424ea1c2",
+          "ref": "b66f4626-93b7-4852-8597-345bc209ded6",
           "length": 6,
           "cycles": 1,
           "position": 2,
           "iteration": 0,
-          "httpRequestId": "ec277fe4-7f22-4042-9792-80cf64554412"
+          "httpRequestId": "de656e4e-9a89-4cbc-a088-01ea3993d4e7"
         },
         "item": {
-          "id": "72463d2f-e49e-49ed-8a28-c1c34045671a",
+          "id": "e380d7eb-5f17-47fc-ac14-444ece0afa39",
           "name": "3) Export (expect 402, auto-provision demo workspace)",
           "request": {
             "url": {
@@ -982,7 +982,7 @@
               "_": {
                 "postman_previewlanguage": "json"
               },
-              "id": "e65692f3-f2fa-4468-a231-cebab2089317",
+              "id": "9133be9e-1bdc-46d5-90c7-9f9949546cca",
               "name": "Export Requires Upgrade",
               "status": "Payment Required",
               "code": 402,
@@ -1029,7 +1029,7 @@
             },
             {
               "key": "Postman-Token",
-              "value": "8a88bf3a-d00b-4689-84b4-f23917c40cfd",
+              "value": "6f0e23a6-c692-40c9-b060-e72b2f2c1aba",
               "system": true
             },
             {
@@ -1060,7 +1060,7 @@
           }
         },
         "response": {
-          "id": "66cf6955-05db-4f03-af33-9565115fdc8f",
+          "id": "aae90678-06c2-48f2-a857-9f089fa06c7d",
           "status": "Unauthorized",
           "code": 401,
           "header": [
@@ -1150,7 +1150,7 @@
             },
             {
               "key": "Date",
-              "value": "Sun, 14 Sep 2025 22:53:19 GMT"
+              "value": "Sun, 14 Sep 2025 22:57:34 GMT"
             },
             {
               "key": "Connection",
@@ -1194,22 +1194,22 @@
             ]
           },
           "cookie": [],
-          "responseTime": 6,
+          "responseTime": 4,
           "responseSize": 27
         },
-        "id": "72463d2f-e49e-49ed-8a28-c1c34045671a"
+        "id": "e380d7eb-5f17-47fc-ac14-444ece0afa39"
       },
       {
         "cursor": {
-          "ref": "7fe2ee3b-d6a1-409f-ba4e-90bbbaeaf66b",
+          "ref": "8b4ef1dd-548b-4ed2-b5b9-f1a1d5e14630",
           "length": 6,
           "cycles": 1,
           "position": 3,
           "iteration": 0,
-          "httpRequestId": "dad07157-8794-40f1-937f-8d693890d669"
+          "httpRequestId": "6ea3f2fd-b263-4f73-9bfd-3d8772b62bde"
         },
         "item": {
-          "id": "fa30c227-18e1-45cf-90f9-98462a52a457",
+          "id": "439e23ab-4284-4ab9-a56f-8541c5f8dede",
           "name": "4) Analytics (expect 402, seeded)",
           "request": {
             "url": {
@@ -1241,7 +1241,7 @@
               "_": {
                 "postman_previewlanguage": "json"
               },
-              "id": "d93275fd-41c2-4e1c-bd22-d525d753d899",
+              "id": "18ba5127-1092-4172-b7e9-b851bef0faae",
               "name": "Analytics Requires Upgrade",
               "status": "Payment Required",
               "code": 402,
@@ -1289,7 +1289,7 @@
             },
             {
               "key": "Postman-Token",
-              "value": "0781f547-f5a9-4014-9237-8e5178fffa33",
+              "value": "1a08a740-15ce-492d-8ff9-c87f5647278d",
               "system": true
             },
             {
@@ -1320,7 +1320,7 @@
           }
         },
         "response": {
-          "id": "53be3b28-22c0-44a7-bd4f-7ad15fbeeb8c",
+          "id": "5407e5ae-29f0-4e79-80ed-6be631519586",
           "status": "OK",
           "code": 200,
           "header": [
@@ -1406,7 +1406,7 @@
             },
             {
               "key": "Date",
-              "value": "Sun, 14 Sep 2025 22:53:19 GMT"
+              "value": "Sun, 14 Sep 2025 22:57:34 GMT"
             },
             {
               "key": "Connection",
@@ -45042,27 +45042,27 @@
               63,
               118,
               61,
-              121,
-              107,
-              87,
               100,
-              101,
-              72,
-              86,
-              84,
-              67,
-              66,
-              111,
-              81,
-              51,
-              98,
-              120,
-              68,
-              52,
-              68,
-              97,
-              52,
+              108,
               74,
+              45,
+              83,
+              75,
+              110,
+              49,
+              71,
+              111,
+              90,
+              113,
+              121,
+              90,
+              81,
+              52,
+              54,
+              120,
+              117,
+              74,
+              45,
               34,
               62,
               60,
@@ -45095,22 +45095,22 @@
             ]
           },
           "cookie": [],
-          "responseTime": 19,
+          "responseTime": 30,
           "responseSize": 43668
         },
-        "id": "fa30c227-18e1-45cf-90f9-98462a52a457"
+        "id": "439e23ab-4284-4ab9-a56f-8541c5f8dede"
       },
       {
         "cursor": {
-          "ref": "4c2184b9-deed-4fd5-a1c4-771d57cc08af",
+          "ref": "74775b07-4179-4f3f-9e2b-c54e5d725db4",
           "length": 6,
           "cycles": 1,
           "position": 4,
           "iteration": 0,
-          "httpRequestId": "06758259-bc87-4f81-9990-24f8c182b754"
+          "httpRequestId": "41689fa2-87dc-4123-a917-22e6643f40ef"
         },
         "item": {
-          "id": "4748b6c0-6749-4349-879f-ab2bae296b35",
+          "id": "33b4e2bc-3da7-4535-a7cd-ea9915506b8f",
           "name": "5) Upgrade Demo → Pro (purge demo artifacts)",
           "request": {
             "url": {
@@ -45141,7 +45141,7 @@
               "_": {
                 "postman_previewlanguage": "json"
               },
-              "id": "1fcaf472-dd16-4f81-956f-7ba7bc628d37",
+              "id": "d0c4ad1f-6b40-44ad-b0cd-8fb239323020",
               "name": "Upgrade Success",
               "status": "OK",
               "code": 200,
@@ -45188,7 +45188,7 @@
             },
             {
               "key": "Postman-Token",
-              "value": "402054d6-de21-4496-acfe-2865c475943f",
+              "value": "311a48a2-1983-4552-945b-1df13aef5c5b",
               "system": true
             },
             {
@@ -45219,7 +45219,7 @@
           }
         },
         "response": {
-          "id": "86aa4cc7-30d0-45f0-a3dc-3ae5ca436181",
+          "id": "a300ec92-6866-46ce-a7f6-502da836de94",
           "status": "OK",
           "code": 200,
           "header": [
@@ -45305,7 +45305,7 @@
             },
             {
               "key": "Date",
-              "value": "Sun, 14 Sep 2025 22:53:19 GMT"
+              "value": "Sun, 14 Sep 2025 22:57:34 GMT"
             },
             {
               "key": "Connection",
@@ -88941,27 +88941,27 @@
               63,
               118,
               61,
-              105,
-              90,
-              81,
-              51,
-              111,
-              90,
+              118,
+              69,
+              56,
+              108,
+              87,
               102,
-              106,
-              77,
-              121,
-              99,
-              108,
-              78,
-              108,
-              82,
-              119,
-              101,
+              80,
+              102,
+              111,
+              54,
+              50,
+              52,
+              76,
+              98,
+              45,
+              95,
+              57,
               115,
-              116,
-              51,
-              108,
+              50,
+              69,
+              99,
               34,
               62,
               60,
@@ -88994,22 +88994,22 @@
             ]
           },
           "cookie": [],
-          "responseTime": 23,
+          "responseTime": 43,
           "responseSize": 43668
         },
-        "id": "4748b6c0-6749-4349-879f-ab2bae296b35"
+        "id": "33b4e2bc-3da7-4535-a7cd-ea9915506b8f"
       },
       {
         "cursor": {
-          "ref": "fb7a3f79-ad92-4465-9ba7-c0090b9ff250",
+          "ref": "84c00b8a-628d-4ea8-9d44-505ec1c1491a",
           "length": 6,
           "cycles": 1,
           "position": 5,
           "iteration": 0,
-          "httpRequestId": "62e1d7d0-020b-4bc6-9dec-34a6faaf1e9d"
+          "httpRequestId": "6b7bbfbd-91b4-467a-98cd-a2f292e4e1c2"
         },
         "item": {
-          "id": "908a22a6-db7d-49e9-b4ff-4e0b3c5fb8a2",
+          "id": "efe7a33a-7e72-48c2-831c-d92f8aed5552",
           "name": "6) Export After Upgrade (expect 400 workspace required)",
           "request": {
             "url": {
@@ -89040,7 +89040,7 @@
               "_": {
                 "postman_previewlanguage": "json"
               },
-              "id": "656f733b-8c69-4d4e-9d9a-a815923f492b",
+              "id": "0255c5e4-a6d8-4916-a9e5-6f6c11198b50",
               "name": "Workspace Context Required",
               "status": "Bad Request",
               "code": 400,
@@ -89087,7 +89087,7 @@
             },
             {
               "key": "Postman-Token",
-              "value": "7ac150ac-5893-4747-8ed9-eb7cb62ffd14",
+              "value": "44a45ad8-fef7-4168-8269-0d9fb09a02ea",
               "system": true
             },
             {
@@ -89118,7 +89118,7 @@
           }
         },
         "response": {
-          "id": "70b664de-03d4-4a49-ba0d-a3aebef2f0f4",
+          "id": "49fdb7a2-82ba-48e6-88bf-87c130c7d491",
           "status": "Unauthorized",
           "code": 401,
           "header": [
@@ -89208,7 +89208,7 @@
             },
             {
               "key": "Date",
-              "value": "Sun, 14 Sep 2025 22:53:19 GMT"
+              "value": "Sun, 14 Sep 2025 22:57:35 GMT"
             },
             {
               "key": "Connection",
@@ -89252,10 +89252,10 @@
             ]
           },
           "cookie": [],
-          "responseTime": 9,
+          "responseTime": 7,
           "responseSize": 27
         },
-        "id": "908a22a6-db7d-49e9-b4ff-4e0b3c5fb8a2"
+        "id": "efe7a33a-7e72-48c2-831c-d92f8aed5552"
       }
     ],
     "transfers": {

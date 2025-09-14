@@ -44,20 +44,20 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: ./scripts/ci-build.sh
+        run: npm run build
 
       - name: DB migrate
-        run: ./scripts/ci-db-migrate.sh
+        run: npm run db:migrate
 
       - name: DB seed (demo user/workspace/docs)
-        run: ./scripts/ci-db-seed.sh
+        run: npm run db:seed
 
       - name: Run Jest tests
-        run: ./scripts/ci-test.sh
+        run: npm run test:ci
 
       - name: Start API server
         run: |
-          ./scripts/ci-start.sh &
+          npm start &
           echo $! > server.pid
 
       - name: Wait for /health
@@ -68,7 +68,7 @@ jobs:
           done
 
       - name: Run Newman
-        run: BASE_URL=${BASE_URL} ./scripts/postman-test.sh ${BASE_URL}
+        run: npm run postman:test
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

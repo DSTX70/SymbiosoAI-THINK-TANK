@@ -2,7 +2,7 @@ import request from 'supertest';
 import express from 'express';
 import { registerHealth } from '../server/health';
 
-describe('Health Endpoint', () => {
+describe('Health endpoint', () => {
   let app: express.Express;
 
   beforeAll(() => {
@@ -10,15 +10,12 @@ describe('Health Endpoint', () => {
     registerHealth(app);
   });
 
-  it('should return healthy status', async () => {
-    const response = await request(app)
-      .get('/health')
-      .expect(200);
-
-    expect(response.body).toEqual({ ok: true });
+  it('responds 200 OK with { ok: true }', async () => {
+    const res = await request(app).get('/health').expect(200);
+    expect(res.body).toEqual({ ok: true });
   });
 
-  it('should respond quickly', async () => {
+  it('should respond quickly for health checks', async () => {
     const start = Date.now();
     await request(app).get('/health');
     const duration = Date.now() - start;
