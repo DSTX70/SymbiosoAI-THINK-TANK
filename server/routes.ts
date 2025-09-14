@@ -62,6 +62,11 @@ import { registerOpsRoutes } from "./routes/ops";
 import { withRetry } from "./utils/withRetry";
 import { getCachedLLMResponse } from "./utils/llmCache";
 import { AppError, createValidationError, createAuthenticationError, createCircuitBreakerError, redactSensitiveData } from "./utils/errors";
+// Sprint 11 - Billing & Entitlements imports
+import billingRoutes from "./routes/billing";
+import entitlementsRoutes from "./routes/entitlements";
+import adminRoutes from "./routes/admin";
+import { startDunningWorker } from "./workers/dunningWorker";
 
 // Helper function to format report object into readable content
 function formatReportContent(report: any, format: string): string {
@@ -3048,6 +3053,16 @@ Provide additional insights, explore deeper implications, or address related asp
   });
   
   // ============================================
+  // SPRINT 11 - MOUNT BILLING & ENTITLEMENTS ROUTES
+  // ============================================
+  
+  // Mount Sprint 11 routes
+  app.use('/billing', billingRoutes);
+  app.use('/entitlements', entitlementsRoutes);
+  app.use('/admin', adminRoutes);
+  console.log('✅ Sprint 11 routes mounted: /billing/*, /entitlements/*, /admin/*');
+
+  // ============================================
   // SPRINT 6 - INITIALIZE WORKERS
   // ============================================
   
@@ -3056,6 +3071,21 @@ Provide additional insights, explore deeper implications, or address related asp
   await workflowWorker.start();
   await insightsWorker.start();
   console.log('✅ Sprint 6 workers started successfully');
+
+  // ============================================
+  // SPRINT 11 - INITIALIZE DUNNING WORKER
+  // ============================================
+  
+  // Start dunning worker for automated billing notifications
+  console.log('🚀 Starting Sprint 11 dunning worker...');
+  try {
+    const dunningWorker = startDunningWorker();
+    console.log('✅ Sprint 11 dunning worker started successfully');
+  } catch (error) {
+    console.error('❌ Failed to start dunning worker:', error);
+    // Continue without dunning worker in development
+    console.log('⚠️ Continuing without dunning worker (development mode)');
+  }
 
   return httpServer;
 }

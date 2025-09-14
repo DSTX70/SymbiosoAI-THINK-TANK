@@ -2782,3 +2782,41 @@ export type MetricType = z.infer<typeof metricTypeSchema>;
 export type ResourceType = z.infer<typeof resourceTypeSchema>;
 export type ActionType = z.infer<typeof actionTypeSchema>;
 
+// ============================================
+// SPRINT 11 - BILLING & ENTITLEMENTS HARDENING
+// ============================================
+
+// Dunning events for billing collection
+export const dunningEvents = pgTable("dunning_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceId: varchar("invoice_id").notNull(),
+  orgId: text("org_id").notNull(),
+  event: text("event").notNull(), // remind, warn, suspend, resume
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Organization seats management
+export const seats = pgTable("seats", {
+  orgId: text("org_id").primaryKey(),
+  seats: integer("seats").notNull().default(1),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Sprint 11 schemas
+export const insertDunningEventSchema = createInsertSchema(dunningEvents).pick({
+  invoiceId: true,
+  orgId: true,
+  event: true,
+});
+
+export const insertSeatsSchema = createInsertSchema(seats).pick({
+  orgId: true,
+  seats: true,
+});
+
+// Sprint 11 types
+export type DunningEvent = typeof dunningEvents.$inferSelect;
+export type InsertDunningEvent = z.infer<typeof insertDunningEventSchema>;
+export type Seat = typeof seats.$inferSelect;
+export type InsertSeat = z.infer<typeof insertSeatsSchema>;
+

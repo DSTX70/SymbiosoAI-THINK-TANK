@@ -39,6 +39,8 @@ import {
   // Sprint 6 - Organization insights types  
   type OrganizationAnalytics, type InsertOrganizationAnalytics, type OrganizationDailyReport, type InsertOrganizationDailyReport,
   type EnhancedUsageMetric, type InsertEnhancedUsageMetric,
+  // Sprint 11 - Billing & Entitlements types
+  type Invoice, type InsertInvoice, type DunningEvent, type InsertDunningEvent, type Seat, type InsertSeat,
   users, analysisSessions, workspaces, workspaceMembers, workspaceInvites, generatedReports,
   templates, sessionCodes, sessionParticipants, chatMessages, pushSubscriptions,
   tutorials, tutorialSteps, tutorialProgress, tutorialSettings,
@@ -51,7 +53,9 @@ import {
   scimUsers, scimGroups, scimGroupMemberships, provisioningLogs,
   // Sprint 6 table imports
   workflowDefinitions, workflowExecutions, workflowEvents,
-  organizationAnalytics, organizationDailyReports, enhancedUsageMetrics
+  organizationAnalytics, organizationDailyReports, enhancedUsageMetrics,
+  // Sprint 11 table imports
+  invoices, dunningEvents, seats
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { Pool, neonConfig } from '@neondatabase/serverless';
@@ -523,6 +527,27 @@ export interface IStorage {
   // Sprint 10 - Trial management
   startTrial(orgId: string, daysAllowed?: number): Promise<{ active: boolean; startDate: Date; endDate: Date; daysRemaining: number }>;
   getTrialStatus(orgId: string): Promise<{ active: boolean; startDate: Date | null; endDate: Date | null; daysRemaining: number }>;
+
+  // ============================================
+  // SPRINT 11 - BILLING & ENTITLEMENTS HARDENING
+  // ============================================
+
+  // Invoice operations
+  createInvoice(invoice: InsertInvoice): Promise<Invoice>;
+  getInvoice(id: string): Promise<Invoice | undefined>;
+  getInvoicesByOrg(orgId: string): Promise<Invoice[]>;
+  updateInvoice(id: string, updates: Partial<Invoice>): Promise<Invoice | undefined>;
+
+  // Dunning event operations
+  createDunningEvent(event: InsertDunningEvent): Promise<DunningEvent>;
+  getDunningEvent(id: string): Promise<DunningEvent | undefined>;
+  getDunningEventsByInvoice(invoiceId: string): Promise<DunningEvent[]>;
+  getDunningEventsByOrg(orgId: string): Promise<DunningEvent[]>;
+
+  // Seats management operations
+  createSeats(seats: InsertSeat): Promise<Seat>;
+  getSeats(orgId: string): Promise<Seat | undefined>;
+  updateSeats(orgId: string, seats: number): Promise<Seat | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -3726,6 +3751,143 @@ export class DatabaseStorage implements IStorage {
       endDate: trial.endDate,
       daysRemaining
     };
+  }
+
+  // ============================================
+  // SPRINT 11 - BILLING & ENTITLEMENTS HARDENING
+  // ============================================
+
+  // Invoice operations
+  async createInvoice(invoiceData: InsertInvoice): Promise<Invoice> {
+    try {
+      const [invoice] = await db.insert(invoices).values({
+        ...invoiceData,
+        id: randomUUID(),
+        createdAt: new Date()
+      }).returning();
+      return invoice;
+    } catch (error) {
+      console.error('Failed to create invoice:', error);
+      throw error;
+    }
+  }
+
+  async getInvoice(id: string): Promise<Invoice | undefined> {
+    try {
+      const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+      return invoice;
+    } catch (error) {
+      console.error('Failed to get invoice:', error);
+      return undefined;
+    }
+  }
+
+  async getInvoicesByOrg(orgId: string): Promise<Invoice[]> {
+    try {
+      return await db.select().from(invoices)
+        .where(eq(invoices.orgId, orgId))
+        .orderBy(invoices.createdAt);
+    } catch (error) {
+      console.error('Failed to get invoices by org:', error);
+      return [];
+    }
+  }
+
+  async updateInvoice(id: string, updates: Partial<Invoice>): Promise<Invoice | undefined> {
+    try {
+      const [invoice] = await db.update(invoices)
+        .set(updates)
+        .where(eq(invoices.id, id))
+        .returning();
+      return invoice;
+    } catch (error) {
+      console.error('Failed to update invoice:', error);
+      return undefined;
+    }
+  }
+
+  // Dunning event operations
+  async createDunningEvent(eventData: InsertDunningEvent): Promise<DunningEvent> {
+    try {
+      const [dunningEvent] = await db.insert(dunningEvents).values({
+        ...eventData,
+        id: randomUUID(),
+        createdAt: new Date()
+      }).returning();
+      return dunningEvent;
+    } catch (error) {
+      console.error('Failed to create dunning event:', error);
+      throw error;
+    }
+  }
+
+  async getDunningEvent(id: string): Promise<DunningEvent | undefined> {
+    try {
+      const [event] = await db.select().from(dunningEvents).where(eq(dunningEvents.id, id));
+      return event;
+    } catch (error) {
+      console.error('Failed to get dunning event:', error);
+      return undefined;
+    }
+  }
+
+  async getDunningEventsByInvoice(invoiceId: string): Promise<DunningEvent[]> {
+    try {
+      return await db.select().from(dunningEvents)
+        .where(eq(dunningEvents.invoiceId, invoiceId))
+        .orderBy(dunningEvents.createdAt);
+    } catch (error) {
+      console.error('Failed to get dunning events by invoice:', error);
+      return [];
+    }
+  }
+
+  async getDunningEventsByOrg(orgId: string): Promise<DunningEvent[]> {
+    try {
+      return await db.select().from(dunningEvents)
+        .where(eq(dunningEvents.orgId, orgId))
+        .orderBy(dunningEvents.createdAt);
+    } catch (error) {
+      console.error('Failed to get dunning events by org:', error);
+      return [];
+    }
+  }
+
+  // Seats management operations
+  async createSeats(seatsData: InsertSeat): Promise<Seat> {
+    try {
+      const [seat] = await db.insert(seats).values({
+        ...seatsData,
+        updatedAt: new Date()
+      }).returning();
+      return seat;
+    } catch (error) {
+      console.error('Failed to create seats:', error);
+      throw error;
+    }
+  }
+
+  async getSeats(orgId: string): Promise<Seat | undefined> {
+    try {
+      const [seat] = await db.select().from(seats).where(eq(seats.orgId, orgId));
+      return seat;
+    } catch (error) {
+      console.error('Failed to get seats:', error);
+      return undefined;
+    }
+  }
+
+  async updateSeats(orgId: string, seatCount: number): Promise<Seat | undefined> {
+    try {
+      const [seat] = await db.update(seats)
+        .set({ seats: seatCount, updatedAt: new Date() })
+        .where(eq(seats.orgId, orgId))
+        .returning();
+      return seat;
+    } catch (error) {
+      console.error('Failed to update seats:', error);
+      return undefined;
+    }
   }
 }
 

@@ -13,6 +13,8 @@ import pushRouter from "./routes/push";
 import webhooksRouter from "./routes/webhooks";
 import templatesRouter from "./routes/templates";
 import tutorialsRouter from "./routes/tutorials";
+// Sprint 11: Billing API routes
+import billingRouter from "./routes/billing";
 // Sprint 2: Webhook delivery and observability
 import { startWebhookWorker } from "./services/webhookDelivery";
 import { initObservability } from "./services/observability";
@@ -115,6 +117,9 @@ app.use((req, res, next) => {
   app.use('/api', webhooksRouter);
   app.use('/api', templatesRouter);
   app.use('/api/tutorials', tutorialsRouter);
+  
+  // Mount Sprint 11 billing routes
+  app.use('/api/billing', billingRouter);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
