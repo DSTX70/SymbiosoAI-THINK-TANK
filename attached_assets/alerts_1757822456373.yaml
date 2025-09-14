@@ -1,0 +1,14 @@
+# backend/observability/alerts.yaml
+alerts:
+  - name: P95 Debate Latency Breach
+    expr: debate_duration_ms_p95 > ${SLO_P95_DEBATE_MS}
+    for: 10m
+    severity: page
+  - name: Export Error Rate High
+    expr: rate(export_errors_total[5m]) > 5
+    for: 10m
+    severity: ticket
+  - name: Queue Backlog
+    expr: debate_queue_depth > 100
+    for: 5m
+    severity: page

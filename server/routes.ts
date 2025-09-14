@@ -28,6 +28,10 @@ import { SecurityMiddleware } from "./middleware/security";
 import { EnterpriseRateLimiter } from "./middleware/rateLimiting";
 import { PerformanceMonitor } from "./middleware/monitoring";
 import { registerAutomationRoutes } from "./routes/automation";
+import { registerSprint6Routes } from "./routes/sprint6";
+// Sprint 6 - Workers
+import { workflowWorker } from "./workers/workflowWorker";
+import { insightsWorker } from "./workers/insightsWorker";
 // RBAC and Entitlements middleware
 import { 
   requireAuth, 
@@ -51,6 +55,13 @@ import {
   type BillingFeature as BillingFeatureType
 } from "./middleware/entitlements";
 import { PermissionUtils } from "./utils/permissions";
+// Sprint 8 - Scale & Hardening imports
+import { circuitBreaker, createCircuitBreakerMiddleware } from "./middleware/circuitBreaker";
+import { securityHeadersMiddleware, developmentSecurityHeaders, productionSecurityHeaders } from "./middleware/securityHeaders";
+import { registerOpsRoutes } from "./routes/ops";
+import { withRetry } from "./utils/withRetry";
+import { getCachedLLMResponse } from "./utils/llmCache";
+import { AppError, createValidationError, createAuthenticationError, createCircuitBreakerError, redactSensitiveData } from "./utils/errors";
 
 // Helper function to format report object into readable content
 function formatReportContent(report: any, format: string): string {
@@ -232,6 +243,26 @@ function formatReportAsPlainText(report: any): string {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Sprint 8 - Apply security headers first
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  if (isDevelopment) {
+    app.use(developmentSecurityHeaders());
+    console.log('🔒 Applied development security headers');
+  } else {
+    app.use(productionSecurityHeaders());
+    console.log('🔒 Applied production security headers');
+  }
+
+  // Sprint 8 - Register ops endpoints early (before auth for health checks)
+  registerOpsRoutes(app);
+  console.log('🔧 Sprint 8 ops routes registered');
+
+  // Sprint 8 - Apply circuit breaker middleware for external services
+  const externalServiceCircuitBreaker = createCircuitBreakerMiddleware('external-services');
+  app.use('/api/think', externalServiceCircuitBreaker);
+  app.use('/api/debate', externalServiceCircuitBreaker);
+  console.log('🔄 Sprint 8 circuit breaker middleware applied');
+
   // Register SSE streaming routes
   registerStreamingRoutes(app);
   
@@ -2789,6 +2820,19 @@ Provide additional insights, explore deeper implications, or address related asp
 
   // Register automation routes
   registerAutomationRoutes(app);
+  
+  // Register Sprint 6 routes
+  registerSprint6Routes(app);
+  
+  // ============================================
+  // SPRINT 6 - INITIALIZE WORKERS
+  // ============================================
+  
+  // Start workflow and insights workers
+  console.log('🚀 Starting Sprint 6 workers...');
+  await workflowWorker.start();
+  await insightsWorker.start();
+  console.log('✅ Sprint 6 workers started successfully');
 
   return httpServer;
 }

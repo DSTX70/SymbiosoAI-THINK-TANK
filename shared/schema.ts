@@ -130,9 +130,24 @@ export const templates = pgTable("templates", {
   authorId: varchar("author_id"), // User who created the template
   version: integer("version").default(1), // Template version for updates
   metadata: jsonb("metadata").default({}), // Additional template metadata
+  // Sprint 6 - Template Builder CRUD + Publish System
+  organizationId: varchar("organization_id"), // Tenant hardening
+  status: varchar("status").notNull().default("draft"), // draft, under_review, published, archived
+  publishedAt: timestamp("published_at"), // When template was published
+  publishedBy: varchar("published_by"), // User who published the template
+  reviewedAt: timestamp("reviewed_at"), // When template was last reviewed
+  reviewedBy: varchar("reviewed_by"), // User who reviewed the template
+  approvalComments: text("approval_comments"), // Comments from reviewer
+  contentValidation: jsonb("content_validation").default({}), // Validation results
+  previousVersionId: varchar("previous_version_id"), // Link to previous version
+  isTemplate: boolean("is_template").default(true), // Distinguish from instances
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  index("templates_status_idx").on(table.status),
+  index("templates_organization_idx").on(table.organizationId),
+  index("templates_author_status_idx").on(table.authorId, table.status),
+]);
 
 // Push notification subscriptions for web push support
 export const pushSubscriptions = pgTable("push_subscriptions", {
@@ -308,16 +323,7 @@ export const insertGeneratedReportSchema = createInsertSchema(generatedReports).
   metadata: true,
 });
 
-export const insertTemplateSchema = createInsertSchema(templates).pick({
-  name: true,
-  description: true,
-  category: true,
-  tags: true,
-  content: true,
-  isPublic: true,
-  authorId: true,
-  metadata: true,
-});
+// insertTemplateSchema - REMOVED DUPLICATE (see Sprint 6 section)
 
 export const insertPushSubscriptionSchema = createInsertSchema(pushSubscriptions).pick({
   userId: true,
@@ -388,8 +394,7 @@ export const insertTutorialSettingsSchema = createInsertSchema(tutorialSettings)
 });
 
 
-// Template category validation
-export const templateCategorySchema = z.enum(["business", "technology", "education", "research"]);
+// Template category validation - REMOVED DUPLICATE (see Sprint 6 section)
 
 // Tutorial system validation schemas
 export const tutorialCategorySchema = z.enum(["onboarding", "feature", "advanced", "troubleshooting"]);
@@ -2380,6 +2385,153 @@ export const insertProvisioningLogSchema = createInsertSchema(provisioningLogs).
 });
 
 // ============================================
+// SPRINT 6 - TEMPLATE BUILDER + WORKFLOW AUTOMATION + ORG INSIGHTS + TENANT HARDENING
+// ============================================
+
+// Workflow definitions for automation v1
+export const workflowDefinitions = pgTable("workflow_definitions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(), // Tenant hardening
+  name: text("name").notNull(), // Workflow name
+  description: text("description"), // Workflow description
+  triggerType: varchar("trigger_type").notNull(), // manual, scheduled, event, webhook
+  triggerConfig: jsonb("trigger_config").notNull(), // Trigger configuration
+  actions: jsonb("actions").notNull(), // Array of actions to execute
+  isActive: boolean("is_active").default(true), // Whether workflow is active
+  version: integer("version").default(1), // Version for updates
+  createdBy: varchar("created_by").notNull(), // User who created workflow
+  updatedBy: varchar("updated_by"), // User who last updated workflow
+  settings: jsonb("settings").default({}), // Additional workflow settings
+  metadata: jsonb("metadata").default({}), // Additional metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("workflow_definitions_org_idx").on(table.organizationId),
+  index("workflow_definitions_trigger_idx").on(table.triggerType),
+  index("workflow_definitions_active_idx").on(table.isActive),
+]);
+
+// Workflow executions for tracking runs
+export const workflowExecutions = pgTable("workflow_executions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workflowDefinitionId: varchar("workflow_definition_id").notNull(), // Reference to definition
+  organizationId: varchar("organization_id").notNull(), // Tenant hardening
+  triggeredBy: varchar("triggered_by"), // User or system that triggered
+  triggerData: jsonb("trigger_data"), // Input data for execution
+  status: varchar("status").notNull().default("pending"), // pending, running, completed, failed, cancelled
+  currentStep: integer("current_step").default(0), // Current action step
+  totalSteps: integer("total_steps").default(0), // Total actions to execute
+  results: jsonb("results").default([]), // Results from each action
+  errorMessage: text("error_message"), // Error details if failed
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+  duration: integer("duration"), // Execution time in milliseconds
+  metadata: jsonb("metadata").default({}), // Additional execution data
+}, (table) => [
+  index("workflow_executions_definition_idx").on(table.workflowDefinitionId),
+  index("workflow_executions_org_idx").on(table.organizationId),
+  index("workflow_executions_status_idx").on(table.status),
+  index("workflow_executions_triggered_idx").on(table.triggeredBy),
+]);
+
+// Workflow events for queue processing
+export const workflowEvents = pgTable("workflow_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(), // Tenant hardening
+  eventType: varchar("event_type").notNull(), // trigger_workflow, action_completed, webhook_received
+  eventData: jsonb("event_data").notNull(), // Event payload
+  workflowExecutionId: varchar("workflow_execution_id"), // Optional reference to execution
+  status: varchar("status").notNull().default("pending"), // pending, processing, completed, failed
+  retryCount: integer("retry_count").default(0), // Number of retry attempts
+  processedAt: timestamp("processed_at"), // When event was processed
+  errorMessage: text("error_message"), // Error details if failed
+  scheduledFor: timestamp("scheduled_for"), // When to process (for delayed events)
+  priority: integer("priority").default(0), // Event priority (higher = process first)
+  source: varchar("source"), // Event source (webhook, manual, system)
+  metadata: jsonb("metadata").default({}), // Additional event data
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("workflow_events_org_idx").on(table.organizationId),
+  index("workflow_events_type_idx").on(table.eventType),
+  index("workflow_events_status_idx").on(table.status),
+  index("workflow_events_scheduled_idx").on(table.scheduledFor),
+  index("workflow_events_execution_idx").on(table.workflowExecutionId),
+]);
+
+// Organization analytics for insights dashboard
+export const organizationAnalytics = pgTable("organization_analytics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(), // Target organization
+  date: timestamp("date").notNull(), // Analytics date
+  activeUsers: integer("active_users").default(0), // Daily active users
+  totalSessions: integer("total_sessions").default(0), // Total analysis sessions
+  templatesUsed: integer("templates_used").default(0), // Templates used count
+  workflowsExecuted: integer("workflows_executed").default(0), // Workflows run
+  apiCalls: integer("api_calls").default(0), // API requests made
+  storageUsed: integer("storage_used").default(0), // Storage in bytes
+  averageSessionDuration: integer("average_session_duration").default(0), // Duration in seconds
+  topTemplates: jsonb("top_templates").default([]), // Most used templates
+  topUsers: jsonb("top_users").default([]), // Most active users
+  errorRate: decimal("error_rate", { precision: 5, scale: 4 }).default("0"), // Error percentage
+  performance: jsonb("performance").default({}), // Performance metrics
+  features: jsonb("features").default({}), // Feature usage stats
+  metadata: jsonb("metadata").default({}), // Additional analytics data
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("org_analytics_org_date_idx").on(table.organizationId, table.date),
+  index("org_analytics_date_idx").on(table.date),
+  unique("org_analytics_unique_org_date").on(table.organizationId, table.date),
+]);
+
+// Daily reports for automated insights
+export const organizationDailyReports = pgTable("organization_daily_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(), // Target organization
+  reportDate: timestamp("report_date").notNull(), // Report date
+  reportType: varchar("report_type").notNull().default("daily_summary"), // daily_summary, weekly_digest, monthly_review
+  title: text("title").notNull(), // Report title
+  summary: text("summary"), // Executive summary
+  keyMetrics: jsonb("key_metrics").notNull(), // Important metrics
+  insights: jsonb("insights").default([]), // Generated insights
+  recommendations: jsonb("recommendations").default([]), // Action recommendations
+  alerts: jsonb("alerts").default([]), // Important alerts
+  charts: jsonb("charts").default([]), // Chart data for visualization
+  generatedAt: timestamp("generated_at").defaultNow(),
+  generatedBy: varchar("generated_by").default("system"), // User or system that generated
+  status: varchar("status").notNull().default("generated"), // generated, sent, archived
+  recipients: jsonb("recipients").default([]), // Who received the report
+  metadata: jsonb("metadata").default({}), // Additional report data
+}, (table) => [
+  index("daily_reports_org_date_idx").on(table.organizationId, table.reportDate),
+  index("daily_reports_type_idx").on(table.reportType),
+  index("daily_reports_status_idx").on(table.status),
+  unique("daily_reports_unique_org_date_type").on(table.organizationId, table.reportDate, table.reportType),
+]);
+
+// Enhanced usage metrics for detailed insights
+export const enhancedUsageMetrics = pgTable("enhanced_usage_metrics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(), // Tenant hardening
+  userId: varchar("user_id"), // Optional user tracking
+  resourceType: varchar("resource_type").notNull(), // template, workflow, api, storage, analysis
+  resourceId: varchar("resource_id"), // Specific resource ID
+  action: varchar("action").notNull(), // create, read, update, delete, execute, download
+  metricType: varchar("metric_type").notNull(), // usage, performance, billing, quota
+  value: decimal("value", { precision: 10, scale: 2 }).notNull(), // Metric value
+  unit: varchar("unit").notNull(), // count, seconds, bytes, requests, percentage
+  tags: jsonb("tags").default([]), // Additional categorization
+  dimensions: jsonb("dimensions").default({}), // Metric dimensions
+  timestamp: timestamp("timestamp").defaultNow(),
+  metadata: jsonb("metadata").default({}), // Additional metric data
+}, (table) => [
+  index("enhanced_metrics_org_idx").on(table.organizationId),
+  index("enhanced_metrics_resource_idx").on(table.resourceType, table.resourceId),
+  index("enhanced_metrics_user_idx").on(table.userId),
+  index("enhanced_metrics_timestamp_idx").on(table.timestamp),
+  index("enhanced_metrics_org_resource_time_idx").on(table.organizationId, table.resourceType, table.timestamp),
+]);
+
+// ============================================
 // SPRINT 5 - VALIDATION ENUMS
 // ============================================
 
@@ -2476,4 +2628,157 @@ export type ScimMembershipSource = z.infer<typeof scimMembershipSourceSchema>;
 export type ProvisioningOperation = z.infer<typeof provisioningOperationSchema>;
 export type ProvisioningResourceType = z.infer<typeof provisioningResourceTypeSchema>;
 export type ProvisioningStatus = z.infer<typeof provisioningStatusSchema>;
+
+// ============================================
+// SPRINT 6 - VALIDATION ENUMS + SCHEMAS
+// ============================================
+
+// Template Builder validation schemas
+export const templateStatusSchema = z.enum(["draft", "under_review", "published", "archived"]);
+export const templateCategorySchema = z.enum(["business", "technology", "education", "research", "marketing", "analysis", "automation"]);
+
+// Workflow automation validation schemas
+export const workflowTriggerTypeSchema = z.enum(["manual", "scheduled", "event", "webhook", "api"]);
+export const workflowExecutionStatusSchema = z.enum(["pending", "running", "completed", "failed", "cancelled", "paused"]);
+export const workflowEventTypeSchema = z.enum(["trigger_workflow", "action_completed", "webhook_received", "schedule_triggered", "manual_trigger"]);
+export const workflowEventStatusSchema = z.enum(["pending", "processing", "completed", "failed", "retrying", "skipped"]);
+
+// Organization insights validation schemas
+export const reportTypeSchema = z.enum(["daily_summary", "weekly_digest", "monthly_review", "quarterly_report", "annual_summary"]);
+export const reportStatusSchema = z.enum(["generated", "sent", "archived", "failed", "scheduled"]);
+export const metricTypeSchema = z.enum(["usage", "performance", "billing", "quota", "efficiency", "engagement"]);
+export const resourceTypeSchema = z.enum(["template", "workflow", "api", "storage", "analysis", "user", "organization"]);
+export const actionTypeSchema = z.enum(["create", "read", "update", "delete", "execute", "download", "upload", "share", "export"]);
+
+// Sprint 6 Zod schemas for validation
+export const insertWorkflowDefinitionSchema = createInsertSchema(workflowDefinitions).pick({
+  organizationId: true,
+  name: true,
+  description: true,
+  triggerType: true,
+  triggerConfig: true,
+  actions: true,
+  isActive: true,
+  createdBy: true,
+  settings: true,
+  metadata: true,
+});
+
+export const insertWorkflowExecutionSchema = createInsertSchema(workflowExecutions).pick({
+  workflowDefinitionId: true,
+  organizationId: true,
+  triggeredBy: true,
+  triggerData: true,
+  status: true,
+  metadata: true,
+});
+
+export const insertWorkflowEventSchema = createInsertSchema(workflowEvents).pick({
+  organizationId: true,
+  eventType: true,
+  eventData: true,
+  workflowExecutionId: true,
+  scheduledFor: true,
+  priority: true,
+  source: true,
+  metadata: true,
+});
+
+export const insertOrganizationAnalyticsSchema = createInsertSchema(organizationAnalytics).pick({
+  organizationId: true,
+  date: true,
+  activeUsers: true,
+  totalSessions: true,
+  templatesUsed: true,
+  workflowsExecuted: true,
+  apiCalls: true,
+  storageUsed: true,
+  averageSessionDuration: true,
+  topTemplates: true,
+  topUsers: true,
+  errorRate: true,
+  performance: true,
+  features: true,
+  metadata: true,
+});
+
+export const insertOrganizationDailyReportSchema = createInsertSchema(organizationDailyReports).pick({
+  organizationId: true,
+  reportDate: true,
+  reportType: true,
+  title: true,
+  summary: true,
+  keyMetrics: true,
+  insights: true,
+  recommendations: true,
+  alerts: true,
+  charts: true,
+  generatedBy: true,
+  recipients: true,
+  metadata: true,
+});
+
+export const insertEnhancedUsageMetricSchema = createInsertSchema(enhancedUsageMetrics).pick({
+  organizationId: true,
+  userId: true,
+  resourceType: true,
+  resourceId: true,
+  action: true,
+  metricType: true,
+  value: true,
+  unit: true,
+  tags: true,
+  dimensions: true,
+  metadata: true,
+});
+
+// Enhanced template schema with Sprint 6 fields
+export const insertTemplateSchema = createInsertSchema(templates).pick({
+  name: true,
+  description: true,
+  category: true,
+  tags: true,
+  content: true,
+  isPublic: true,
+  authorId: true,
+  organizationId: true,
+  status: true,
+  contentValidation: true,
+  previousVersionId: true,
+  isTemplate: true,
+  metadata: true,
+});
+
+// ============================================
+// SPRINT 6 - TYPE DEFINITIONS
+// ============================================
+
+// Template Builder types
+export type TemplateStatus = z.infer<typeof templateStatusSchema>;
+export type TemplateCategory = z.infer<typeof templateCategorySchema>;
+
+// Workflow automation types
+export type WorkflowDefinition = typeof workflowDefinitions.$inferSelect;
+export type InsertWorkflowDefinition = z.infer<typeof insertWorkflowDefinitionSchema>;
+export type WorkflowExecution = typeof workflowExecutions.$inferSelect;
+export type InsertWorkflowExecution = z.infer<typeof insertWorkflowExecutionSchema>;
+export type WorkflowEvent = typeof workflowEvents.$inferSelect;
+export type InsertWorkflowEvent = z.infer<typeof insertWorkflowEventSchema>;
+export type WorkflowTriggerType = z.infer<typeof workflowTriggerTypeSchema>;
+export type WorkflowExecutionStatus = z.infer<typeof workflowExecutionStatusSchema>;
+export type WorkflowEventType = z.infer<typeof workflowEventTypeSchema>;
+export type WorkflowEventStatus = z.infer<typeof workflowEventStatusSchema>;
+
+// Organization insights types
+export type OrganizationAnalytics = typeof organizationAnalytics.$inferSelect;
+export type InsertOrganizationAnalytics = z.infer<typeof insertOrganizationAnalyticsSchema>;
+export type OrganizationDailyReport = typeof organizationDailyReports.$inferSelect;
+export type InsertOrganizationDailyReport = z.infer<typeof insertOrganizationDailyReportSchema>;
+export type EnhancedUsageMetric = typeof enhancedUsageMetrics.$inferSelect;
+export type InsertEnhancedUsageMetric = z.infer<typeof insertEnhancedUsageMetricSchema>;
+export type ReportType = z.infer<typeof reportTypeSchema>;
+export type ReportStatus = z.infer<typeof reportStatusSchema>;
+export type MetricType = z.infer<typeof metricTypeSchema>;
+export type ResourceType = z.infer<typeof resourceTypeSchema>;
+export type ActionType = z.infer<typeof actionTypeSchema>;
 

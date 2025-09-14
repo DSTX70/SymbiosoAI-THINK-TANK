@@ -33,6 +33,12 @@ import {
   // Sprint 5 - SCIM provisioning system types
   type ScimUser, type InsertScimUser, type ScimGroup, type InsertScimGroup,
   type ScimGroupMembership, type InsertScimGroupMembership, type ProvisioningLog, type InsertProvisioningLog,
+  // Sprint 6 - Workflow automation types
+  type WorkflowDefinition, type InsertWorkflowDefinition, type WorkflowExecution, type InsertWorkflowExecution,
+  type WorkflowEvent, type InsertWorkflowEvent,
+  // Sprint 6 - Organization insights types  
+  type OrganizationAnalytics, type InsertOrganizationAnalytics, type OrganizationDailyReport, type InsertOrganizationDailyReport,
+  type EnhancedUsageMetric, type InsertEnhancedUsageMetric,
   users, analysisSessions, workspaces, workspaceMembers, workspaceInvites, generatedReports,
   templates, sessionCodes, sessionParticipants, chatMessages, pushSubscriptions,
   tutorials, tutorialSteps, tutorialProgress, tutorialSettings,
@@ -42,7 +48,10 @@ import {
   // Sprint 5 table imports
   reviews, reviewSteps, reviewAssignments, reviewComments,
   retentionPolicies, legalHolds, retentionJobs, dataClassifications,
-  scimUsers, scimGroups, scimGroupMemberships, provisioningLogs
+  scimUsers, scimGroups, scimGroupMemberships, provisioningLogs,
+  // Sprint 6 table imports
+  workflowDefinitions, workflowExecutions, workflowEvents,
+  organizationAnalytics, organizationDailyReports, enhancedUsageMetrics
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { Pool, neonConfig } from '@neondatabase/serverless';
@@ -453,6 +462,63 @@ export interface IStorage {
   getProvisioningLogsByDateRange(startDate: Date, endDate: Date, organizationId: string): Promise<ProvisioningLog[]>;
   updateProvisioningLog(id: string, updates: Partial<ProvisioningLog>): Promise<ProvisioningLog | undefined>;
   deleteProvisioningLog(id: string): Promise<boolean>;
+
+  // ============================================
+  // SPRINT 6 - TEMPLATE BUILDER CRUD + PUBLISH SYSTEM
+  // ============================================
+  
+  // Template operations with publishing workflow
+  publishTemplate(id: string, publishedBy: string, comments?: string): Promise<Template | undefined>;
+  unpublishTemplate(id: string, unpublishedBy: string, reason?: string): Promise<Template | undefined>;
+  getTemplatesByStatus(status: string, organizationId?: string): Promise<Template[]>;
+  getTemplateVersions(templateId: string): Promise<Template[]>;
+  createTemplateVersion(templateId: string, updates: Partial<Template>, createdBy: string): Promise<Template>;
+  
+  // ============================================
+  // SPRINT 6 - WORKFLOW AUTOMATION V1
+  // ============================================
+  
+  // Workflow definition operations
+  createWorkflowDefinition(workflow: InsertWorkflowDefinition): Promise<WorkflowDefinition>;
+  getWorkflowDefinition(id: string): Promise<WorkflowDefinition | undefined>;
+  updateWorkflowDefinition(id: string, updates: Partial<WorkflowDefinition>): Promise<WorkflowDefinition | undefined>;
+  deleteWorkflowDefinition(id: string): Promise<boolean>;
+  getOrganizationWorkflowDefinitions(organizationId: string): Promise<WorkflowDefinition[]>;
+  
+  // Workflow execution operations
+  createWorkflowExecution(execution: InsertWorkflowExecution): Promise<WorkflowExecution>;
+  getWorkflowExecution(id: string): Promise<WorkflowExecution | undefined>;
+  updateWorkflowExecution(id: string, updates: Partial<WorkflowExecution>): Promise<WorkflowExecution | undefined>;
+  getWorkflowExecutions(workflowDefinitionId?: string, organizationId?: string, limit?: number): Promise<WorkflowExecution[]>;
+  
+  // Workflow event operations (for queue processing)
+  createWorkflowEvent(event: InsertWorkflowEvent): Promise<WorkflowEvent>;
+  getWorkflowEvent(id: string): Promise<WorkflowEvent | undefined>;
+  updateWorkflowEvent(id: string, updates: Partial<WorkflowEvent>): Promise<WorkflowEvent | undefined>;
+  getPendingWorkflowEvents(limit?: number): Promise<WorkflowEvent[]>;
+  
+  // ============================================
+  // SPRINT 6 - ORGANIZATION INSIGHTS SYSTEM
+  // ============================================
+  
+  // Organization analytics operations
+  createOrganizationAnalytics(analytics: InsertOrganizationAnalytics): Promise<OrganizationAnalytics>;
+  getOrganizationAnalytics(organizationId: string, date?: Date): Promise<OrganizationAnalytics | undefined>;
+  getOrganizationAnalyticsRange(organizationId: string, startDate: Date, endDate: Date): Promise<OrganizationAnalytics[]>;
+  updateOrganizationAnalytics(id: string, updates: Partial<OrganizationAnalytics>): Promise<OrganizationAnalytics | undefined>;
+  
+  // Daily reports operations
+  createOrganizationDailyReport(report: InsertOrganizationDailyReport): Promise<OrganizationDailyReport>;
+  getOrganizationDailyReport(organizationId: string, reportDate: Date, reportType?: string): Promise<OrganizationDailyReport | undefined>;
+  getOrganizationDailyReports(organizationId: string, limit?: number): Promise<OrganizationDailyReport[]>;
+  
+  // Enhanced usage metrics operations
+  recordEnhancedUsageMetric(metric: InsertEnhancedUsageMetric): Promise<EnhancedUsageMetric>;
+  getEnhancedUsageMetrics(organizationId: string, resourceType?: string, startDate?: Date, endDate?: Date): Promise<EnhancedUsageMetric[]>;
+  
+  // Organization insights summary
+  getOrganizationInsightsSummary(organizationId: string): Promise<any>;
+  generateDailyInsightsReport(organizationId: string, date: Date): Promise<OrganizationDailyReport>;
 }
 
 export class MemStorage implements IStorage {
@@ -3225,6 +3291,363 @@ export class DatabaseStorage implements IStorage {
 
   async deleteProvisioningLog(id: string): Promise<boolean> {
     throw new Error('ProvisioningLog table not created yet - stub implementation');
+  }
+
+  // ============================================
+  // SPRINT 6 - TEMPLATE BUILDER CRUD + PUBLISH SYSTEM
+  // ============================================
+  
+  async publishTemplate(id: string, publishedBy: string, comments?: string): Promise<Template | undefined> {
+    const [template] = await db.update(templates)
+      .set({ 
+        status: 'published',
+        publishedBy,
+        publishedAt: new Date(),
+        metadata: {
+          publishComments: comments,
+          publishHistory: []
+        },
+        updatedAt: new Date()
+      })
+      .where(eq(templates.id, id))
+      .returning();
+    return template || undefined;
+  }
+
+  async unpublishTemplate(id: string, unpublishedBy: string, reason?: string): Promise<Template | undefined> {
+    const [template] = await db.update(templates)
+      .set({
+        status: 'draft',
+        publishedBy: null,
+        publishedAt: null,
+        metadata: {
+          unpublishReason: reason,
+          unpublishedBy,
+          unpublishedAt: new Date().toISOString()
+        },
+        updatedAt: new Date()
+      })
+      .where(eq(templates.id, id))
+      .returning();
+    return template || undefined;
+  }
+
+  async getTemplatesByStatus(status: string, organizationId?: string): Promise<Template[]> {
+    let query = db.select().from(templates).where(eq(templates.status, status));
+    
+    if (organizationId) {
+      query = query.where(eq(templates.organizationId, organizationId));
+    }
+    
+    return await query.orderBy(templates.createdAt);
+  }
+
+  async getTemplateVersions(templateId: string): Promise<Template[]> {
+    return await db.select().from(templates)
+      .where(eq(templates.parentTemplateId, templateId))
+      .orderBy(templates.version);
+  }
+
+  async createTemplateVersion(templateId: string, updates: Partial<Template>, createdBy: string): Promise<Template> {
+    // Get the original template
+    const [originalTemplate] = await db.select().from(templates).where(eq(templates.id, templateId));
+    if (!originalTemplate) {
+      throw new Error('Template not found');
+    }
+
+    // Create new version
+    const [newVersion] = await db.insert(templates).values({
+      ...originalTemplate,
+      ...updates,
+      id: randomUUID(),
+      parentTemplateId: templateId,
+      version: (originalTemplate.version || 1) + 1,
+      authorId: createdBy,
+      status: 'draft',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }).returning();
+    
+    return newVersion;
+  }
+  
+  // ============================================
+  // SPRINT 6 - WORKFLOW AUTOMATION V1
+  // ============================================
+  
+  async createWorkflowDefinition(workflow: InsertWorkflowDefinition): Promise<WorkflowDefinition> {
+    const [newWorkflow] = await db.insert(workflowDefinitions).values({
+      ...workflow,
+      id: randomUUID()
+    }).returning();
+    return newWorkflow;
+  }
+
+  async getWorkflowDefinition(id: string): Promise<WorkflowDefinition | undefined> {
+    const [workflow] = await db.select().from(workflowDefinitions).where(eq(workflowDefinitions.id, id));
+    return workflow || undefined;
+  }
+
+  async updateWorkflowDefinition(id: string, updates: Partial<WorkflowDefinition>): Promise<WorkflowDefinition | undefined> {
+    const [workflow] = await db.update(workflowDefinitions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(workflowDefinitions.id, id))
+      .returning();
+    return workflow || undefined;
+  }
+
+  async deleteWorkflowDefinition(id: string): Promise<boolean> {
+    const result = await db.delete(workflowDefinitions).where(eq(workflowDefinitions.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getOrganizationWorkflowDefinitions(organizationId: string): Promise<WorkflowDefinition[]> {
+    return await db.select().from(workflowDefinitions)
+      .where(eq(workflowDefinitions.organizationId, organizationId))
+      .orderBy(workflowDefinitions.createdAt);
+  }
+  
+  async createWorkflowExecution(execution: InsertWorkflowExecution): Promise<WorkflowExecution> {
+    const [newExecution] = await db.insert(workflowExecutions).values({
+      ...execution,
+      id: randomUUID()
+    }).returning();
+    return newExecution;
+  }
+
+  async getWorkflowExecution(id: string): Promise<WorkflowExecution | undefined> {
+    const [execution] = await db.select().from(workflowExecutions).where(eq(workflowExecutions.id, id));
+    return execution || undefined;
+  }
+
+  async updateWorkflowExecution(id: string, updates: Partial<WorkflowExecution>): Promise<WorkflowExecution | undefined> {
+    const [execution] = await db.update(workflowExecutions)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(workflowExecutions.id, id))
+      .returning();
+    return execution || undefined;
+  }
+
+  async getWorkflowExecutions(workflowDefinitionId?: string, organizationId?: string, limit?: number): Promise<WorkflowExecution[]> {
+    let query = db.select().from(workflowExecutions);
+    
+    const conditions = [];
+    if (workflowDefinitionId) {
+      conditions.push(eq(workflowExecutions.workflowDefinitionId, workflowDefinitionId));
+    }
+    if (organizationId) {
+      conditions.push(eq(workflowExecutions.organizationId, organizationId));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(sql`${conditions.join(' AND ')}`);
+    }
+    
+    if (limit) {
+      query = query.limit(limit);
+    }
+    
+    return await query.orderBy(workflowExecutions.startedAt);
+  }
+  
+  async createWorkflowEvent(event: InsertWorkflowEvent): Promise<WorkflowEvent> {
+    const [newEvent] = await db.insert(workflowEvents).values({
+      ...event,
+      id: randomUUID()
+    }).returning();
+    return newEvent;
+  }
+
+  async getWorkflowEvent(id: string): Promise<WorkflowEvent | undefined> {
+    const [event] = await db.select().from(workflowEvents).where(eq(workflowEvents.id, id));
+    return event || undefined;
+  }
+
+  async updateWorkflowEvent(id: string, updates: Partial<WorkflowEvent>): Promise<WorkflowEvent | undefined> {
+    const [event] = await db.update(workflowEvents)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(workflowEvents.id, id))
+      .returning();
+    return event || undefined;
+  }
+
+  async getPendingWorkflowEvents(limit?: number): Promise<WorkflowEvent[]> {
+    let query = db.select().from(workflowEvents)
+      .where(eq(workflowEvents.status, 'pending'));
+    
+    if (limit) {
+      query = query.limit(limit);
+    }
+    
+    return await query.orderBy(workflowEvents.createdAt);
+  }
+
+  async getOrganizationWorkflowEvents(organizationId: string): Promise<WorkflowEvent[]> {
+    return await db.select().from(workflowEvents)
+      .where(eq(workflowEvents.organizationId, organizationId))
+      .orderBy(workflowEvents.createdAt);
+  }
+  
+  // ============================================
+  // SPRINT 6 - ORGANIZATION INSIGHTS SYSTEM
+  // ============================================
+  
+  async createOrganizationAnalytics(analytics: InsertOrganizationAnalytics): Promise<OrganizationAnalytics> {
+    const [newAnalytics] = await db.insert(organizationAnalytics).values({
+      ...analytics,
+      id: randomUUID()
+    }).returning();
+    return newAnalytics;
+  }
+
+  async getOrganizationAnalytics(organizationId: string, date?: Date): Promise<OrganizationAnalytics | undefined> {
+    let query = db.select().from(organizationAnalytics)
+      .where(eq(organizationAnalytics.organizationId, organizationId));
+    
+    if (date) {
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      query = query.where(
+        and(
+          eq(organizationAnalytics.organizationId, organizationId),
+          sql`${organizationAnalytics.date} >= ${startOfDay}`,
+          sql`${organizationAnalytics.date} <= ${endOfDay}`
+        )
+      );
+    }
+    
+    const [analytics] = await query.orderBy(organizationAnalytics.date);
+    return analytics || undefined;
+  }
+
+  async getOrganizationAnalyticsRange(organizationId: string, startDate: Date, endDate: Date): Promise<OrganizationAnalytics[]> {
+    return await db.select().from(organizationAnalytics)
+      .where(
+        and(
+          eq(organizationAnalytics.organizationId, organizationId),
+          sql`${organizationAnalytics.date} >= ${startDate}`,
+          sql`${organizationAnalytics.date} <= ${endDate}`
+        )
+      )
+      .orderBy(organizationAnalytics.date);
+  }
+
+  async updateOrganizationAnalytics(id: string, updates: Partial<OrganizationAnalytics>): Promise<OrganizationAnalytics | undefined> {
+    const [analytics] = await db.update(organizationAnalytics)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(organizationAnalytics.id, id))
+      .returning();
+    return analytics || undefined;
+  }
+  
+  async createOrganizationDailyReport(report: InsertOrganizationDailyReport): Promise<OrganizationDailyReport> {
+    const [newReport] = await db.insert(organizationDailyReports).values({
+      ...report,
+      id: randomUUID()
+    }).returning();
+    return newReport;
+  }
+
+  async getOrganizationDailyReport(organizationId: string, reportDate: Date, reportType?: string): Promise<OrganizationDailyReport | undefined> {
+    let query = db.select().from(organizationDailyReports)
+      .where(
+        and(
+          eq(organizationDailyReports.organizationId, organizationId),
+          eq(organizationDailyReports.reportDate, reportDate)
+        )
+      );
+    
+    if (reportType) {
+      query = query.where(
+        and(
+          eq(organizationDailyReports.organizationId, organizationId),
+          eq(organizationDailyReports.reportDate, reportDate),
+          eq(organizationDailyReports.reportType, reportType)
+        )
+      );
+    }
+    
+    const [report] = await query;
+    return report || undefined;
+  }
+
+  async getOrganizationDailyReports(organizationId: string, limit?: number): Promise<OrganizationDailyReport[]> {
+    let query = db.select().from(organizationDailyReports)
+      .where(eq(organizationDailyReports.organizationId, organizationId));
+    
+    if (limit) {
+      query = query.limit(limit);
+    }
+    
+    return await query.orderBy(organizationDailyReports.reportDate);
+  }
+  
+  async recordEnhancedUsageMetric(metric: InsertEnhancedUsageMetric): Promise<EnhancedUsageMetric> {
+    const [newMetric] = await db.insert(enhancedUsageMetrics).values({
+      ...metric,
+      id: randomUUID()
+    }).returning();
+    return newMetric;
+  }
+
+  async getEnhancedUsageMetrics(organizationId: string, resourceType?: string, startDate?: Date, endDate?: Date): Promise<EnhancedUsageMetric[]> {
+    let query = db.select().from(enhancedUsageMetrics)
+      .where(eq(enhancedUsageMetrics.organizationId, organizationId));
+    
+    const conditions = [eq(enhancedUsageMetrics.organizationId, organizationId)];
+    
+    if (resourceType) {
+      conditions.push(eq(enhancedUsageMetrics.resourceType, resourceType));
+    }
+    if (startDate) {
+      conditions.push(sql`${enhancedUsageMetrics.timestamp} >= ${startDate}`);
+    }
+    if (endDate) {
+      conditions.push(sql`${enhancedUsageMetrics.timestamp} <= ${endDate}`);
+    }
+    
+    if (conditions.length > 1) {
+      query = query.where(sql`${conditions.join(' AND ')}`);
+    }
+    
+    return await query.orderBy(enhancedUsageMetrics.timestamp);
+  }
+  
+  async getOrganizationInsightsSummary(organizationId: string): Promise<any> {
+    // Mock implementation for demonstration
+    return {
+      organizationId,
+      summary: 'Mock insights summary for organization',
+      generatedAt: new Date().toISOString()
+    };
+  }
+
+  async generateDailyInsightsReport(organizationId: string, date: Date): Promise<OrganizationDailyReport> {
+    // Get analytics for the date
+    const analytics = await this.getOrganizationAnalytics(organizationId, date);
+    
+    // Create a daily report based on analytics
+    return await this.createOrganizationDailyReport({
+      organizationId,
+      reportDate: date,
+      reportType: 'daily_summary',
+      title: `Daily Summary - ${date.toDateString()}`,
+      summary: 'Auto-generated daily insights report',
+      keyMetrics: {
+        activeUsers: analytics?.activeUsers || 0,
+        totalSessions: analytics?.totalSessions || 0,
+        templatesUsed: analytics?.templatesUsed || 0,
+        workflowsExecuted: analytics?.workflowsExecuted || 0
+      },
+      insights: [],
+      recommendations: [],
+      alerts: [],
+      charts: {},
+      generatedBy: 'system'
+    });
   }
 }
 

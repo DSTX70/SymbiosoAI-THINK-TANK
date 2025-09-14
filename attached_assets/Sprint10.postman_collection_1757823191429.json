@@ -1,0 +1,190 @@
+{
+  "info": {
+    "name": "SymbiosoAi Sprint 10",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get Onboarding Progress",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/onboarding/progress",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "onboarding",
+            "progress"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Complete Onboarding Step",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/onboarding/complete-step",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "onboarding",
+            "complete-step"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"key\": \"welcome\"}"
+        }
+      }
+    },
+    {
+      "name": "List Plans",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/pricing/plans",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "pricing",
+            "plans"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Start Trial",
+      "request": {
+        "method": "POST",
+        "url": {
+          "raw": "{{baseUrl}}/pricing/trial/start",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "pricing",
+            "trial",
+            "start"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Trial Status",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/pricing/trial/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "pricing",
+            "trial",
+            "status"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Trust Links",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/trust/links",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trust",
+            "links"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Status Badge",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/status/badge",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "status",
+            "badge"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Track Telemetry Event",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/telemetry/event",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "telemetry",
+            "event"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"type\": \"wizard.step\", \"props\": {\"step\": \"welcome\"}}"
+        }
+      }
+    },
+    {
+      "name": "Submit NPS",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/telemetry/nps",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "telemetry",
+            "nps"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"score\": 10, \"comment\": \"Loving it\"}"
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
+  ]
+}
