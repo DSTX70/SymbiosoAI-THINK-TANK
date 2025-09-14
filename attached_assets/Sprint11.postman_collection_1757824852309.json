@@ -1,0 +1,133 @@
+{
+  "info": {
+    "name": "SymbiosoAi Sprint 11",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Proration Preview",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/billing/proration/preview",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "billing",
+            "proration",
+            "preview"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"currentPlan\": \"pro\", \"newPlan\": \"enterprise\", \"seats\": 5, \"daysRemaining\": 15}"
+        }
+      }
+    },
+    {
+      "name": "Dunning Simulate",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/billing/dunning/simulate",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "billing",
+            "dunning",
+            "simulate"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"orgId\": \"demo-org\", \"invoiceId\": \"inv_123\", \"daysPastDue\": 3}"
+        }
+      }
+    },
+    {
+      "name": "Invoice Portal",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/billing/portal",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "billing",
+            "portal"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Entitlements Check",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/entitlements/check",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "entitlements",
+            "check"
+          ]
+        }
+      }
+    },
+    {
+      "name": "SLA Readout",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/admin/sla",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "admin",
+            "sla"
+          ]
+        }
+      }
+    },
+    {
+      "name": "A11y Quickcheck",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/admin/a11y/quickcheck",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "admin",
+            "a11y",
+            "quickcheck"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
+  ]
+}

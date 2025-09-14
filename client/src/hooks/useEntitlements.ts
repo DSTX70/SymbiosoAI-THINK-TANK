@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, createContext, useContext } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 
@@ -100,6 +100,38 @@ export const PLAN_FEATURES = {
 } as const;
 
 export type SubscriptionPlan = keyof typeof PLAN_FEATURES;
+
+// EntitlementsContext and related types
+export interface FeatureFlags {
+  beta_mode?: boolean;
+  advanced_analytics?: boolean;
+  custom_branding?: boolean;
+  sso_integration?: boolean;
+  reviews_enabled?: boolean;
+  retention_admin_enabled?: boolean;
+  scim_provisioning_enabled?: boolean;
+  saml_auth_enabled?: boolean;
+}
+
+export const defaultFeatureFlags: FeatureFlags = {
+  beta_mode: false,
+  advanced_analytics: false,
+  custom_branding: false,
+  sso_integration: false,
+  reviews_enabled: false,
+  retention_admin_enabled: false,
+  scim_provisioning_enabled: false,
+  saml_auth_enabled: false,
+};
+
+export interface EntitlementsContextType {
+  featureFlags: FeatureFlags;
+  hasFeature: (feature: keyof FeatureFlags) => boolean;
+  loadFeatureFlags: () => Promise<void>;
+  isLoading: boolean;
+}
+
+export const EntitlementsContext = createContext<EntitlementsContextType | null>(null);
 
 // Entitlements response interface
 interface WorkspaceEntitlementsResponse {

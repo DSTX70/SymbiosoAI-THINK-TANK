@@ -23,6 +23,7 @@ import TrustCenterTerms from "@/pages/trust-center-terms";
 import TrustCenterDataProcessing from "@/pages/trust-center-data-processing";
 import TrustCenterCompliance from "@/pages/trust-center-compliance";
 import TrustCenterContact from "@/pages/trust-center-contact";
+import Sprint10Page from "@/pages/sprint10";
 import BottomNavigation from "@/components/BottomNavigation";
 import DesktopSidebar from "@/components/DesktopSidebar";
 import OfflineBanner from "@/components/OfflineBanner";
@@ -69,6 +70,7 @@ function Router() {
           <Route path="/trust-center/data-processing" component={TrustCenterDataProcessing} />
           <Route path="/trust-center/compliance" component={TrustCenterCompliance} />
           <Route path="/trust-center/contact" component={TrustCenterContact} />
+          <Route path="/sprint10" component={Sprint10Page} />
           <Route component={() => <div>Page not found</div>} />
         </Switch>
       </div>
