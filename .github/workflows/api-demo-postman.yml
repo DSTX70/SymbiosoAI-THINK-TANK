@@ -1,4 +1,4 @@
-name: API Demo — Postman (Newman)
+name: API Demo — Jest + Postman (Newman)
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  postman:
+  ci:
     runs-on: ubuntu-latest
 
     services:
@@ -52,34 +52,29 @@ jobs:
       - name: DB seed (demo user/workspace/docs)
         run: ./scripts/ci-db-seed.sh
 
+      - name: Run Jest tests
+        run: ./scripts/ci-test.sh
+
       - name: Start API server
         run: |
           ./scripts/ci-start.sh &
           echo $! > server.pid
 
-      - name: Wait for API
+      - name: Wait for /health
         run: |
           for i in {1..60}; do
-            curl -sSf ${BASE_URL}/health || true
-            # fallback to root if /health not present
-            if curl -sSf ${BASE_URL} > /dev/null; then echo "API ready"; break; fi
+            if curl -sSf ${BASE_URL}/health > /dev/null; then echo "API ready"; break; fi
             echo "Waiting for API..."; sleep 2;
           done
 
       - name: Run Newman
-        run: npx newman run ./postman/demo-collection.json \
-               --env-var baseUrl=${BASE_URL} \
-               --reporters cli,json,junit,htmlextra \
-               --reporter-json-export ./reports/postman.json \
-               --reporter-junit-export ./reports/postman.junit.xml \
-               --reporter-htmlextra-export ./reports/postman.html \
-               --timeout-request 60000 --delay-request 100
+        run: BASE_URL=${BASE_URL} ./scripts/postman-test.sh ${BASE_URL}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: postman-reports
+          name: reports
           path: reports
 
       - name: Stop server

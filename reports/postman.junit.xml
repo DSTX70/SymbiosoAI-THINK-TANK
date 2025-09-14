@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuites name="Demo Mode — Example API" tests="6" time="0.347">
-  <testsuite name="1) Demo Login" id="0d272288-b3dc-47f0-b791-373949c34e19" timestamp="2025-09-14T22:50:30.912Z" tests="0" failures="0" errors="0" time="0.270"/>
-  <testsuite name="2) Expert Mode (ADVANCED_AI)" id="93d66ad7-f44c-488e-a3b3-faafcb46fa88" timestamp="2025-09-14T22:50:30.912Z" tests="0" failures="0" errors="0" time="0.015"/>
-  <testsuite name="3) Export (expect 402, auto-provision demo workspace)" id="c0cb4f3c-4795-4958-abdc-dcb18ae5c630" timestamp="2025-09-14T22:50:30.912Z" tests="0" failures="0" errors="0" time="0.010"/>
-  <testsuite name="4) Analytics (expect 402, seeded)" id="88f9daec-b1c2-4c56-a7ed-b218ad2bf946" timestamp="2025-09-14T22:50:30.912Z" tests="0" failures="0" errors="0" time="0.016"/>
-  <testsuite name="5) Upgrade Demo → Pro (purge demo artifacts)" id="7795e361-4ba2-42aa-812b-67ad11f8c24d" timestamp="2025-09-14T22:50:30.912Z" tests="0" failures="0" errors="0" time="0.027"/>
-  <testsuite name="6) Export After Upgrade (expect 400 workspace required)" id="7a6edb59-177d-4166-83bb-1e6ee0e76c5e" timestamp="2025-09-14T22:50:30.912Z" tests="0" failures="0" errors="0" time="0.009"/>
+<testsuites name="Demo Mode — Example API" tests="6" time="0.327">
+  <testsuite name="1) Demo Login" id="b5113c23-4a8f-4b73-825c-40c98d99f1a3" timestamp="2025-09-14T22:53:18.657Z" tests="0" failures="0" errors="0" time="0.257"/>
+  <testsuite name="2) Expert Mode (ADVANCED_AI)" id="c45f456a-d133-49b1-bdc0-9d5fcbf32ca9" timestamp="2025-09-14T22:53:18.657Z" tests="0" failures="0" errors="0" time="0.013"/>
+  <testsuite name="3) Export (expect 402, auto-provision demo workspace)" id="72463d2f-e49e-49ed-8a28-c1c34045671a" timestamp="2025-09-14T22:53:18.657Z" tests="0" failures="0" errors="0" time="0.006"/>
+  <testsuite name="4) Analytics (expect 402, seeded)" id="fa30c227-18e1-45cf-90f9-98462a52a457" timestamp="2025-09-14T22:53:18.657Z" tests="0" failures="0" errors="0" time="0.019"/>
+  <testsuite name="5) Upgrade Demo → Pro (purge demo artifacts)" id="4748b6c0-6749-4349-879f-ab2bae296b35" timestamp="2025-09-14T22:53:18.657Z" tests="0" failures="0" errors="0" time="0.023"/>
+  <testsuite name="6) Export After Upgrade (expect 400 workspace required)" id="908a22a6-db7d-49e9-b4ff-4e0b3c5fb8a2" timestamp="2025-09-14T22:53:18.657Z" tests="0" failures="0" errors="0" time="0.009"/>
 </testsuites>
