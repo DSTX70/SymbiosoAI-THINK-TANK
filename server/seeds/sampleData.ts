@@ -14,10 +14,10 @@ export async function seedSampleData() {
     const sampleUsers = [
       {
         id: "user-demo",
-        email: "demo@symbiosoai.com",
+        email: "demo@example.com", 
         firstName: "Demo",
         lastName: "User",
-        role: "user",
+        role: "user" as const,
         preferences: {
           theme: "light",
           language: "en",

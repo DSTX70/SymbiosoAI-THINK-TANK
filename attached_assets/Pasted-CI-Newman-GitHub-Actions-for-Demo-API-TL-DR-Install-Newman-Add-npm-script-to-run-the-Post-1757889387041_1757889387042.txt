@@ -1,0 +1,185 @@
+CI: Newman + GitHub Actions for Demo API
+
+TL;DR
+	•	Install Newman.
+	•	Add npm script to run the Postman collection against BASE_URL.
+	•	GitHub Actions workflow spins up your app, waits for port 3000, then runs Newman and uploads reports.
+
+⸻
+
+1) Save the Postman collection
+
+Path: postman/demo-collection.json
+
+Use the collection from the canvas titled “Postman — Demo Mode Collection (v2.1)”; save it at the path above.
+
+⸻
+
+2) Add Newman & scripts
+
+File: package.json (merge these)
+
+{
+  "devDependencies": {
+    "newman": "^6.2.0",
+    "newman-reporter-htmlextra": "^1.23.1"
+  },
+  "scripts": {
+    "postman:test": "mkdir -p reports && newman run ./postman/demo-collection.json --reporters cli,json,junit,htmlextra --reporter-json-export ./reports/postman.json --reporter-junit-export ./reports/postman.junit.xml --reporter-htmlextra-export ./reports/postman.html --timeout-request 60000 --delay-request 100",
+    "postman:test:base": "BASE_URL=http://localhost:3000 npm run postman:test"
+  }
+}
+
+	•	BASE_URL is consumed by the workflow; locally you can run: BASE_URL=http://localhost:3000 npm run postman:test.
+
+The collection uses {{baseUrl}}; the workflow passes it via --env-var baseUrl=$BASE_URL (see below).
+
+⸻
+
+3) Ensure app scripts exist
+
+Your API should have scripts to migrate DB, seed demo, and start the server.
+
+{
+  "scripts": {
+    "db:migrate": "psql $DATABASE_URL -f db/migrations/001_init.sql",
+    "db:seed": "ts-node --transpile-only db/seed/seed.ts",
+    "start": "node dist/server.js",
+    "build": "tsc -p ."
+  }
+}
+
+Adjust for your stack (Prisma, knex, etc.).
+
+⸻
+
+4) GitHub Actions workflow
+
+File: .github/workflows/api-demo-postman.yml
+
+name: API Demo — Postman (Newman)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  postman:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: app
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd="pg_isready -U postgres" 
+          --health-interval=10s 
+          --health-timeout=5s 
+          --health-retries=5
+
+    env:
+      NODE_ENV: development
+      ENABLE_DEMO_LOGIN: "true"
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/app
+      BASE_URL: http://localhost:3000
+      PGSSL: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: DB migrate
+        run: npm run db:migrate
+
+      - name: DB seed (demo user/workspace/docs)
+        run: npm run db:seed
+
+      - name: Start API server
+        run: |
+          npm start &
+          echo $! > server.pid
+
+      - name: Wait for API
+        run: |
+          for i in {1..60}; do
+            curl -sSf ${BASE_URL}/health || true
+            # fallback to root if /health not present
+            if curl -sSf ${BASE_URL} > /dev/null; then echo "API ready"; break; fi
+            echo "Waiting for API..."; sleep 2;
+          done
+
+      - name: Run Newman
+        run: npx newman run ./postman/demo-collection.json \
+               --env-var baseUrl=${BASE_URL} \
+               --reporters cli,json,junit,htmlextra \
+               --reporter-json-export ./reports/postman.json \
+               --reporter-junit-export ./reports/postman.junit.xml \
+               --reporter-htmlextra-export ./reports/postman.html \
+               --timeout-request 60000 --delay-request 100
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: postman-reports
+          path: reports
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f server.pid ]; then kill $(cat server.pid) || true; fi
+
+Notes
+	•	ENABLE_DEMO_LOGIN=true so /api/demo-login is reachable even if your server checks NODE_ENV.
+	•	The workflow tries /health first, then /—add a /health route for faster readiness.
+	•	If your app binds a different port, change BASE_URL.
+
+⸻
+
+5) (Optional) Health endpoint
+
+File: src/server/health.ts
+
+import type { Express, Request, Response } from 'express';
+export function registerHealth(app: Express) {
+  app.get('/health', (_req: Request, res: Response) => res.status(200).json({ ok: true }));
+}
+
+Register it during server boot before routers.
+
+⸻
+
+6) Run locally
+
+export DATABASE_URL=postgres://user:pass@localhost:5432/yourdb
+export ENABLE_DEMO_LOGIN=true
+npm run db:migrate && npm run db:seed
+npm start &
+BASE_URL=http://localhost:3000 npm run postman:test
+
+Reports will be in ./reports (CLI, JSON, JUnit, HTML).
+
+⸻
+
+7) Common failures
+	•	401: client didn’t preserve cookies; Newman does by default per collection. Ensure no auth pre-scripts overwrite cookies.
+	•	404 on /api/demo-login: set ENABLE_DEMO_LOGIN=true.
+	•	500s: check server logs and DB migration order.
+	•	Timeout: increase --timeout-request or readiness loop.

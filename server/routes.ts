@@ -342,10 +342,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email: 'demo@example.com',
           firstName: 'Demo',
           lastName: 'User',
-          profileImageUrl: null,
-          role: 'user',
-          subscription: {
-            plan: 'demo'
+          profileImageUrl: null as string | null,
+          role: 'user' as const,
+          isDemo: true,
+          subscription: { 
+            plan: 'demo' as const 
           }
         };
         
