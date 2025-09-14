@@ -118,6 +118,52 @@ export const workspaceInvites = pgTable("workspace_invites", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// ============================================
+// WORKSPACE SYNCHRONIZATION - Real-time Events and Connections
+// ============================================
+
+// Workspace events for real-time synchronization and collaboration
+export const workspaceEvents = pgTable("workspace_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workspaceId: varchar("workspace_id").notNull(), // Reference to workspace
+  eventType: varchar("event_type").notNull(), // debate_progress, user_join, user_leave, document_change, analysis_update, system_event
+  eventData: jsonb("event_data").notNull(), // Event-specific data payload
+  userId: varchar("user_id"), // User who triggered the event (nullable for system events)
+  sessionId: varchar("session_id"), // Optional session ID for analysis-related events
+  metadata: jsonb("metadata").default({}), // Additional event metadata
+  isSystem: boolean("is_system").default(false), // Whether this is a system-generated event
+  broadcastTo: text("broadcast_to").array(), // Array of user IDs to broadcast to (empty = all workspace members)
+  sequenceNumber: integer("sequence_number").notNull(), // Event ordering within workspace
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("workspace_events_workspace_idx").on(table.workspaceId),
+  index("workspace_events_type_idx").on(table.eventType),
+  index("workspace_events_created_idx").on(table.createdAt),
+  index("workspace_events_sequence_idx").on(table.workspaceId, table.sequenceNumber),
+  index("workspace_events_session_idx").on(table.sessionId),
+]);
+
+// Active SSE connections for workspace synchronization
+export const workspaceConnections = pgTable("workspace_connections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workspaceId: varchar("workspace_id").notNull(), // Reference to workspace
+  userId: varchar("user_id").notNull(), // Connected user
+  connectionId: varchar("connection_id").notNull(), // Unique connection identifier
+  userAgent: text("user_agent"), // Browser/client information
+  ipAddress: varchar("ip_address"), // Client IP address
+  lastPing: timestamp("last_ping").defaultNow(), // Last heartbeat received
+  isActive: boolean("is_active").default(true), // Whether connection is active
+  metadata: jsonb("metadata").default({}), // Connection-specific metadata
+  connectedAt: timestamp("connected_at").defaultNow(),
+  disconnectedAt: timestamp("disconnected_at"), // When connection was closed
+}, (table) => [
+  index("workspace_connections_workspace_idx").on(table.workspaceId),
+  index("workspace_connections_user_idx").on(table.userId),
+  index("workspace_connections_active_idx").on(table.isActive),
+  index("workspace_connections_ping_idx").on(table.lastPing),
+  unique("workspace_connections_unique").on(table.workspaceId, table.userId, table.connectionId),
+]);
+
 // Templates for AI thinking templates and analysis frameworks
 export const templates = pgTable("templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -3042,4 +3088,89 @@ export type ChangelogEntries = typeof changelogEntries.$inferSelect;
 export type InsertChangelogEntries = z.infer<typeof insertChangelogEntriesSchema>;
 export type Playbooks = typeof playbooks.$inferSelect;
 export type InsertPlaybooks = z.infer<typeof insertPlaybooksSchema>;
+
+// ============================================
+// WORKSPACE SYNCHRONIZATION TYPES & SCHEMAS
+// ============================================
+
+// Workspace Events Schemas and Types
+export const insertWorkspaceEventSchema = createInsertSchema(workspaceEvents).pick({
+  workspaceId: true,
+  eventType: true,
+  eventData: true,
+  userId: true,
+  sessionId: true,
+  metadata: true,
+  isSystem: true,
+  broadcastTo: true,
+  sequenceNumber: true,
+});
+
+export const insertWorkspaceConnectionSchema = createInsertSchema(workspaceConnections).pick({
+  workspaceId: true,
+  userId: true,
+  connectionId: true,
+  userAgent: true,
+  ipAddress: true,
+  metadata: true,
+});
+
+export type WorkspaceEvent = typeof workspaceEvents.$inferSelect;
+export type InsertWorkspaceEvent = z.infer<typeof insertWorkspaceEventSchema>;
+export type WorkspaceConnection = typeof workspaceConnections.$inferSelect;
+export type InsertWorkspaceConnection = z.infer<typeof insertWorkspaceConnectionSchema>;
+
+// Workspace Event Types
+export type WorkspaceEventType = 
+  | 'debate_progress'
+  | 'debate_completed'
+  | 'user_join'
+  | 'user_leave'
+  | 'user_activity'
+  | 'document_change'
+  | 'analysis_update'
+  | 'template_progress'
+  | 'template_completed'
+  | 'system_event'
+  | 'workspace_updated'
+  | 'member_added'
+  | 'member_removed'
+  | 'role_changed';
+
+// Event data interfaces for type safety
+export interface DebateProgressEventData {
+  sessionId: string;
+  progress: number;
+  currentRound: number;
+  totalRounds: number;
+  activeAgent?: string;
+  consensus?: string;
+}
+
+export interface UserActivityEventData {
+  action: 'joined' | 'left' | 'active' | 'idle';
+  timestamp: string;
+  metadata?: any;
+}
+
+export interface DocumentChangeEventData {
+  documentId: string;
+  changeType: 'create' | 'update' | 'delete';
+  changes: any;
+  version: number;
+}
+
+export interface AnalysisUpdateEventData {
+  sessionId: string;
+  analysisType: string;
+  results: any;
+  progress?: number;
+}
+
+export interface SystemEventData {
+  action: string;
+  description: string;
+  severity: 'info' | 'warning' | 'error';
+  metadata?: any;
+}
 

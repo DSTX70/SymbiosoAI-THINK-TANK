@@ -36,7 +36,8 @@ export const WORKSPACE_PERMISSIONS = {
   DELETE_SESSIONS: "delete_sessions",
   MANAGE_TEMPLATES: "manage_templates",
   EXPORT_DATA: "export_data",
-  VIEW_ANALYTICS: "view_analytics"
+  VIEW_ANALYTICS: "view_analytics",
+  MANAGE_INTEGRATIONS: "manage_integrations"
 } as const;
 
 export type SystemPermission = typeof SYSTEM_PERMISSIONS[keyof typeof SYSTEM_PERMISSIONS];

@@ -33,6 +33,7 @@ export type DebateJobResult = {
   artifacts: Array<{ type: string; content: unknown }>;
 };
 
+export { connection };
 export const debateQueue = connection ? new Queue<DebateJobData>('debate', { connection }) : null;
 export const debateQueueEvents = connection ? new QueueEvents('debate', { connection }) : null;
 

@@ -15,7 +15,8 @@ export const BILLING_FEATURES = {
   ADVANCED_ANALYTICS: "advanced_analytics",
   PRIORITY_QUEUE: "priority_queue",
   DEDICATED_SUPPORT: "dedicated_support",
-  CUSTOM_WORKFLOWS: "custom_workflows"
+  CUSTOM_WORKFLOWS: "custom_workflows",
+  INTEGRATIONS: "integrations"
 } as const;
 
 export type BillingFeature = typeof BILLING_FEATURES[keyof typeof BILLING_FEATURES];

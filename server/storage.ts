@@ -45,6 +45,8 @@ import {
   type Docs, type InsertDocs, type AdminSettings, type InsertAdminSettings,
   type MarketplaceItems, type InsertMarketplaceItems, type ChangelogEntries, type InsertChangelogEntries,
   type Playbooks, type InsertPlaybooks,
+  // Workspace Synchronization types
+  type WorkspaceEvent, type InsertWorkspaceEvent, type WorkspaceConnection, type InsertWorkspaceConnection,
   users, analysisSessions, workspaces, workspaceMembers, workspaceInvites, generatedReports,
   templates, sessionCodes, sessionParticipants, chatMessages, pushSubscriptions,
   tutorials, tutorialSteps, tutorialProgress, tutorialSettings,
@@ -61,7 +63,9 @@ import {
   // Sprint 11 table imports
   invoices, dunningEvents, seats,
   // Sprint 12 table imports
-  docs, adminSettings, marketplaceItems, changelogEntries, playbooks
+  docs, adminSettings, marketplaceItems, changelogEntries, playbooks,
+  // Workspace Synchronization table imports
+  workspaceEvents, workspaceConnections
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { Pool, neonConfig } from '@neondatabase/serverless';
@@ -125,6 +129,35 @@ export interface IStorage {
   addUserToSession(sessionCode: string, userId: string): Promise<void>;
   getSessionParticipants(sessionCode: string): Promise<SessionParticipant[]>;
   removeUserFromSession(sessionCode: string, userId: string): Promise<void>;
+
+  // ============================================
+  // WORKSPACE SYNCHRONIZATION - Real-time Events and Connections
+  // ============================================
+  
+  // Workspace events for real-time synchronization
+  createWorkspaceEvent(event: InsertWorkspaceEvent): Promise<WorkspaceEvent>;
+  createWorkspaceEventAtomic(event: InsertWorkspaceEvent): Promise<WorkspaceEvent>;
+  getWorkspaceEvent(id: string): Promise<WorkspaceEvent | undefined>;
+  getWorkspaceEvents(workspaceId: string, limit?: number, offset?: number): Promise<WorkspaceEvent[]>;
+  getWorkspaceEventsSince(workspaceId: string, sequenceNumber: number): Promise<WorkspaceEvent[]>;
+  deleteWorkspaceEvent(id: string): Promise<boolean>;
+  cleanupWorkspaceEvents(workspaceId: string, olderThanDays: number): Promise<number>;
+  getNextSequenceNumber(workspaceId: string): Promise<number>;
+  
+  // Workspace connections for SSE management
+  createWorkspaceConnection(connection: InsertWorkspaceConnection): Promise<WorkspaceConnection>;
+  getWorkspaceConnection(id: string): Promise<WorkspaceConnection | undefined>;
+  getActiveWorkspaceConnections(workspaceId: string): Promise<WorkspaceConnection[]>;
+  getUserWorkspaceConnections(workspaceId: string, userId: string): Promise<WorkspaceConnection[]>;
+  updateConnectionPing(connectionId: string): Promise<WorkspaceConnection | undefined>;
+  deactivateConnection(connectionId: string): Promise<boolean>;
+  deactivateUserConnections(workspaceId: string, userId: string): Promise<number>;
+  cleanupStaleConnections(olderThanMinutes: number): Promise<number>;
+  
+  // Connection presence and activity tracking
+  getWorkspaceActiveUsers(workspaceId: string): Promise<{ userId: string; user: User; connectionsCount: number; lastActivity: Date }[]>;
+  isUserActiveInWorkspace(workspaceId: string, userId: string): Promise<boolean>;
+  getWorkspaceConnectionsCount(workspaceId: string): Promise<number>;
 
   // Chat message operations for team communication
   saveChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
@@ -283,6 +316,11 @@ export interface IStorage {
   // Export logging
   createExportLog(log: InsertExportLog): Promise<ExportLog>;
   getExportLogs(userId?: string, workspaceId?: string): Promise<ExportLog[]>;
+  
+  // Export provenance tracking
+  createExportProvenance(provenance: any): Promise<string>;
+  getExportProvenance(exportId: string): Promise<any>;
+  getExportProvenanceHistory(userId?: string, organizationId?: string): Promise<any[]>;
 
   // ============================================
   // SPRINT 4 - Billing & Subscription Management
@@ -641,6 +679,11 @@ export class MemStorage implements IStorage {
   private sessionParticipants: Map<string, SessionParticipant>;
   private chatMessages: Map<string, ChatMessage>;
   private pushSubscriptions: Map<string, PushSubscription>;
+  
+  // Workspace Synchronization Maps
+  private workspaceEvents: Map<string, WorkspaceEvent>;
+  private workspaceConnections: Map<string, WorkspaceConnection>;
+  private workspaceSequenceNumbers: Map<string, number>; // Track sequence numbers per workspace
 
   constructor() {
     this.users = new Map();
@@ -653,6 +696,11 @@ export class MemStorage implements IStorage {
     this.sessionParticipants = new Map();
     this.chatMessages = new Map();
     this.pushSubscriptions = new Map();
+    
+    // Initialize Workspace Synchronization Maps
+    this.workspaceEvents = new Map();
+    this.workspaceConnections = new Map();
+    this.workspaceSequenceNumbers = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -2001,6 +2049,76 @@ export class DatabaseStorage implements IStorage {
     }
     
     return await query.orderBy(exportLogs.createdAt);
+  }
+
+  // Export provenance tracking implementation
+  async createExportProvenance(provenance: any): Promise<string> {
+    // Since we don't have a dedicated provenance table, store as enhanced export log
+    const provenanceId = `prov-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    const exportLog = await this.createExportLog({
+      id: provenanceId,
+      userId: provenance.userId,
+      workspaceId: provenance.workspaceId,
+      filename: provenance.filename,
+      dlpHits: JSON.stringify({
+        complianceStatus: provenance.complianceStatus,
+        violations: provenance.violations,
+        recommendations: provenance.recommendations,
+        auditTrail: provenance.auditTrail,
+        retentionPolicy: provenance.retentionPolicy,
+        metadata: provenance.metadata,
+        exportId: provenance.exportId,
+        contentHash: provenance.contentHash
+      })
+    });
+    
+    return exportLog.id;
+  }
+
+  async getExportProvenance(exportId: string): Promise<any> {
+    // Find provenance data stored in export logs  
+    const logs = await db.select().from(exportLogs)
+      .where(sql`json_extract(dlp_hits, '$.exportId') = ${exportId}`)
+      .orderBy(exportLogs.createdAt);
+      
+    if (logs.length === 0) return null;
+    
+    const log = logs[0];
+    try {
+      return JSON.parse(log.dlpHits || '{}');
+    } catch {
+      return null;
+    }
+  }
+
+  async getExportProvenanceHistory(userId?: string, organizationId?: string): Promise<any[]> {
+    let query = db.select().from(exportLogs);
+    
+    const conditions = [];
+    if (userId) {
+      conditions.push(eq(exportLogs.userId, userId));
+    }
+    if (organizationId) {
+      conditions.push(sql`json_extract(dlp_hits, '$.organizationId') = ${organizationId}`);
+    }
+    
+    // Only get logs with provenance data (complianceStatus exists)
+    conditions.push(sql`json_extract(dlp_hits, '$.complianceStatus') IS NOT NULL`);
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+    
+    const logs = await query.orderBy(exportLogs.createdAt);
+    
+    return logs.map(log => {
+      try {
+        return JSON.parse(log.dlpHits || '{}');
+      } catch {
+        return {};
+      }
+    }).filter(log => log.complianceStatus);
   }
 
   // ============================================
@@ -4279,6 +4397,321 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Failed to search documents:', error);
       return [];
+    }
+  }
+
+  // ============================================
+  // WORKSPACE SYNCHRONIZATION - Event and Connection Management
+  // ============================================
+  
+  // Workspace event management methods
+  async createWorkspaceEvent(event: InsertWorkspaceEvent): Promise<WorkspaceEvent> {
+    try {
+      const [workspaceEvent] = await db.insert(workspaceEvents).values(event).returning();
+      return workspaceEvent;
+    } catch (error) {
+      console.error('Failed to create workspace event:', error);
+      throw error;
+    }
+  }
+
+  async createWorkspaceEventAtomic(event: InsertWorkspaceEvent): Promise<WorkspaceEvent> {
+    try {
+      // Use transaction to atomically generate sequence number and insert event
+      return await db.transaction(async (tx) => {
+        // Get the next sequence number atomically within transaction
+        const [result] = await tx.select({
+          maxSequence: sql<number>`COALESCE(MAX(${workspaceEvents.sequenceNumber}), 0)`
+        })
+        .from(workspaceEvents)
+        .where(eq(workspaceEvents.workspaceId, event.workspaceId))
+        .for('update'); // Lock workspace events for atomic increment
+        
+        const nextSequence = (result?.maxSequence || 0) + 1;
+        
+        // Insert event with atomic sequence number
+        const [workspaceEvent] = await tx.insert(workspaceEvents).values({
+          ...event,
+          sequenceNumber: nextSequence
+        }).returning();
+        
+        return workspaceEvent;
+      });
+    } catch (error) {
+      console.error('Failed to create workspace event atomically:', error);
+      throw error;
+    }
+  }
+
+  async getWorkspaceEvent(id: string): Promise<WorkspaceEvent | undefined> {
+    try {
+      const [event] = await db.select().from(workspaceEvents).where(eq(workspaceEvents.id, id));
+      return event || undefined;
+    } catch (error) {
+      console.error('Failed to get workspace event:', error);
+      return undefined;
+    }
+  }
+
+  async getWorkspaceEvents(workspaceId: string, limit: number = 50, offset: number = 0): Promise<WorkspaceEvent[]> {
+    try {
+      return await db.select().from(workspaceEvents)
+        .where(eq(workspaceEvents.workspaceId, workspaceId))
+        .orderBy(sql`${workspaceEvents.sequenceNumber} DESC`)
+        .limit(limit)
+        .offset(offset);
+    } catch (error) {
+      console.error('Failed to get workspace events:', error);
+      return [];
+    }
+  }
+
+  async getWorkspaceEventsSince(workspaceId: string, sequenceNumber: number): Promise<WorkspaceEvent[]> {
+    try {
+      return await db.select().from(workspaceEvents)
+        .where(and(
+          eq(workspaceEvents.workspaceId, workspaceId),
+          sql`${workspaceEvents.sequenceNumber} > ${sequenceNumber}`
+        ))
+        .orderBy(sql`${workspaceEvents.sequenceNumber} ASC`);
+    } catch (error) {
+      console.error('Failed to get workspace events since sequence:', error);
+      return [];
+    }
+  }
+
+  async deleteWorkspaceEvent(id: string): Promise<boolean> {
+    try {
+      const result = await db.delete(workspaceEvents).where(eq(workspaceEvents.id, id));
+      return (result.rowCount || 0) > 0;
+    } catch (error) {
+      console.error('Failed to delete workspace event:', error);
+      return false;
+    }
+  }
+
+  async cleanupWorkspaceEvents(workspaceId: string, olderThanDays: number): Promise<number> {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
+      
+      const result = await db.delete(workspaceEvents)
+        .where(and(
+          eq(workspaceEvents.workspaceId, workspaceId),
+          sql`${workspaceEvents.createdAt} < ${cutoffDate}`
+        ));
+      
+      return result.rowCount || 0;
+    } catch (error) {
+      console.error('Failed to cleanup workspace events:', error);
+      return 0;
+    }
+  }
+
+  async getNextSequenceNumber(workspaceId: string): Promise<number> {
+    try {
+      const [result] = await db.select({
+        maxSequence: sql<number>`COALESCE(MAX(${workspaceEvents.sequenceNumber}), 0)`
+      })
+      .from(workspaceEvents)
+      .where(eq(workspaceEvents.workspaceId, workspaceId));
+      
+      return (result?.maxSequence || 0) + 1;
+    } catch (error) {
+      console.error('Failed to get next sequence number:', error);
+      return 1;
+    }
+  }
+
+  // Workspace connection management methods
+  async createWorkspaceConnection(connection: InsertWorkspaceConnection): Promise<WorkspaceConnection> {
+    try {
+      const [workspaceConnection] = await db.insert(workspaceConnections).values(connection).returning();
+      return workspaceConnection;
+    } catch (error) {
+      console.error('Failed to create workspace connection:', error);
+      throw error;
+    }
+  }
+
+  async getWorkspaceConnection(id: string): Promise<WorkspaceConnection | undefined> {
+    try {
+      const [connection] = await db.select().from(workspaceConnections).where(eq(workspaceConnections.id, id));
+      return connection || undefined;
+    } catch (error) {
+      console.error('Failed to get workspace connection:', error);
+      return undefined;
+    }
+  }
+
+  async getActiveWorkspaceConnections(workspaceId: string): Promise<WorkspaceConnection[]> {
+    try {
+      return await db.select().from(workspaceConnections)
+        .where(and(
+          eq(workspaceConnections.workspaceId, workspaceId),
+          eq(workspaceConnections.isActive, true)
+        ))
+        .orderBy(workspaceConnections.connectedAt);
+    } catch (error) {
+      console.error('Failed to get active workspace connections:', error);
+      return [];
+    }
+  }
+
+  async getUserWorkspaceConnections(workspaceId: string, userId: string): Promise<WorkspaceConnection[]> {
+    try {
+      return await db.select().from(workspaceConnections)
+        .where(and(
+          eq(workspaceConnections.workspaceId, workspaceId),
+          eq(workspaceConnections.userId, userId),
+          eq(workspaceConnections.isActive, true)
+        ))
+        .orderBy(workspaceConnections.connectedAt);
+    } catch (error) {
+      console.error('Failed to get user workspace connections:', error);
+      return [];
+    }
+  }
+
+  async updateConnectionPing(connectionId: string): Promise<WorkspaceConnection | undefined> {
+    try {
+      const [connection] = await db.update(workspaceConnections)
+        .set({ lastPing: new Date() })
+        .where(eq(workspaceConnections.connectionId, connectionId))
+        .returning();
+      return connection || undefined;
+    } catch (error) {
+      console.error('Failed to update connection ping:', error);
+      return undefined;
+    }
+  }
+
+  async deactivateConnection(connectionId: string): Promise<boolean> {
+    try {
+      const result = await db.update(workspaceConnections)
+        .set({ 
+          isActive: false,
+          disconnectedAt: new Date()
+        })
+        .where(eq(workspaceConnections.connectionId, connectionId));
+      
+      return (result.rowCount || 0) > 0;
+    } catch (error) {
+      console.error('Failed to deactivate connection:', error);
+      return false;
+    }
+  }
+
+  async deactivateUserConnections(workspaceId: string, userId: string): Promise<number> {
+    try {
+      const result = await db.update(workspaceConnections)
+        .set({ 
+          isActive: false,
+          disconnectedAt: new Date()
+        })
+        .where(and(
+          eq(workspaceConnections.workspaceId, workspaceId),
+          eq(workspaceConnections.userId, userId),
+          eq(workspaceConnections.isActive, true)
+        ));
+      
+      return result.rowCount || 0;
+    } catch (error) {
+      console.error('Failed to deactivate user connections:', error);
+      return 0;
+    }
+  }
+
+  async cleanupStaleConnections(olderThanMinutes: number): Promise<number> {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setMinutes(cutoffDate.getMinutes() - olderThanMinutes);
+      
+      const result = await db.update(workspaceConnections)
+        .set({ 
+          isActive: false,
+          disconnectedAt: new Date()
+        })
+        .where(and(
+          eq(workspaceConnections.isActive, true),
+          sql`${workspaceConnections.lastPing} < ${cutoffDate}`
+        ));
+      
+      return result.rowCount || 0;
+    } catch (error) {
+      console.error('Failed to cleanup stale connections:', error);
+      return 0;
+    }
+  }
+
+  // Connection presence and activity tracking
+  async getWorkspaceActiveUsers(workspaceId: string): Promise<{ userId: string; user: User; connectionsCount: number; lastActivity: Date }[]> {
+    try {
+      const activeConnections = await db.select({
+        userId: workspaceConnections.userId,
+        connectionCount: sql<number>`COUNT(*)`,
+        lastActivity: sql<Date>`MAX(${workspaceConnections.lastPing})`
+      })
+      .from(workspaceConnections)
+      .where(and(
+        eq(workspaceConnections.workspaceId, workspaceId),
+        eq(workspaceConnections.isActive, true)
+      ))
+      .groupBy(workspaceConnections.userId);
+
+      const result = [];
+      for (const conn of activeConnections) {
+        const user = await this.getUser(conn.userId);
+        if (user) {
+          result.push({
+            userId: conn.userId,
+            user,
+            connectionsCount: conn.connectionCount,
+            lastActivity: conn.lastActivity
+          });
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Failed to get workspace active users:', error);
+      return [];
+    }
+  }
+
+  async isUserActiveInWorkspace(workspaceId: string, userId: string): Promise<boolean> {
+    try {
+      const [connection] = await db.select()
+        .from(workspaceConnections)
+        .where(and(
+          eq(workspaceConnections.workspaceId, workspaceId),
+          eq(workspaceConnections.userId, userId),
+          eq(workspaceConnections.isActive, true)
+        ))
+        .limit(1);
+      
+      return !!connection;
+    } catch (error) {
+      console.error('Failed to check if user is active in workspace:', error);
+      return false;
+    }
+  }
+
+  async getWorkspaceConnectionsCount(workspaceId: string): Promise<number> {
+    try {
+      const [result] = await db.select({
+        count: sql<number>`COUNT(*)`
+      })
+      .from(workspaceConnections)
+      .where(and(
+        eq(workspaceConnections.workspaceId, workspaceId),
+        eq(workspaceConnections.isActive, true)
+      ));
+      
+      return result?.count || 0;
+    } catch (error) {
+      console.error('Failed to get workspace connections count:', error);
+      return 0;
     }
   }
 }

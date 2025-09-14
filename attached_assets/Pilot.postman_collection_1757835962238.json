@@ -1,0 +1,186 @@
+{
+  "info": {
+    "name": "SymbiosoAi Pilot Drop-In (Full)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Enqueue Debate",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Org-Id",
+            "value": "pilot-org"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/debates",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "debates"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"sessionId\": \"pilot-1\", \"mode\": \"guided\", \"prompt\": \"Risk review demo\"}"
+        }
+      }
+    },
+    {
+      "name": "Stream Progress (SSE)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/debates/:jobId/stream",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "debates",
+            ":jobId",
+            "stream"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Export (clean)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Org-Id",
+            "value": "pilot-org"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/export",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "export"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"filename\": \"decision.json\", \"content\": {\"ok\": true}}"
+        }
+      }
+    },
+    {
+      "name": "Export (blocked by DLP)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Org-Id",
+            "value": "pilot-org"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/export",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "export"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"filename\": \"bad.txt\", \"content\": \"BEGIN RSA PRIVATE KEY\"}"
+        }
+      }
+    },
+    {
+      "name": "Slack Post (stub)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Org-Id",
+            "value": "pilot-org"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/integrations/slack/post",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integrations",
+            "slack",
+            "post"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"text\": \"Decision ready\", \"channel\": \"#risk\"}"
+        }
+      }
+    },
+    {
+      "name": "Jira Create (stub)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Org-Id",
+            "value": "pilot-org"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/integrations/jira/create",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "integrations",
+            "jira",
+            "create"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\"projectKey\": \"SYM\", \"summary\": \"Decision Dossier ready\"}"
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    }
+  ]
+}

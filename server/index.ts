@@ -105,6 +105,10 @@ app.use((req, res, next) => {
   // Sprint 2: Start the webhook delivery worker
   await startWebhookWorker();
   
+  // Start the export provenance worker
+  const { startExportProvenanceWorker } = await import('./workers/exportProvenanceWorker');
+  startExportProvenanceWorker();
+  
   // Register main routes first (includes session setup)
   const server = await registerRoutes(app);
   
@@ -115,6 +119,12 @@ app.use((req, res, next) => {
   // Mount Sprint 2 routes
   app.use('/api', pushRouter);
   app.use('/api', webhooksRouter);
+
+  // Mount integration routes (Slack, Jira)
+  const slackRouter = (await import('./routes/slack')).default;
+  const jiraRouter = (await import('./routes/jira')).default;
+  app.use('/api/slack', slackRouter);
+  app.use('/api/jira', jiraRouter);
   app.use('/api', templatesRouter);
   app.use('/api/tutorials', tutorialsRouter);
   

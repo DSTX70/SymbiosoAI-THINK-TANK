@@ -70,6 +70,8 @@ import adminRoutes from "./routes/admin";
 // Sprint 12 - GA Launch imports
 import sprint12Routes from "./routes/sprint12";
 import { startDunningWorker } from "./workers/dunningWorker";
+// Workspace Synchronization imports
+import { registerWorkspaceSyncRoutes } from "./routes/workspace-sync";
 
 // Helper function to format report object into readable content
 function formatReportContent(report: any, format: string): string {
