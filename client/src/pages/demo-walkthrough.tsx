@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 const API_BASE = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
 
@@ -192,9 +192,10 @@ export default function DemoWalkthrough() {
       {!!warnings.length && (
         <div className="space-y-2">
           {warnings.map((w, i) => (
-            <div key={i} className="rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-900">
-              ⚠️ {w}
-            </div>
+            <Alert key={i} variant="warning">
+              <AlertTitle>Heads up</AlertTitle>
+              <AlertDescription>{w}</AlertDescription>
+            </Alert>
           ))}
         </div>
       )}
