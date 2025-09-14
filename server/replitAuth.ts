@@ -201,7 +201,11 @@ export async function setupAuth(app: Express) {
   });
 }
 
+// DEPRECATED: Use requireAuth from middleware/rbac.ts instead
+// This function is kept for backward compatibility only and should not be used
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  console.warn("DEPRECATED: isAuthenticated middleware is deprecated. Use requireAuth from middleware/rbac.ts instead");
+  
   // Temporary bypass for development if BYPASS_AUTH is set
   if (process.env.BYPASS_AUTH === 'true') {
     console.log("🔓 Auth bypassed for development");

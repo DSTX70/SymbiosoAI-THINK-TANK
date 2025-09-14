@@ -10,7 +10,7 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  role: varchar("role").notNull().default("user"), // admin, premium_user, user
+  role: varchar("role").notNull().default("user"), // system_admin, admin, premium_user, user
   preferences: jsonb("preferences").default({
     theme: "light",
     language: "en", 

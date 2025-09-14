@@ -12,6 +12,10 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { CheckCircle, Crown, Star, Zap, AlertCircle, Lock, Users } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+// Feature gating imports
+import { useEntitlements, BILLING_FEATURES } from "@/hooks/useEntitlements";
+import { ConditionalFeature, RequireRole } from "@/components/ConditionalFeature";
+import { UpgradePrompt, PlanGate } from "@/components/UpgradePrompt";
 
 interface SubscriptionPlan {
   id: string;

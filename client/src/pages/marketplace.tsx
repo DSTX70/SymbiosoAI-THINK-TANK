@@ -14,6 +14,10 @@ import {
   FileText, Tag, Calendar, Eye, Download 
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+// Feature gating imports
+import { useEntitlements, useTemplateAccess, BILLING_FEATURES } from "@/hooks/useEntitlements";
+import { ConditionalFeature, RequireFeature } from "@/components/ConditionalFeature";
+import { UpgradePrompt } from "@/components/UpgradePrompt";
 
 // User interface to fix type safety
 interface User {

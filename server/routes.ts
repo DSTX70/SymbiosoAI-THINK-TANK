@@ -22,6 +22,29 @@ import { SecurityMiddleware } from "./middleware/security";
 import { EnterpriseRateLimiter } from "./middleware/rateLimiting";
 import { PerformanceMonitor } from "./middleware/monitoring";
 import { registerAutomationRoutes } from "./routes/automation";
+// RBAC and Entitlements middleware
+import { 
+  requireAuth, 
+  requireSystemRole, 
+  requireSystemPermission, 
+  requireWorkspaceAccess, 
+  requireWorkspacePermission,
+  requireResourceAccess,
+  SYSTEM_PERMISSIONS,
+  WORKSPACE_PERMISSIONS,
+  type UserRole,
+  type SystemPermission,
+  type WorkspacePermission
+} from "./middleware/rbac";
+import { 
+  loadEntitlementsContext,
+  requireFeature,
+  requirePlanLimit,
+  requireActiveSubscription,
+  BILLING_FEATURES,
+  type BillingFeature as BillingFeatureType
+} from "./middleware/entitlements";
+import { PermissionUtils } from "./utils/permissions";
 
 // Helper function to format report object into readable content
 function formatReportContent(report: any, format: string): string {
@@ -299,7 +322,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Authentication routes with organization context
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get('/api/auth/user', requireAuth, async (req: any, res) => {
     try {
       // Check if user and claims exist
       if (!req.user || !req.user.claims || !req.user.claims.sub) {
@@ -351,7 +374,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // User profile and preferences routes
-  app.get('/api/user/profile', isAuthenticated, async (req: any, res) => {
+  app.get('/api/user/profile', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
@@ -362,7 +385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.patch('/api/user/preferences', isAuthenticated, express.json(), async (req: any, res) => {
+  app.patch('/api/user/preferences', requireAuth, express.json(), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const updatedUser = await storage.updateUserPreferences(userId, req.body);
@@ -374,7 +397,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Onboarding progress routes
-  app.get('/api/user/onboarding-progress', isAuthenticated, async (req: any, res) => {
+  app.get('/api/user/onboarding-progress', requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
@@ -395,7 +418,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/user/onboarding-progress', isAuthenticated, express.json(), async (req: any, res) => {
+  app.patch('/api/user/onboarding-progress', requireAuth, express.json(), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const updatedUser = await storage.updateOnboardingProgress(userId, req.body);
@@ -410,7 +433,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Workspace management routes
-  app.get("/api/workspaces", isAuthenticated, async (req: any, res) => {
+  app.get("/api/workspaces", requireAuth, loadEntitlementsContext, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const workspaces = await storage.getUserWorkspaces(userId);
@@ -420,49 +443,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/workspaces", isAuthenticated, express.json(), async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const workspaceData = insertWorkspaceSchema.parse({
-        ...req.body,
-        ownerId: userId
-      });
-      const workspace = await storage.createWorkspace(workspaceData);
-      
-      // Add owner as admin member
-      await storage.addWorkspaceMember({
-        workspaceId: workspace.id,
-        userId: userId,
-        role: "owner"
-      });
-      
-      res.json(workspace);
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
+  app.post("/api/workspaces", 
+    requireAuth, 
+    loadEntitlementsContext,
+    express.json(), 
+    requirePlanLimit('workspaces', async (userId: string) => {
+      // Get current workspace count for user
+      const workspaces = await storage.getUserWorkspaces(userId);
+      return workspaces.length;
+    }),
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        const workspaceData = insertWorkspaceSchema.parse({
+          ...req.body,
+          ownerId: userId
+        });
+        const workspace = await storage.createWorkspace(workspaceData);
+        
+        // Add owner as admin member
+        await storage.addWorkspaceMember({
+          workspaceId: workspace.id,
+          userId: userId,
+          role: "owner"
+        });
+        
+        res.json(workspace);
+      } catch (error: any) {
+        res.status(400).json({ error: error.message });
+      }
     }
-  });
+  );
 
-  app.get("/api/workspaces/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/workspaces/:id", 
+    requireAuth, 
+    loadEntitlementsContext,
+    requireWorkspaceAccess(),
+    requireWorkspacePermission(WORKSPACE_PERMISSIONS.READ_WORKSPACE),
+    async (req: any, res) => {
     try {
-      const workspace = await storage.getWorkspace(req.params.id);
-      if (!workspace) {
-        return res.status(404).json({ error: "Workspace not found" });
-      }
-      
-      const userId = req.user.claims.sub;
-      // Check if user has access
-      const membership = await storage.getUserWorkspaceMembership(workspace.id, userId);
-      if (!membership && workspace.ownerId !== userId) {
-        return res.status(403).json({ error: "Access denied" });
-      }
-      
-      res.json(workspace);
+      // Workspace context already loaded and validated by middleware
+      res.json(req.workspace);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
 
-  app.post("/api/workspaces/join", isAuthenticated, express.json(), async (req: any, res) => {
+  app.post("/api/workspaces/join", 
+    requireAuth, 
+    loadEntitlementsContext,
+    express.json(), 
+    async (req: any, res) => {
     try {
       const { sessionCode } = req.body;
       if (!sessionCode) {
@@ -494,7 +525,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/workspaces/:id/members", isAuthenticated, async (req: any, res) => {
+  app.get("/api/workspaces/:id/members", 
+    requireAuth,
+    loadEntitlementsContext,
+    requireWorkspaceAccess(),
+    requireWorkspacePermission(WORKSPACE_PERMISSIONS.READ_WORKSPACE),
+    async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       // Check access
@@ -623,7 +659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Session code management for collaboration
-  app.post("/api/sessions/generate-code", isAuthenticated, async (req: any, res) => {
+  app.post("/api/sessions/generate-code", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const sessionCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -643,7 +679,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/sessions/join/:code", isAuthenticated, async (req: any, res) => {
+  app.post("/api/sessions/join/:code", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const sessionCode = req.params.code.toUpperCase();
@@ -668,7 +704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/sessions/code/:code/participants", isAuthenticated, async (req, res) => {
+  app.get("/api/sessions/code/:code/participants", requireAuth, async (req, res) => {
     try {
       const sessionCode = req.params.code.toUpperCase();
       const participants = await storage.getSessionParticipants(sessionCode);
@@ -680,7 +716,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Chat message routes
-  app.get("/api/sessions/code/:code/chat", isAuthenticated, async (req, res) => {
+  app.get("/api/sessions/code/:code/chat", requireAuth, async (req, res) => {
     try {
       const sessionCode = req.params.code.toUpperCase();
       const messages = await storage.getChatHistory(sessionCode);
@@ -691,7 +727,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/sessions/code/:code/chat", isAuthenticated, async (req: any, res) => {
+  app.post("/api/sessions/code/:code/chat", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const sessionCode = req.params.code.toUpperCase();
@@ -716,7 +752,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================================
 
   // Organization management routes
-  app.get("/api/organizations", isAuthenticated, async (req: any, res) => {
+  app.get("/api/organizations", 
+    requireAuth,
+    requireSystemPermission(SYSTEM_PERMISSIONS.MANAGE_USERS),
+    async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizations = await storage.getUserOrganizations(userId);
@@ -727,7 +766,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/organizations", isAuthenticated, express.json(), async (req: any, res) => {
+  app.post("/api/organizations", 
+    requireAuth,
+    requireSystemPermission(SYSTEM_PERMISSIONS.MANAGE_USERS),
+    express.json(),
+    async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       
@@ -766,7 +809,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/organizations/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/organizations/:id", requireAuth, requireSystemPermission(SYSTEM_PERMISSIONS.MANAGE_USERS), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organization = await storage.getOrganization(req.params.id);
@@ -788,7 +831,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/organizations/:id", isAuthenticated, express.json(), async (req: any, res) => {
+  app.put("/api/organizations/:id", requireAuth, requireSystemPermission(SYSTEM_PERMISSIONS.MANAGE_USERS), express.json(), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = req.params.id;
@@ -812,7 +855,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Organization membership management
-  app.get("/api/organizations/:id/members", isAuthenticated, async (req: any, res) => {
+  app.get("/api/organizations/:id/members", requireAuth, requireSystemPermission(SYSTEM_PERMISSIONS.MANAGE_USERS), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = req.params.id;
@@ -831,7 +874,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/organizations/:id/members", isAuthenticated, express.json(), async (req: any, res) => {
+  app.post("/api/organizations/:id/members", requireAuth, requireSystemPermission(SYSTEM_PERMISSIONS.MANAGE_USERS), express.json(), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = req.params.id;
@@ -856,7 +899,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Team management routes
-  app.get("/api/organizations/:id/teams", isAuthenticated, async (req: any, res) => {
+  app.get("/api/organizations/:id/teams", requireAuth, requireSystemPermission(SYSTEM_PERMISSIONS.MANAGE_USERS), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = req.params.id;
@@ -875,7 +918,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/organizations/:id/teams", isAuthenticated, express.json(), async (req: any, res) => {
+  app.post("/api/organizations/:id/teams", requireAuth, requireSystemPermission(SYSTEM_PERMISSIONS.MANAGE_USERS), express.json(), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = req.params.id;
@@ -904,7 +947,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================================
 
   // Audit logs management
-  app.get("/api/audit-logs", isAuthenticated, async (req: any, res) => {
+  app.get("/api/audit-logs", 
+    requireAuth,
+    requireSystemPermission(SYSTEM_PERMISSIONS.VIEW_AUDIT_LOGS),
+    async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { organizationId, action, limit = 50, offset = 0 } = req.query;
@@ -936,7 +982,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Security events management
-  app.get("/api/security-events", isAuthenticated, async (req: any, res) => {
+  app.get("/api/security-events", requireAuth, requireSystemPermission(SYSTEM_PERMISSIONS.VIEW_AUDIT_LOGS), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { organizationId, severity, resolved } = req.query;
@@ -974,7 +1020,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/security-events/:eventId/resolve", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/security-events/:eventId/resolve", requireAuth, requireSystemPermission(SYSTEM_PERMISSIONS.VIEW_AUDIT_LOGS), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const eventId = req.params.eventId;
@@ -1025,7 +1071,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================================
 
   // Usage analytics and reporting
-  app.get("/api/usage/analytics", isAuthenticated, async (req: any, res) => {
+  app.get("/api/usage/analytics", 
+    requireAuth,
+    loadEntitlementsContext,
+    requireFeature(BILLING_FEATURES.ADVANCED_ANALYTICS),
+    async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { organizationId, period = 'week' } = req.query;
@@ -1052,7 +1102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Usage quota status
-  app.get("/api/usage/quotas/:organizationId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/usage/quotas/:organizationId", requireAuth, requireSystemPermission(SYSTEM_PERMISSIONS.ADMIN_DASHBOARD), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const organizationId = req.params.organizationId;
@@ -1089,7 +1139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Rate limit rules management
-  app.get("/api/rate-limits/rules", isAuthenticated, async (req: any, res) => {
+  app.get("/api/rate-limits/rules", requireAuth, requireSystemPermission(SYSTEM_PERMISSIONS.ADMIN_DASHBOARD), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { organizationId } = req.query;
@@ -1115,7 +1165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/rate-limits/rules", isAuthenticated, express.json(), async (req: any, res) => {
+  app.post("/api/rate-limits/rules", requireAuth, requireSystemPermission(SYSTEM_PERMISSIONS.ADMIN_DASHBOARD), express.json(), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { organizationId } = req.body;
@@ -1166,7 +1216,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/rate-limits/rules/:ruleId", isAuthenticated, express.json(), async (req: any, res) => {
+  app.put("/api/rate-limits/rules/:ruleId", requireAuth, requireSystemPermission(SYSTEM_PERMISSIONS.ADMIN_DASHBOARD), express.json(), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const ruleId = req.params.ruleId;
@@ -1212,14 +1262,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Apply enhanced rate limiting to specific endpoints
   app.post("/api/think", 
+    requireAuth,
+    loadEntitlementsContext,
+    express.json(),
+    requireFeature(BILLING_FEATURES.ADVANCED_AI),
     // rateLimiter temporarily disabled for debugging
     // rateLimiter.enterpriseRateLimit('ai_analyses', {
     //   enableBurst: true,
     //   enableAdaptive: true,
     //   customMessage: 'AI analysis rate limit exceeded. Please upgrade your plan for higher limits.'
     // }),
-    isAuthenticated, 
-    express.json(), 
     async (req: any, res) => {
       // Original /api/think implementation continues here...
       try {
@@ -1306,7 +1358,12 @@ Please build upon the previous discussion while addressing the new question.`
   );
 
   // Brainstorming endpoint - transforms debate results into collaborative solutions
-  app.post("/api/brainstorm", isAuthenticated, express.json(), async (req: any, res) => {
+  app.post("/api/brainstorm", 
+    requireAuth,
+    loadEntitlementsContext,
+    express.json(),
+    requireFeature(BILLING_FEATURES.ADVANCED_AI),
+    async (req: any, res) => {
     try {
       const { sessionId, settings = {} } = req.body;
       const userId = req.user?.claims?.sub;
@@ -1359,7 +1416,11 @@ Please build upon the previous discussion while addressing the new question.`
   });
 
   // Report generation endpoint - transform debate and brainstorming results into professional reports
-  app.post("/api/report", optionalAuth, async (req, res) => {
+  app.post("/api/report", 
+    requireAuth,
+    loadEntitlementsContext,
+    requireFeature(BILLING_FEATURES.ADVANCED_ANALYTICS),
+    async (req, res) => {
     try {
       const userId = (req as any).user?.claims?.sub;
       const requestBody = reportRequestSchema.parse(req.body);
@@ -1490,7 +1551,7 @@ Please build upon the previous discussion while addressing the new question.`
   });
 
   // Report management endpoints
-  app.get("/api/reports", isAuthenticated, async (req: any, res) => {
+  app.get("/api/reports", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const reports = await storage.getUserGeneratedReports(userId);
@@ -1501,7 +1562,7 @@ Please build upon the previous discussion while addressing the new question.`
     }
   });
 
-  app.get("/api/reports/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/reports/:id", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const reportId = req.params.id;
@@ -1523,7 +1584,7 @@ Please build upon the previous discussion while addressing the new question.`
     }
   });
 
-  app.delete("/api/reports/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/reports/:id", requireAuth, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const reportId = req.params.id;
@@ -1641,7 +1702,7 @@ Please build upon the previous discussion while addressing the new question.`
   });
 
   // Performance analytics
-  app.get("/api/monitoring/performance", isAuthenticated, async (req: any, res) => {
+  app.get("/api/monitoring/performance", requireAuth, requireSystemPermission(SYSTEM_PERMISSIONS.ADMIN_DASHBOARD), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { organizationId, timeRange = '1h' } = req.query;
@@ -1668,7 +1729,7 @@ Please build upon the previous discussion while addressing the new question.`
   });
 
   // Error analytics
-  app.get("/api/monitoring/errors", isAuthenticated, async (req: any, res) => {
+  app.get("/api/monitoring/errors", requireAuth, requireSystemPermission(SYSTEM_PERMISSIONS.ADMIN_DASHBOARD), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { organizationId, timeRange = '24h' } = req.query;
@@ -1695,7 +1756,7 @@ Please build upon the previous discussion while addressing the new question.`
   });
 
   // Real-time system metrics
-  app.get("/api/monitoring/metrics/realtime", isAuthenticated, async (req: any, res) => {
+  app.get("/api/monitoring/metrics/realtime", requireAuth, requireSystemPermission(SYSTEM_PERMISSIONS.ADMIN_DASHBOARD), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { organizationId } = req.query;
@@ -1746,7 +1807,7 @@ Please build upon the previous discussion while addressing the new question.`
   });
 
   // Performance metrics management
-  app.post("/api/monitoring/metrics/cleanup", isAuthenticated, async (req: any, res) => {
+  app.post("/api/monitoring/metrics/cleanup", requireAuth, requireSystemPermission(SYSTEM_PERMISSIONS.ADMIN_DASHBOARD), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const { organizationId } = req.body;
@@ -1890,7 +1951,7 @@ Please build upon the previous discussion while addressing the new question.`
   }
 
   // Follow-up question endpoint for deeper dives
-  app.post("/api/brainstorm/followup", isAuthenticated, express.json(), async (req: any, res) => {
+  app.post("/api/brainstorm/followup", requireAuth, loadEntitlementsContext, requireFeature(BILLING_FEATURES.ADVANCED_AI), express.json(), async (req: any, res) => {
     try {
       const { sessionId, itemType, itemIndex, question, context } = req.body;
       const userId = req.user?.claims?.sub;
@@ -1972,7 +2033,11 @@ Provide additional insights, explore deeper implications, or address related asp
   });
 
   // POST /api/billing/checkout - Mock checkout flow
-  app.post("/api/billing/checkout", isAuthenticated, express.json(), async (req: any, res) => {
+  app.post("/api/billing/checkout", 
+    requireAuth,
+    loadEntitlementsContext,
+    express.json(),
+    async (req: any, res) => {
     try {
       const { workspaceId, planId, seats = 1 } = req.body;
 
@@ -2228,7 +2293,11 @@ Provide additional insights, explore deeper implications, or address related asp
   });
 
   // POST /api/marketplace/purchase - Purchase a template product (authenticated endpoint)
-  app.post("/api/marketplace/purchase", isAuthenticated, express.json(), async (req: any, res) => {
+  app.post("/api/marketplace/purchase", 
+    requireAuth,
+    loadEntitlementsContext,
+    express.json(),
+    async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
       if (!userId) {
