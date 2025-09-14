@@ -1,0 +1,1 @@
+export function I18nProvider(p:any){return p.children}; export function useI18n(){return {t:(k:string)=>k}}

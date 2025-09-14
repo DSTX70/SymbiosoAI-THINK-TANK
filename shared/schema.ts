@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, jsonb, timestamp, integer, boolean, index, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, jsonb, timestamp, integer, boolean, index, decimal, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -387,6 +387,7 @@ export const insertTutorialSettingsSchema = createInsertSchema(tutorialSettings)
   experienceLevel: true,
 });
 
+
 // Template category validation
 export const templateCategorySchema = z.enum(["business", "technology", "education", "research"]);
 
@@ -398,6 +399,7 @@ export const tutorialStepTypeSchema = z.enum(["tooltip", "modal", "highlight", "
 export const tutorialPositionSchema = z.enum(["top", "bottom", "left", "right", "center"]);
 export const tutorialSpeedSchema = z.enum(["slow", "normal", "fast"]);
 export const interactionTypeSchema = z.enum(["click", "input", "scroll", "none"]);
+
 
 // Type definitions
 export type Template = typeof templates.$inferSelect;
@@ -423,6 +425,22 @@ export type TutorialStepType = z.infer<typeof tutorialStepTypeSchema>;
 export type TutorialPosition = z.infer<typeof tutorialPositionSchema>;
 export type TutorialSpeed = z.infer<typeof tutorialSpeedSchema>;
 export type InteractionType = z.infer<typeof interactionTypeSchema>;
+
+// Sprint 4 billing system types
+export type Subscription = typeof subscriptions.$inferSelect;
+export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
+export type Entitlement = typeof entitlements.$inferSelect;
+export type InsertEntitlement = z.infer<typeof insertEntitlementSchema>;
+export type TemplateProduct = typeof templateProducts.$inferSelect;
+export type InsertTemplateProduct = z.infer<typeof insertTemplateProductSchema>;
+export type TemplatePurchase = typeof templatePurchases.$inferSelect;
+export type InsertTemplatePurchase = z.infer<typeof insertTemplatePurchaseSchema>;
+
+// Sprint 4 enum types
+export type SubscriptionPlan = z.infer<typeof subscriptionPlanSchema>;
+export type SubscriptionStatus = z.infer<typeof subscriptionStatusSchema>;
+export type Currency = z.infer<typeof currencySchema>;
+export type BillingFeature = z.infer<typeof billingFeatureSchema>;
 
 // User preferences schema
 export const userPreferencesSchema = z.object({
@@ -1253,6 +1271,89 @@ export const healthChecks = pgTable("health_checks", {
 ]);
 
 // ============================================
+// SPRINT 4 - BILLING & MARKETPLACE SYSTEM
+// ============================================
+
+// Subscription management for workspaces
+export const subscriptions = pgTable("subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workspaceId: varchar("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  plan: varchar("plan").notNull(), // free, pro, enterprise, custom
+  seats: integer("seats").notNull().default(1), // Number of licensed seats
+  status: varchar("status").notNull().default("trial"), // trial, active, canceled, past_due, unpaid
+  currentPeriodEnd: timestamp("current_period_end").notNull(), // When current billing period ends
+  stripeSubscriptionId: varchar("stripe_subscription_id"), // For future Stripe integration
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("subscriptions_workspace_idx").on(table.workspaceId),
+  index("subscriptions_status_idx").on(table.status),
+  index("subscriptions_period_end_idx").on(table.currentPeriodEnd),
+  // Ensure only one subscription per workspace (business rule enforced in app)
+  unique("subscriptions_workspace_unique").on(table.workspaceId),
+]);
+
+// Feature entitlements based on subscriptions or purchases
+export const entitlements = pgTable("entitlements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workspaceId: varchar("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  feature: varchar("feature").notNull(), // Feature identifier (e.g. "advanced_ai", "export_pdf", "custom_templates")
+  subscriptionId: varchar("subscription_id").references(() => subscriptions.id, { onDelete: "cascade" }), // FK to subscriptions
+  templatePurchaseId: varchar("template_purchase_id").references(() => templatePurchases.id, { onDelete: "cascade" }), // FK to template_purchases
+  grantedAt: timestamp("granted_at").defaultNow(),
+  expiresAt: timestamp("expires_at"), // Optional expiry for time-limited features
+}, (table) => [
+  index("entitlements_workspace_idx").on(table.workspaceId),
+  index("entitlements_feature_idx").on(table.feature),
+  index("entitlements_subscription_idx").on(table.subscriptionId),
+  index("entitlements_template_purchase_idx").on(table.templatePurchaseId),
+  index("entitlements_expires_idx").on(table.expiresAt),
+  // Ensure unique feature per workspace
+  unique("entitlements_workspace_feature_unique").on(table.workspaceId, table.feature),
+  // Check constraint to ensure exactly one of subscriptionId or templatePurchaseId is non-null
+  // Note: This constraint will be enforced at application level for Drizzle compatibility
+]);
+
+// Marketplace products for premium templates
+export const templateProducts = pgTable("template_products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(), // Product name
+  description: text("description"), // Product description
+  priceCents: integer("price_cents").notNull(), // Price in cents (e.g. 999 = $9.99)
+  currency: varchar("currency").notNull().default("USD"), // USD, EUR, GBP, etc.
+  templateId: varchar("template_id").notNull().references(() => templates.id, { onDelete: "cascade" }), // Reference to templates.id
+  isActive: boolean("is_active").default(true).notNull(), // Whether product is available for purchase
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("template_products_template_idx").on(table.templateId),
+  index("template_products_active_idx").on(table.isActive),
+  index("template_products_price_idx").on(table.priceCents),
+  // Ensure unique product per template
+  unique("template_products_template_unique").on(table.templateId),
+]);
+
+// Track template purchases and license keys
+export const templatePurchases = pgTable("template_purchases", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workspaceId: varchar("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }), // Reference to users.id (purchaser)
+  templateProductId: varchar("template_product_id").notNull().references(() => templateProducts.id, { onDelete: "cascade" }), // Reference to template_products.id
+  priceCents: integer("price_cents").notNull(), // Actual price paid (for historical records)
+  currency: varchar("currency").notNull(), // Currency used for purchase
+  licenseKey: varchar("license_key").unique().notNull(), // Generated license key for verification
+  purchasedAt: timestamp("purchased_at").defaultNow(),
+}, (table) => [
+  index("template_purchases_workspace_idx").on(table.workspaceId),
+  index("template_purchases_user_idx").on(table.userId),
+  index("template_purchases_product_idx").on(table.templateProductId),
+  index("template_purchases_license_idx").on(table.licenseKey),
+  index("template_purchases_date_idx").on(table.purchasedAt),
+  // Ensure unique purchase per workspace per template product
+  unique("template_purchases_workspace_product_unique").on(table.workspaceId, table.templateProductId),
+]);
+
+// ============================================
 // ENTERPRISE FEATURES - Zod Schemas
 // ============================================
 
@@ -1477,6 +1578,7 @@ export type RedactionType = z.infer<typeof redactionTypeSchema>;
 export type RateLimitAction = z.infer<typeof rateLimitActionSchema>;
 export type HealthStatus = z.infer<typeof healthStatusSchema>;
 
+
 // ============================================
 // PHASE 3 AUTOMATION - Zod Schemas
 // ============================================
@@ -1552,6 +1654,55 @@ export const insertWorkflowInstanceSchema = createInsertSchema(workflowInstances
   input: true,
   metadata: true,
 });
+
+// ============================================
+// SPRINT 4 BILLING & MARKETPLACE - Zod Schemas
+// ============================================
+
+export const insertSubscriptionSchema = createInsertSchema(subscriptions).pick({
+  workspaceId: true,
+  plan: true,
+  seats: true,
+  status: true,
+  currentPeriodEnd: true,
+  stripeSubscriptionId: true,
+});
+
+export const insertEntitlementSchema = createInsertSchema(entitlements).pick({
+  workspaceId: true,
+  feature: true,
+  subscriptionId: true,
+  templatePurchaseId: true,
+  expiresAt: true,
+});
+
+export const insertTemplateProductSchema = createInsertSchema(templateProducts).pick({
+  name: true,
+  description: true,
+  priceCents: true,
+  currency: true,
+  templateId: true,
+  isActive: true,
+});
+
+export const insertTemplatePurchaseSchema = createInsertSchema(templatePurchases).pick({
+  workspaceId: true,
+  userId: true,
+  templateProductId: true,
+  priceCents: true,
+  currency: true,
+  licenseKey: true,
+});
+
+// Billing validation schemas
+export const subscriptionPlanSchema = z.enum(["free", "pro", "enterprise", "custom"]);
+export const subscriptionStatusSchema = z.enum(["trial", "active", "canceled", "past_due", "unpaid"]);
+export const currencySchema = z.enum(["USD", "EUR", "GBP", "CAD", "AUD"]);
+export const billingFeatureSchema = z.enum([
+  "advanced_ai", "export_pdf", "custom_templates", "premium_support",
+  "unlimited_sessions", "team_collaboration", "custom_branding", "sso_integration",
+  "advanced_analytics", "priority_queue", "dedicated_support", "custom_workflows"
+]);
 
 // ============================================
 // SPRINT 1 - Async Job Processing & Export Tracking
@@ -1652,3 +1803,4 @@ export type OnboardingProgress = {
   last_interaction: string | null;
   feature_usage: Record<string, number>;
 };
+
