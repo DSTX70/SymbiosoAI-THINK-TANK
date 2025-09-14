@@ -44,38 +44,17 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: |
-          if [ -f "scripts/build-production.sh" ]; then
-            ./scripts/build-production.sh
-          else
-            npm run build
-          fi
+        run: npm run build
 
-      - name: DB migrate (fallback to drizzle if psql fails)
-        run: |
-          if command -v psql >/dev/null 2>&1 && [ -f "db/migrations/001_init.sql" ]; then
-            psql $DATABASE_URL -f db/migrations/001_init.sql || npm run db:push
-          else
-            npm run db:push
-          fi
+      - name: DB migrate
+        run: npm run db:migrate
 
       - name: DB seed (demo user/workspace/docs)
-        run: |
-          if [ -f "db/seed/seed.ts" ]; then
-            npx ts-node --transpile-only db/seed/seed.ts || npx tsx server/seeds/run-seed.ts
-          else
-            npx tsx server/seeds/run-seed.ts
-          fi
+        run: npm run db:seed
 
       - name: Start API server
         run: |
-          if [ -f "dist/server.js" ]; then
-            node dist/server.js &
-          elif [ -f "dist/index.js" ]; then
-            npm start &
-          else
-            npm run dev &
-          fi
+          npm start &
           echo $! > server.pid
 
       - name: Wait for API
