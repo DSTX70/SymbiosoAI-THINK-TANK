@@ -44,17 +44,17 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: npm run build
+        run: ./scripts/ci-build.sh
 
       - name: DB migrate
-        run: npm run db:migrate
+        run: ./scripts/ci-db-migrate.sh
 
       - name: DB seed (demo user/workspace/docs)
-        run: npm run db:seed
+        run: ./scripts/ci-db-seed.sh
 
       - name: Start API server
         run: |
-          npm start &
+          ./scripts/ci-start.sh &
           echo $! > server.pid
 
       - name: Wait for API

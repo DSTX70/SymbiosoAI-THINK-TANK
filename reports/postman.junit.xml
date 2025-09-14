@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="Demo Mode — Example API" tests="6" time="0.347">
+  <testsuite name="1) Demo Login" id="410dfb67-ca0d-451e-b847-c6f5d72c7c13" timestamp="2025-09-14T22:48:09.054Z" tests="0" failures="0" errors="0" time="0.274"/>
+  <testsuite name="2) Expert Mode (ADVANCED_AI)" id="e9b54436-13ca-48a2-b466-707a2344b7f8" timestamp="2025-09-14T22:48:09.054Z" tests="0" failures="0" errors="0" time="0.011"/>
+  <testsuite name="3) Export (expect 402, auto-provision demo workspace)" id="57442737-6b50-44f5-b402-b52cfad96a7f" timestamp="2025-09-14T22:48:09.054Z" tests="0" failures="0" errors="0" time="0.012"/>
+  <testsuite name="4) Analytics (expect 402, seeded)" id="bf1da42a-3bfa-4b1c-8a8b-a4d5a3ee528c" timestamp="2025-09-14T22:48:09.054Z" tests="0" failures="0" errors="0" time="0.026"/>
+  <testsuite name="5) Upgrade Demo → Pro (purge demo artifacts)" id="5ce7ddb6-ea75-468f-980f-641e83c936c5" timestamp="2025-09-14T22:48:09.054Z" tests="0" failures="0" errors="0" time="0.014"/>
+  <testsuite name="6) Export After Upgrade (expect 400 workspace required)" id="daf3bb4c-b1fc-4ecc-955c-27e550d5d84c" timestamp="2025-09-14T22:48:09.054Z" tests="0" failures="0" errors="0" time="0.010"/>
+</testsuites>
