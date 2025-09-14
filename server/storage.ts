@@ -22,12 +22,14 @@ import {
   // Billing types
   type Subscription, type InsertSubscription, type Entitlement, type InsertEntitlement,
   type SubscriptionPlan, type SubscriptionStatus, type BillingFeature,
+  // Marketplace types
+  type TemplateProduct, type InsertTemplateProduct, type TemplatePurchase, type InsertTemplatePurchase,
   users, analysisSessions, workspaces, workspaceMembers, workspaceInvites, generatedReports,
   templates, sessionCodes, sessionParticipants, chatMessages, pushSubscriptions,
   tutorials, tutorialSteps, tutorialProgress, tutorialSettings,
   organizations, organizationMembers, teams, teamMembers, auditLogs, securityEvents,
   usageMetrics, rateLimitRules, performanceMetrics, errorLogs, healthChecks,
-  debateRuns, exportLogs, subscriptions, entitlements
+  debateRuns, exportLogs, subscriptions, entitlements, templateProducts, templatePurchases
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { Pool, neonConfig } from '@neondatabase/serverless';
@@ -269,6 +271,22 @@ export interface IStorage {
   getEntitlements(workspaceId: string): Promise<Entitlement[]>;
   revokeEntitlements(workspaceId: string, feature?: BillingFeature): Promise<boolean>;
   checkEntitlement(workspaceId: string, feature: BillingFeature): Promise<boolean>;
+
+  // ============================================
+  // SPRINT 4 - Marketplace Operations
+  // ============================================
+
+  // Template product operations
+  getMarketplaceTemplates(): Promise<(TemplateProduct & { template: Template })[]>;
+  getTemplateProduct(id: string): Promise<TemplateProduct | undefined>;
+  createTemplateProduct(product: InsertTemplateProduct): Promise<TemplateProduct>;
+
+  // Template purchase operations
+  createTemplatePurchase(purchase: InsertTemplatePurchase): Promise<TemplatePurchase>;
+  getTemplatePurchase(id: string): Promise<TemplatePurchase | undefined>;
+  checkExistingPurchase(workspaceId: string, templateProductId: string): Promise<TemplatePurchase | undefined>;
+  getUserPurchases(userId: string): Promise<(TemplatePurchase & { templateProduct: TemplateProduct & { template: Template } })[]>;
+  getWorkspacePurchases(workspaceId: string): Promise<(TemplatePurchase & { templateProduct: TemplateProduct & { template: Template } })[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -807,6 +825,16 @@ export class MemStorage implements IStorage {
   async getEntitlements(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
   async revokeEntitlements(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
   async checkEntitlement(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+
+  // Marketplace methods  
+  async getMarketplaceTemplates(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getTemplateProduct(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createTemplateProduct(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createTemplatePurchase(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getTemplatePurchase(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async checkExistingPurchase(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getUserPurchases(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getWorkspacePurchases(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2114,6 +2142,227 @@ export class DatabaseStorage implements IStorage {
     }
     
     return true;
+  }
+
+  // ============================================
+  // SPRINT 4 - Marketplace Operations
+  // ============================================
+
+  async getMarketplaceTemplates(): Promise<(TemplateProduct & { template: Template })[]> {
+    const results = await db.select({
+      id: templateProducts.id,
+      name: templateProducts.name,
+      description: templateProducts.description,
+      priceCents: templateProducts.priceCents,
+      currency: templateProducts.currency,
+      templateId: templateProducts.templateId,
+      isActive: templateProducts.isActive,
+      createdAt: templateProducts.createdAt,
+      updatedAt: templateProducts.updatedAt,
+      template: {
+        id: templates.id,
+        name: templates.name,
+        description: templates.description,
+        category: templates.category,
+        tags: templates.tags,
+        content: templates.content,
+        isPublic: templates.isPublic,
+        usageCount: templates.usageCount,
+        authorId: templates.authorId,
+        version: templates.version,
+        metadata: templates.metadata,
+        createdAt: templates.createdAt,
+        updatedAt: templates.updatedAt,
+      }
+    })
+    .from(templateProducts)
+    .innerJoin(templates, eq(templateProducts.templateId, templates.id))
+    .where(eq(templateProducts.isActive, true));
+
+    return results.map(row => ({
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      priceCents: row.priceCents,
+      currency: row.currency,
+      templateId: row.templateId,
+      isActive: row.isActive,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      template: row.template
+    }));
+  }
+
+  async getTemplateProduct(id: string): Promise<TemplateProduct | undefined> {
+    const [product] = await db.select().from(templateProducts).where(eq(templateProducts.id, id));
+    return product || undefined;
+  }
+
+  async createTemplateProduct(product: InsertTemplateProduct): Promise<TemplateProduct> {
+    const [newProduct] = await db.insert(templateProducts).values({
+      ...product,
+      id: randomUUID()
+    }).returning();
+    return newProduct;
+  }
+
+  async createTemplatePurchase(purchase: InsertTemplatePurchase): Promise<TemplatePurchase> {
+    // Generate unique license key
+    const licenseKey = `LIC-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
+    
+    const [newPurchase] = await db.insert(templatePurchases).values({
+      ...purchase,
+      id: randomUUID(),
+      licenseKey
+    }).returning();
+    return newPurchase;
+  }
+
+  async getTemplatePurchase(id: string): Promise<TemplatePurchase | undefined> {
+    const [purchase] = await db.select().from(templatePurchases).where(eq(templatePurchases.id, id));
+    return purchase || undefined;
+  }
+
+  async checkExistingPurchase(workspaceId: string, templateProductId: string): Promise<TemplatePurchase | undefined> {
+    const [existing] = await db.select()
+      .from(templatePurchases)
+      .where(and(
+        eq(templatePurchases.workspaceId, workspaceId),
+        eq(templatePurchases.templateProductId, templateProductId)
+      ));
+    return existing || undefined;
+  }
+
+  async getUserPurchases(userId: string): Promise<(TemplatePurchase & { templateProduct: TemplateProduct & { template: Template } })[]> {
+    const results = await db.select({
+      id: templatePurchases.id,
+      workspaceId: templatePurchases.workspaceId,
+      userId: templatePurchases.userId,
+      templateProductId: templatePurchases.templateProductId,
+      priceCents: templatePurchases.priceCents,
+      currency: templatePurchases.currency,
+      licenseKey: templatePurchases.licenseKey,
+      purchasedAt: templatePurchases.purchasedAt,
+      templateProduct: {
+        id: templateProducts.id,
+        name: templateProducts.name,
+        description: templateProducts.description,
+        priceCents: templateProducts.priceCents,
+        currency: templateProducts.currency,
+        templateId: templateProducts.templateId,
+        isActive: templateProducts.isActive,
+        createdAt: templateProducts.createdAt,
+        updatedAt: templateProducts.updatedAt,
+        template: {
+          id: templates.id,
+          name: templates.name,
+          description: templates.description,
+          category: templates.category,
+          tags: templates.tags,
+          content: templates.content,
+          isPublic: templates.isPublic,
+          usageCount: templates.usageCount,
+          authorId: templates.authorId,
+          version: templates.version,
+          metadata: templates.metadata,
+          createdAt: templates.createdAt,
+          updatedAt: templates.updatedAt,
+        }
+      }
+    })
+    .from(templatePurchases)
+    .innerJoin(templateProducts, eq(templatePurchases.templateProductId, templateProducts.id))
+    .innerJoin(templates, eq(templateProducts.templateId, templates.id))
+    .where(eq(templatePurchases.userId, userId));
+
+    return results.map(row => ({
+      id: row.id,
+      workspaceId: row.workspaceId,
+      userId: row.userId,
+      templateProductId: row.templateProductId,
+      priceCents: row.priceCents,
+      currency: row.currency,
+      licenseKey: row.licenseKey,
+      purchasedAt: row.purchasedAt,
+      templateProduct: {
+        id: row.templateProduct.id,
+        name: row.templateProduct.name,
+        description: row.templateProduct.description,
+        priceCents: row.templateProduct.priceCents,
+        currency: row.templateProduct.currency,
+        templateId: row.templateProduct.templateId,
+        isActive: row.templateProduct.isActive,
+        createdAt: row.templateProduct.createdAt,
+        updatedAt: row.templateProduct.updatedAt,
+        template: row.templateProduct.template
+      }
+    }));
+  }
+
+  async getWorkspacePurchases(workspaceId: string): Promise<(TemplatePurchase & { templateProduct: TemplateProduct & { template: Template } })[]> {
+    const results = await db.select({
+      id: templatePurchases.id,
+      workspaceId: templatePurchases.workspaceId,
+      userId: templatePurchases.userId,
+      templateProductId: templatePurchases.templateProductId,
+      priceCents: templatePurchases.priceCents,
+      currency: templatePurchases.currency,
+      licenseKey: templatePurchases.licenseKey,
+      purchasedAt: templatePurchases.purchasedAt,
+      templateProduct: {
+        id: templateProducts.id,
+        name: templateProducts.name,
+        description: templateProducts.description,
+        priceCents: templateProducts.priceCents,
+        currency: templateProducts.currency,
+        templateId: templateProducts.templateId,
+        isActive: templateProducts.isActive,
+        createdAt: templateProducts.createdAt,
+        updatedAt: templateProducts.updatedAt,
+        template: {
+          id: templates.id,
+          name: templates.name,
+          description: templates.description,
+          category: templates.category,
+          tags: templates.tags,
+          content: templates.content,
+          isPublic: templates.isPublic,
+          usageCount: templates.usageCount,
+          authorId: templates.authorId,
+          version: templates.version,
+          metadata: templates.metadata,
+          createdAt: templates.createdAt,
+          updatedAt: templates.updatedAt,
+        }
+      }
+    })
+    .from(templatePurchases)
+    .innerJoin(templateProducts, eq(templatePurchases.templateProductId, templateProducts.id))
+    .innerJoin(templates, eq(templateProducts.templateId, templates.id))
+    .where(eq(templatePurchases.workspaceId, workspaceId));
+
+    return results.map(row => ({
+      id: row.id,
+      workspaceId: row.workspaceId,
+      userId: row.userId,
+      templateProductId: row.templateProductId,
+      priceCents: row.priceCents,
+      currency: row.currency,
+      licenseKey: row.licenseKey,
+      purchasedAt: row.purchasedAt,
+      templateProduct: {
+        id: row.templateProduct.id,
+        name: row.templateProduct.name,
+        description: row.templateProduct.description,
+        priceCents: row.templateProduct.priceCents,
+        currency: row.templateProduct.currency,
+        templateId: row.templateProduct.templateId,
+        isActive: row.templateProduct.isActive,
+        createdAt: row.templateProduct.createdAt,
+        updatedAt: row.templateProduct.updatedAt,
+        template: row.templateProduct.template
+      }
+    }));
   }
 }
 

@@ -7,7 +7,8 @@ import {
   insertOrganizationSchema, insertOrganizationMemberSchema, insertTeamSchema,
   brainstormResponseSchema, type BrainstormResponse,
   reportRequestSchema, type ReportRequest, type ReportResponse,
-  insertSubscriptionSchema, insertEntitlementSchema, type BillingFeature
+  insertSubscriptionSchema, insertEntitlementSchema, type BillingFeature,
+  insertTemplatePurchaseSchema
 } from "@shared/schema";
 import { runMultiAgentDebate, runBrainstormingSession, runReportGeneration } from "./ai-service";
 import { perplexityService } from "./services/perplexity";
@@ -1996,6 +1997,18 @@ Provide additional insights, explore deeper implications, or address related asp
         return res.status(404).json({ error: "Workspace not found" });
       }
 
+      // SECURITY FIX: Check workspace authorization - user must be owner or member
+      const userId = req.user.claims.sub;
+      const membership = await storage.getWorkspaceMembership(workspaceId, userId);
+      const isOwner = workspace.ownerId === userId;
+      
+      if (!isOwner && !membership) {
+        console.log(`❌ Unauthorized billing access attempt: User ${userId} tried to upgrade workspace ${workspaceId}`);
+        return res.status(403).json({ 
+          error: "Forbidden: You do not have permission to manage billing for this workspace" 
+        });
+      }
+
       // Create/update subscription
       const subscription = await storage.createOrUpdateSubscription({
         workspaceId,
@@ -2044,14 +2057,64 @@ Provide additional insights, explore deeper implications, or address related asp
     }
   });
 
-  // POST /api/billing/webhook - Mock webhook handler for subscription events
-  app.post("/api/billing/webhook", express.json(), async (req, res) => {
+  // SECURITY FIX: Store processed webhook event IDs for idempotency
+  const processedWebhookEvents = new Set<string>();
+
+  // POST /api/billing/webhook - Secure webhook handler for subscription events
+  app.post("/api/billing/webhook", express.raw({ type: 'application/json' }), async (req, res) => {
     try {
-      const { type, workspaceId, subscriptionId, planId } = req.body;
+      // SECURITY FIX: Webhook signature verification
+      const sig = req.get('stripe-signature');
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+      
+      if (webhookSecret && sig) {
+        // In production, verify webhook signature with crypto
+        // For now, we'll implement basic signature validation
+        try {
+          const crypto = require('crypto');
+          const payload = req.body;
+          const expectedSig = crypto.createHmac('sha256', webhookSecret).update(payload).digest('hex');
+          const actualSig = sig.split('=')[1];
+          
+          if (!crypto.timingSafeEqual(Buffer.from(expectedSig, 'hex'), Buffer.from(actualSig, 'hex'))) {
+            console.log(`❌ Invalid webhook signature`);
+            return res.status(401).json({ error: "Invalid signature" });
+          }
+        } catch (sigError) {
+          console.log(`❌ Signature verification failed:`, sigError);
+          return res.status(401).json({ error: "Signature verification failed" });
+        }
+      } else if (webhookSecret) {
+        // Webhook secret exists but no signature provided
+        console.log(`❌ Missing stripe-signature header`);
+        return res.status(401).json({ error: "Missing signature header" });
+      }
+      // If no webhook secret is configured, skip signature verification (development mode)
+
+      // Parse JSON body after signature verification
+      let eventData;
+      try {
+        eventData = JSON.parse(req.body.toString());
+      } catch (parseError) {
+        return res.status(400).json({ error: "Invalid JSON payload" });
+      }
+
+      const { type, workspaceId, subscriptionId, planId, eventId } = eventData;
 
       if (!type || !workspaceId) {
         return res.status(400).json({ 
           error: "Missing required webhook fields: type and workspaceId are required" 
+        });
+      }
+
+      // SECURITY FIX: Idempotency protection - check if event already processed
+      if (eventId && processedWebhookEvents.has(eventId)) {
+        console.log(`⚠️ Duplicate webhook event ${eventId} ignored`);
+        return res.status(200).json({ 
+          received: true, 
+          message: "Event already processed",
+          eventId,
+          processed_at: new Date().toISOString()
         });
       }
 
@@ -2102,11 +2165,17 @@ Provide additional insights, explore deeper implications, or address related asp
           break;
       }
 
+      // SECURITY FIX: Mark event as processed for idempotency
+      if (eventId) {
+        processedWebhookEvents.add(eventId);
+      }
+
       // Always return success for webhook processing
       res.status(200).json({ 
         received: true, 
         type, 
         workspaceId,
+        eventId: eventId || null,
         processed_at: new Date().toISOString()
       });
 
@@ -2118,6 +2187,141 @@ Provide additional insights, explore deeper implications, or address related asp
         error: "Processing failed but webhook acknowledged",
         processed_at: new Date().toISOString()
       });
+    }
+  });
+
+  // ============================================
+  // SPRINT 4 - MARKETPLACE API ENDPOINTS
+  // ============================================
+  
+  // GET /api/marketplace/templates - List available template products (public endpoint)
+  app.get("/api/marketplace/templates", async (req, res) => {
+    try {
+      console.log("📋 Fetching marketplace templates...");
+      
+      const marketplaceTemplates = await storage.getMarketplaceTemplates();
+      
+      // Transform data for public API response
+      const templates = marketplaceTemplates.map(item => ({
+        id: item.id,
+        name: item.name,
+        description: item.description,
+        priceCents: item.priceCents,
+        currency: item.currency,
+        template: {
+          id: item.template.id,
+          name: item.template.name,
+          description: item.template.description,
+          category: item.template.category,
+          tags: item.template.tags,
+          usageCount: item.template.usageCount,
+        }
+      }));
+      
+      console.log(`✅ Found ${templates.length} marketplace templates`);
+      res.json({ templates });
+    } catch (error: any) {
+      console.error("❌ Error fetching marketplace templates:", error);
+      res.status(500).json({ error: "Failed to fetch marketplace templates" });
+    }
+  });
+
+  // POST /api/marketplace/purchase - Purchase a template product (authenticated endpoint)
+  app.post("/api/marketplace/purchase", isAuthenticated, express.json(), async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Validate request body
+      const parseResult = insertTemplatePurchaseSchema.pick({
+        workspaceId: true,
+        templateProductId: true,
+      }).safeParse(req.body);
+
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid request data", 
+          details: parseResult.error.issues 
+        });
+      }
+
+      const { workspaceId, templateProductId } = parseResult.data;
+
+      console.log(`🛒 Processing template purchase: User ${userId}, Workspace ${workspaceId}, Template Product ${templateProductId}`);
+
+      // Check workspace membership and permissions
+      const membership = await storage.getWorkspaceMembership(workspaceId, userId);
+      if (!membership) {
+        console.log(`❌ Unauthorized purchase attempt: User ${userId} not a member of workspace ${workspaceId}`);
+        return res.status(403).json({ 
+          error: "Forbidden: You are not a member of this workspace" 
+        });
+      }
+
+      // Check if user has purchase permissions (owner, admin, or member)
+      if (!["owner", "admin", "member"].includes(membership.role)) {
+        console.log(`❌ Unauthorized purchase attempt: User ${userId} has insufficient permissions (${membership.role}) in workspace ${workspaceId}`);
+        return res.status(403).json({ 
+          error: "Forbidden: You do not have permission to make purchases for this workspace" 
+        });
+      }
+
+      // Get template product details
+      const templateProduct = await storage.getTemplateProduct(templateProductId);
+      if (!templateProduct) {
+        return res.status(404).json({ error: "Template product not found" });
+      }
+
+      if (!templateProduct.isActive) {
+        return res.status(400).json({ error: "Template product is not available for purchase" });
+      }
+
+      // Check for existing purchase (prevent duplicates)
+      const existingPurchase = await storage.checkExistingPurchase(workspaceId, templateProductId);
+      if (existingPurchase) {
+        console.log(`⚠️ Duplicate purchase attempt: Workspace ${workspaceId} already owns template product ${templateProductId}`);
+        return res.status(409).json({ 
+          error: "Template already purchased by this workspace",
+          purchaseId: existingPurchase.id,
+          licenseKey: existingPurchase.licenseKey
+        });
+      }
+
+      // Create purchase record
+      const purchase = await storage.createTemplatePurchase({
+        workspaceId,
+        userId,
+        templateProductId,
+        priceCents: templateProduct.priceCents,
+        currency: templateProduct.currency,
+      });
+
+      // Grant template entitlement for the workspace
+      await storage.createEntitlement({
+        workspaceId,
+        feature: `template:${templateProduct.templateId}` as BillingFeature,
+        templatePurchaseId: purchase.id,
+      });
+
+      console.log(`✅ Template purchase completed: Purchase ID ${purchase.id}, License ${purchase.licenseKey}`);
+      
+      res.status(200).json({
+        purchaseId: purchase.id,
+        licenseKey: purchase.licenseKey,
+        status: "completed",
+        templateProduct: {
+          id: templateProduct.id,
+          name: templateProduct.name,
+          description: templateProduct.description,
+        },
+        purchasedAt: purchase.purchasedAt
+      });
+
+    } catch (error: any) {
+      console.error("❌ Error processing template purchase:", error);
+      res.status(500).json({ error: "Failed to process template purchase" });
     }
   });
   
