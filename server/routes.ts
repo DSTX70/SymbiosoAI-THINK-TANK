@@ -1331,7 +1331,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     requireAuth,
     loadEntitlementsContext,
     express.json(),
-    requireFeature(BILLING_FEATURES.ADVANCED_AI),
+    // Conditional feature requirement: only Expert mode needs workspace context and ADVANCED_AI
+    async (req: any, res: any, next: any) => {
+      try {
+        const body = req.body || {};
+        const mode = body.mode || 'simple';
+        
+        // Expert mode requires workspace context and ADVANCED_AI feature
+        if (mode === 'expert') {
+          const workspaceId = req.params.workspaceId || body.workspaceId || req.query.workspaceId;
+          
+          if (!workspaceId) {
+            return res.status(400).json({ 
+              error: "Workspace context required for Expert mode analysis",
+              code: "WORKSPACE_CONTEXT_REQUIRED" 
+            });
+          }
+          
+          // Apply ADVANCED_AI feature requirement for Expert mode
+          return requireFeature(BILLING_FEATURES.ADVANCED_AI)(req, res, next);
+        }
+        
+        // Simple and Guided modes can proceed without workspace context or ADVANCED_AI
+        next();
+      } catch (error) {
+        console.error('Mode-based feature check failed:', error);
+        res.status(500).json({ 
+          error: "Internal server error",
+          code: "INTERNAL_ERROR" 
+        });
+      }
+    },
     // rateLimiter temporarily disabled for debugging
     // rateLimiter.enterpriseRateLimit('ai_analyses', {
     //   enableBurst: true,
