@@ -64,6 +64,7 @@ import { getCachedLLMResponse } from "./utils/llmCache";
 import { AppError, createValidationError, createAuthenticationError, createCircuitBreakerError, redactSensitiveData } from "./utils/errors";
 // Sprint 11 - Billing & Entitlements imports
 import billingRoutes from "./routes/billing";
+import stripeRoutes from "./routes/stripe";
 import entitlementsRoutes from "./routes/entitlements";
 import adminRoutes from "./routes/admin";
 // Sprint 12 - GA Launch imports
@@ -3051,9 +3052,10 @@ Provide additional insights, explore deeper implications, or address related asp
   
   // Mount Sprint 11 routes
   app.use('/billing', billingRoutes);
+  app.use('/api/stripe', stripeRoutes);
   app.use('/entitlements', entitlementsRoutes);
   app.use('/admin', adminRoutes);
-  console.log('✅ Sprint 11 routes mounted: /billing/*, /entitlements/*, /admin/*');
+  console.log('✅ Sprint 11 routes mounted: /billing/*, /api/stripe/*, /entitlements/*, /admin/*');
 
   // ============================================
   // SPRINT 12 - MOUNT GA LAUNCH ROUTES

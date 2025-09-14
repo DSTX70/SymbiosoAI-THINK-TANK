@@ -11,6 +11,7 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   role: varchar("role").notNull().default("user"), // system_admin, admin, premium_user, user
+  stripeCustomerId: varchar("stripe_customer_id"), // Stripe customer ID for billing
   preferences: jsonb("preferences").default({
     theme: "light",
     language: "en", 

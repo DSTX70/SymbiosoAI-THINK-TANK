@@ -66,7 +66,7 @@ import {
 import { randomUUID } from "crypto";
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
-import { eq, sql, and, not } from 'drizzle-orm';
+import { eq, sql, and, or, not } from 'drizzle-orm';
 import ws from "ws";
 
 neonConfig.webSocketConstructor = ws;
@@ -303,6 +303,17 @@ export interface IStorage {
   getEntitlements(workspaceId: string): Promise<Entitlement[]>;
   revokeEntitlements(workspaceId: string, feature?: BillingFeature): Promise<boolean>;
   checkEntitlement(workspaceId: string, feature: BillingFeature): Promise<boolean>;
+
+  // Stripe integration operations
+  getStripeCustomerByUserId(userId: string): Promise<{ stripeCustomerId: string } | undefined>;
+  updateUserStripeCustomerId(userId: string, stripeCustomerId: string): Promise<void>;
+  createSubscription(subscriptionData: Omit<InsertSubscription, 'id'>): Promise<Subscription>;
+  getSubscriptionByStripeId(stripeSubscriptionId: string): Promise<Subscription | undefined>;
+  updateSubscriptionByStripeId(stripeSubscriptionId: string, updates: Partial<Subscription>): Promise<Subscription | undefined>;
+  getActiveSubscriptionByWorkspaceId(workspaceId: string): Promise<Subscription | undefined>;
+  grantPlanEntitlements(workspaceId: string, plan: string): Promise<void>;
+  revokeAllEntitlements(workspaceId: string): Promise<void>;
+  isWorkspaceAdmin(userId: string, workspaceId: string): Promise<boolean>;
 
   // ============================================
   // SPRINT 4 - Marketplace Operations
@@ -3979,6 +3990,167 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Failed to update seats:', error);
       return undefined;
+    }
+  }
+
+  // ============================================
+  // STRIPE INTEGRATION OPERATIONS
+  // ============================================
+
+  // Stripe customer operations
+  async getStripeCustomerByUserId(userId: string): Promise<{ stripeCustomerId: string } | undefined> {
+    try {
+      const [user] = await db.select({
+        stripeCustomerId: users.stripeCustomerId
+      }).from(users).where(eq(users.id, userId));
+      
+      return user?.stripeCustomerId ? { stripeCustomerId: user.stripeCustomerId } : undefined;
+    } catch (error) {
+      console.error('Failed to get Stripe customer by user ID:', error);
+      return undefined;
+    }
+  }
+
+  async updateUserStripeCustomerId(userId: string, stripeCustomerId: string): Promise<void> {
+    try {
+      await db.update(users)
+        .set({ stripeCustomerId, updatedAt: new Date() })
+        .where(eq(users.id, userId));
+    } catch (error) {
+      console.error('Failed to update user Stripe customer ID:', error);
+      throw error;
+    }
+  }
+
+  // Subscription operations for Stripe
+  async createSubscription(subscriptionData: Omit<InsertSubscription, 'id'>): Promise<Subscription> {
+    try {
+      const [subscription] = await db.insert(subscriptions).values({
+        ...subscriptionData,
+        id: randomUUID(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+      return subscription;
+    } catch (error) {
+      console.error('Failed to create subscription:', error);
+      throw error;
+    }
+  }
+
+  async getSubscription(subscriptionId: string): Promise<Subscription | undefined> {
+    try {
+      const [subscription] = await db.select().from(subscriptions)
+        .where(eq(subscriptions.id, subscriptionId));
+      return subscription;
+    } catch (error) {
+      console.error('Failed to get subscription:', error);
+      return undefined;
+    }
+  }
+
+  async getSubscriptionByStripeId(stripeSubscriptionId: string): Promise<Subscription | undefined> {
+    try {
+      const [subscription] = await db.select().from(subscriptions)
+        .where(eq(subscriptions.stripeSubscriptionId, stripeSubscriptionId));
+      return subscription;
+    } catch (error) {
+      console.error('Failed to get subscription by Stripe ID:', error);
+      return undefined;
+    }
+  }
+
+  async updateSubscription(subscriptionId: string, updates: Partial<Subscription>): Promise<Subscription | undefined> {
+    try {
+      const [subscription] = await db.update(subscriptions)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(subscriptions.id, subscriptionId))
+        .returning();
+      return subscription;
+    } catch (error) {
+      console.error('Failed to update subscription:', error);
+      return undefined;
+    }
+  }
+
+  async updateSubscriptionByStripeId(stripeSubscriptionId: string, updates: Partial<Subscription>): Promise<Subscription | undefined> {
+    try {
+      const [subscription] = await db.update(subscriptions)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(subscriptions.stripeSubscriptionId, stripeSubscriptionId))
+        .returning();
+      return subscription;
+    } catch (error) {
+      console.error('Failed to update subscription by Stripe ID:', error);
+      return undefined;
+    }
+  }
+
+  async getActiveSubscriptionByWorkspaceId(workspaceId: string): Promise<Subscription | undefined> {
+    try {
+      const [subscription] = await db.select().from(subscriptions)
+        .where(
+          and(
+            eq(subscriptions.workspaceId, workspaceId),
+            or(
+              eq(subscriptions.status, 'active'),
+              eq(subscriptions.status, 'trialing'),
+              eq(subscriptions.status, 'past_due')
+            )
+          )
+        )
+        .orderBy(desc(subscriptions.createdAt))
+        .limit(1);
+      return subscription;
+    } catch (error) {
+      console.error('Failed to get active subscription by workspace ID:', error);
+      return undefined;
+    }
+  }
+
+  // Entitlements operations for Stripe
+  async grantPlanEntitlements(workspaceId: string, plan: string): Promise<void> {
+    try {
+      // Get plan features from entitlements middleware
+      const { PLAN_FEATURES } = await import('./middleware/entitlements');
+      const features = PLAN_FEATURES[plan as keyof typeof PLAN_FEATURES] || [];
+      
+      // Grant each feature
+      for (const feature of features) {
+        await db.insert(entitlements).values({
+          id: randomUUID(),
+          workspaceId,
+          feature,
+          grantedAt: new Date(),
+        }).onConflictDoNothing();
+      }
+    } catch (error) {
+      console.error('Failed to grant plan entitlements:', error);
+      throw error;
+    }
+  }
+
+  async revokeAllEntitlements(workspaceId: string): Promise<void> {
+    try {
+      await db.delete(entitlements)
+        .where(eq(entitlements.workspaceId, workspaceId));
+    } catch (error) {
+      console.error('Failed to revoke entitlements:', error);
+      throw error;
+    }
+  }
+
+  async isWorkspaceAdmin(userId: string, workspaceId: string): Promise<boolean> {
+    try {
+      const membership = await this.getWorkspaceMembership(workspaceId, userId);
+      if (!membership) {
+        return false;
+      }
+      // Check if user has admin or owner role in the workspace
+      return membership.role === 'admin' || membership.role === 'owner';
+    } catch (error) {
+      console.error('Failed to check workspace admin status:', error);
+      return false;
     }
   }
 
