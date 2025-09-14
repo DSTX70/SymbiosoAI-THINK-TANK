@@ -14,6 +14,13 @@ import TutorialsPage from "@/pages/tutorials";
 import BillingPage from "@/pages/billing";
 import MarketplacePage from "@/pages/marketplace";
 import Landing from "@/pages/landing";
+import TrustCenter from "@/pages/trust-center";
+import TrustCenterSecurity from "@/pages/trust-center-security";
+import TrustCenterPrivacy from "@/pages/trust-center-privacy";
+import TrustCenterTerms from "@/pages/trust-center-terms";
+import TrustCenterDataProcessing from "@/pages/trust-center-data-processing";
+import TrustCenterCompliance from "@/pages/trust-center-compliance";
+import TrustCenterContact from "@/pages/trust-center-contact";
 import BottomNavigation from "@/components/BottomNavigation";
 import DesktopSidebar from "@/components/DesktopSidebar";
 import OfflineBanner from "@/components/OfflineBanner";
@@ -49,6 +56,13 @@ function Router() {
           <Route path="/tutorials" component={TutorialsPage} />
           <Route path="/billing" component={BillingPage} />
           <Route path="/marketplace" component={MarketplacePage} />
+          <Route path="/trust-center" component={TrustCenter} />
+          <Route path="/trust-center/security" component={TrustCenterSecurity} />
+          <Route path="/trust-center/privacy" component={TrustCenterPrivacy} />
+          <Route path="/trust-center/terms" component={TrustCenterTerms} />
+          <Route path="/trust-center/data-processing" component={TrustCenterDataProcessing} />
+          <Route path="/trust-center/compliance" component={TrustCenterCompliance} />
+          <Route path="/trust-center/contact" component={TrustCenterContact} />
           <Route component={() => <div>Page not found</div>} />
         </Switch>
       </div>
