@@ -8,7 +8,13 @@ import {
   brainstormResponseSchema, type BrainstormResponse,
   reportRequestSchema, type ReportRequest, type ReportResponse,
   insertSubscriptionSchema, insertEntitlementSchema, type BillingFeature,
-  insertTemplatePurchaseSchema
+  insertTemplatePurchaseSchema,
+  // Sprint 5 - Reviews/Approvals system imports
+  insertReviewSchema, insertReviewStepSchema, type Review, type ReviewStep,
+  // Sprint 5 - Retention/Legal Hold system imports
+  insertRetentionPolicySchema, insertLegalHoldSchema, type RetentionPolicy, type LegalHold,
+  // Sprint 5 - SCIM provisioning imports
+  insertScimUserSchema, insertScimGroupSchema, type ScimUser, type ScimGroup
 } from "@shared/schema";
 import { runMultiAgentDebate, runBrainstormingSession, runReportGeneration } from "./ai-service";
 import { perplexityService } from "./services/perplexity";
@@ -231,6 +237,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Initialize Replit OpenID Connect authentication
   await setupAuth(app);
+
+  // Register Sprint 5 routes
+  const { registerReviewRoutes } = await import("./routes/reviews");
+  registerReviewRoutes(app);
+
+  // Sprint 5 - Feature flags API endpoint
+  app.get('/api/feature-flags', async (req, res) => {
+    try {
+      // Return feature flags for Sprint 5
+      const featureFlags = {
+        reviews_enabled: true,
+        retention_admin_enabled: true, 
+        scim_provisioning_enabled: true,
+        saml_auth_enabled: true,
+        advanced_analytics_enabled: false,
+        enterprise_features_enabled: true,
+      };
+
+      console.log('🏁 Feature flags requested:', featureFlags);
+      res.json(featureFlags);
+    } catch (error: any) {
+      console.error('❌ Feature flags error:', error);
+      res.status(500).json({ 
+        message: 'Failed to fetch feature flags',
+        error: error.message 
+      });
+    }
+  });
 
   // Enterprise middleware temporarily disabled for debugging
   /*
@@ -2395,6 +2429,364 @@ Provide additional insights, explore deeper implications, or address related asp
     }
   });
   
+  // =============================================================================
+  // SPRINT 5 API ENDPOINTS
+  // =============================================================================
+  
+  // ----------------------
+  // Reviews/Approvals System
+  // ----------------------
+  
+  // TEST route to verify routing works
+  app.get("/api/sprint5/test", (req: any, res) => {
+    res.status(200).json({ 
+      message: "Sprint 5 routes are working!",
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // POST /reviews - Create a new review
+  app.post("/api/reviews", 
+    requireAuth,
+    requireSystemRole("admin"),
+    express.json(),
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        
+        const reviewData = insertReviewSchema.parse({
+          ...req.body,
+          requesterId: userId
+        });
+        
+        const review = await storage.createReview(reviewData);
+        res.status(201).json(review);
+      } catch (error: any) {
+        console.error("Create review error:", error);
+        res.status(400).json({ error: error.message });
+      }
+    }
+  );
+
+  // GET /reviews - List all reviews
+  app.get("/api/reviews", 
+    requireAuth,
+    requireSystemRole("admin"),
+    async (req: any, res) => {
+      try {
+        const reviews = await storage.getReviews();
+        res.status(200).json(reviews);
+      } catch (error: any) {
+        console.error("Get reviews error:", error);
+        res.status(500).json({ error: "Failed to fetch reviews" });
+      }
+    }
+  );
+
+  // POST /reviews/:id/approve - Approve a review
+  app.post("/api/reviews/:id/approve",
+    requireAuth,
+    requireSystemRole("admin"),
+    express.json(),
+    async (req: any, res) => {
+      try {
+        const reviewId = req.params.id;
+        const userId = req.user.claims.sub;
+        
+        const review = await storage.getReview(reviewId);
+        if (!review) {
+          return res.status(404).json({ error: "Review not found" });
+        }
+        
+        const updatedReview = await storage.updateReview(reviewId, {
+          status: "approved",
+          reviewedById: userId,
+          reviewedAt: new Date(),
+          comments: req.body.comments || ""
+        });
+        
+        res.status(200).json(updatedReview);
+      } catch (error: any) {
+        console.error("Approve review error:", error);
+        res.status(500).json({ error: "Failed to approve review" });
+      }
+    }
+  );
+
+  // POST /reviews/:id/reject - Reject a review
+  app.post("/api/reviews/:id/reject",
+    requireAuth,
+    requireSystemRole("admin"),
+    express.json(),
+    async (req: any, res) => {
+      try {
+        const reviewId = req.params.id;
+        const userId = req.user.claims.sub;
+        
+        const review = await storage.getReview(reviewId);
+        if (!review) {
+          return res.status(404).json({ error: "Review not found" });
+        }
+        
+        const updatedReview = await storage.updateReview(reviewId, {
+          status: "rejected", 
+          reviewedById: userId,
+          reviewedAt: new Date(),
+          comments: req.body.comments || ""
+        });
+        
+        res.status(200).json(updatedReview);
+      } catch (error: any) {
+        console.error("Reject review error:", error);
+        res.status(500).json({ error: "Failed to reject review" });
+      }
+    }
+  );
+
+  // ----------------------
+  // Retention/Legal Hold System
+  // ----------------------
+  
+  // GET /admin/retention/policies - List retention policies
+  app.get("/api/admin/retention/policies",
+    requireAuth,
+    requireSystemRole("admin"),
+    async (req: any, res) => {
+      try {
+        const policies = await storage.getRetentionPolicies(''); // Empty string for all orgs in development
+        res.status(200).json(policies);
+      } catch (error: any) {
+        console.error("Get retention policies error:", error);
+        res.status(500).json({ error: "Failed to fetch retention policies" });
+      }
+    }
+  );
+
+  // POST /admin/retention/policies - Create retention policy
+  app.post("/api/admin/retention/policies",
+    requireAuth,
+    requireSystemRole("admin"),
+    express.json(),
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        
+        const policyData = insertRetentionPolicySchema.parse({
+          ...req.body,
+          createdById: userId
+        });
+        
+        const policy = await storage.createRetentionPolicy(policyData);
+        res.status(201).json(policy);
+      } catch (error: any) {
+        console.error("Create retention policy error:", error);
+        res.status(400).json({ error: error.message });
+      }
+    }
+  );
+
+  // POST /admin/retention/legal-hold - Toggle legal hold
+  app.post("/api/admin/retention/legal-hold",
+    requireAuth,
+    requireSystemRole("admin"), 
+    express.json(),
+    async (req: any, res) => {
+      try {
+        const userId = req.user.claims.sub;
+        
+        const legalHoldData = insertLegalHoldSchema.parse({
+          ...req.body,
+          createdById: userId
+        });
+        
+        const legalHold = await storage.createLegalHold(legalHoldData);
+        res.status(200).json(legalHold);
+      } catch (error: any) {
+        console.error("Legal hold error:", error);
+        res.status(400).json({ error: error.message });
+      }
+    }
+  );
+
+  // ----------------------
+  // SCIM v1 API (Mock Provisioning)
+  // ----------------------
+
+  // SCIM Bearer Token validation middleware
+  const validateScimToken = (req: any, res: any, next: any) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ 
+        error: "Unauthorized: SCIM Bearer token required" 
+      });
+    }
+    
+    const token = authHeader.substring(7);
+    const expectedToken = process.env.SCIM_BEARER_TOKEN || 'scim-test-token-123';
+    
+    if (token !== expectedToken) {
+      return res.status(401).json({ 
+        error: "Unauthorized: Invalid SCIM Bearer token" 
+      });
+    }
+    
+    next();
+  };
+
+  // GET /scim/Users - List SCIM users
+  app.get("/scim/Users",
+    validateScimToken,
+    async (req: any, res) => {
+      try {
+        const scimUsers = await storage.getScimUsers('default-org'); // Use default org for development
+        
+        res.status(200).json({
+          schemas: ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
+          totalResults: scimUsers.length,
+          startIndex: 1,
+          itemsPerPage: scimUsers.length,
+          Resources: scimUsers.map(user => ({
+            ...user,
+            schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
+            meta: {
+              resourceType: "User",
+              created: user.createdAt,
+              lastModified: user.updatedAt,
+              location: `/scim/Users/${user.id}`
+            }
+          }))
+        });
+      } catch (error: any) {
+        console.error("Get SCIM users error:", error);
+        res.status(500).json({ 
+          error: "Failed to fetch SCIM users",
+          schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"]
+        });
+      }
+    }
+  );
+
+  // POST /scim/Users - Create SCIM user
+  app.post("/scim/Users",
+    validateScimToken,
+    express.json(),
+    async (req: any, res) => {
+      try {
+        // Extract user data from SCIM format
+        const scimUserData = insertScimUserSchema.parse({
+          userName: req.body.userName,
+          displayName: req.body.displayName || req.body.name?.formatted,
+          givenName: req.body.name?.givenName,
+          familyName: req.body.name?.familyName,
+          email: req.body.emails?.[0]?.value,
+          active: req.body.active !== undefined ? req.body.active : true,
+          externalId: req.body.externalId || req.body.userName,
+          organizationId: 'default-org',
+          scimId: `scim-${Date.now()}`,
+          attributes: req.body
+        });
+        
+        const scimUser = await storage.createScimUser(scimUserData);
+        
+        res.status(201).json({
+          ...scimUser,
+          schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
+          name: {
+            formatted: scimUser.displayName,
+            givenName: scimUser.givenName,
+            familyName: scimUser.familyName
+          },
+          emails: scimUser.email ? [{
+            value: scimUser.email,
+            primary: true
+          }] : [],
+          meta: {
+            resourceType: "User",
+            created: scimUser.createdAt,
+            lastModified: scimUser.updatedAt,
+            location: `/scim/Users/${scimUser.id}`
+          }
+        });
+      } catch (error: any) {
+        console.error("Create SCIM user error:", error);
+        res.status(400).json({ 
+          error: error.message,
+          schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"]
+        });
+      }
+    }
+  );
+
+  // PATCH /scim/Users/:id - Update SCIM user
+  app.patch("/scim/Users/:id",
+    validateScimToken,
+    express.json(),
+    async (req: any, res) => {
+      try {
+        const userId = req.params.id;
+        
+        const existingUser = await storage.getScimUser(userId);
+        if (!existingUser) {
+          return res.status(404).json({ 
+            error: "User not found",
+            schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"]
+          });
+        }
+
+        // Handle SCIM PATCH operations
+        const updates: any = {};
+        
+        if (req.body.Operations) {
+          // Handle RFC7644 PATCH operations
+          for (const operation of req.body.Operations) {
+            if (operation.op === 'replace') {
+              if (operation.path === 'active') {
+                updates.active = operation.value;
+              } else if (operation.path === 'displayName') {
+                updates.displayName = operation.value;
+              }
+              // Add more PATCH operation handling as needed
+            }
+          }
+        } else {
+          // Handle direct property updates
+          if (req.body.active !== undefined) updates.active = req.body.active;
+          if (req.body.displayName) updates.displayName = req.body.displayName;
+          if (req.body.userName) updates.userName = req.body.userName;
+          if (req.body.emails?.[0]?.value) updates.email = req.body.emails[0].value;
+        }
+        
+        const updatedUser = await storage.updateScimUser(userId, updates);
+        
+        res.status(200).json({
+          ...updatedUser,
+          schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
+          name: {
+            formatted: updatedUser.displayName,
+            givenName: updatedUser.givenName,
+            familyName: updatedUser.familyName
+          },
+          emails: updatedUser.email ? [{
+            value: updatedUser.email,
+            primary: true
+          }] : [],
+          meta: {
+            resourceType: "User",
+            created: updatedUser.createdAt,
+            lastModified: updatedUser.updatedAt,
+            location: `/scim/Users/${updatedUser.id}`
+          }
+        });
+      } catch (error: any) {
+        console.error("Update SCIM user error:", error);
+        res.status(500).json({ 
+          error: "Failed to update SCIM user",
+          schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"]
+        });
+      }
+    }
+  );
+
   // Register automation routes
   registerAutomationRoutes(app);
 

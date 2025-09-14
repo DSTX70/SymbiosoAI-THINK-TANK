@@ -15,7 +15,12 @@ export const BILLING_FEATURES = {
   ADVANCED_ANALYTICS: "advanced_analytics",
   PRIORITY_QUEUE: "priority_queue",
   DEDICATED_SUPPORT: "dedicated_support",
-  CUSTOM_WORKFLOWS: "custom_workflows"
+  CUSTOM_WORKFLOWS: "custom_workflows",
+  // Sprint 5 feature flags
+  REVIEWS_ENABLED: "reviews_enabled",
+  RETENTION_ADMIN_ENABLED: "retention_admin_enabled", 
+  SCIM_PROVISIONING_ENABLED: "scim_provisioning_enabled",
+  SAML_AUTH_ENABLED: "saml_auth_enabled"
 } as const;
 
 export type BillingFeature = typeof BILLING_FEATURES[keyof typeof BILLING_FEATURES];
@@ -84,7 +89,12 @@ export const PLAN_FEATURES = {
     BILLING_FEATURES.ADVANCED_ANALYTICS,
     BILLING_FEATURES.PRIORITY_QUEUE,
     BILLING_FEATURES.DEDICATED_SUPPORT,
-    BILLING_FEATURES.CUSTOM_WORKFLOWS
+    BILLING_FEATURES.CUSTOM_WORKFLOWS,
+    // Sprint 5 enterprise features
+    BILLING_FEATURES.REVIEWS_ENABLED,
+    BILLING_FEATURES.RETENTION_ADMIN_ENABLED,
+    BILLING_FEATURES.SCIM_PROVISIONING_ENABLED,
+    BILLING_FEATURES.SAML_AUTH_ENABLED
   ] as BillingFeature[],
   custom: [] as BillingFeature[] // Custom plans have entitlements defined individually
 } as const;
@@ -377,7 +387,13 @@ export function useEntitlements(workspaceId?: string) {
     advancedAnalytics: () => workspaceEntitlements.hasFeature(BILLING_FEATURES.ADVANCED_ANALYTICS),
     priorityQueue: () => workspaceEntitlements.hasFeature(BILLING_FEATURES.PRIORITY_QUEUE),
     dedicatedSupport: () => workspaceEntitlements.hasFeature(BILLING_FEATURES.DEDICATED_SUPPORT),
-    customWorkflows: () => workspaceEntitlements.hasFeature(BILLING_FEATURES.CUSTOM_WORKFLOWS)
+    customWorkflows: () => workspaceEntitlements.hasFeature(BILLING_FEATURES.CUSTOM_WORKFLOWS),
+    
+    // Sprint 5 feature flags
+    useReviews: () => workspaceEntitlements.hasFeature(BILLING_FEATURES.REVIEWS_ENABLED),
+    useRetentionAdmin: () => workspaceEntitlements.hasFeature(BILLING_FEATURES.RETENTION_ADMIN_ENABLED),
+    useScimProvisioning: () => workspaceEntitlements.hasFeature(BILLING_FEATURES.SCIM_PROVISIONING_ENABLED),
+    useSamlAuth: () => workspaceEntitlements.hasFeature(BILLING_FEATURES.SAML_AUTH_ENABLED)
   };
 
   return {

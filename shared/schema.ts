@@ -1804,3 +1804,676 @@ export type OnboardingProgress = {
   feature_usage: Record<string, number>;
 };
 
+// ============================================
+// SPRINT 5 - REVIEWS/APPROVALS SYSTEM
+// ============================================
+
+// Main reviews table for approval workflows
+export const reviews = pgTable("reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id"), // Optional organization scope
+  workspaceId: varchar("workspace_id"), // Optional workspace scope
+  initiatorId: varchar("initiator_id").notNull(), // User who started the review
+  resourceType: varchar("resource_type").notNull(), // analysis_session, report, export, template, etc.
+  resourceId: varchar("resource_id").notNull(), // ID of the resource being reviewed
+  reviewType: varchar("review_type").notNull(), // content, export, policy, security, quality
+  title: text("title").notNull(), // Human-readable review title
+  description: text("description"), // Optional description of what's being reviewed
+  status: varchar("status").notNull().default("pending"), // pending, in_progress, approved, rejected, cancelled
+  priority: varchar("priority").notNull().default("medium"), // low, medium, high, urgent
+  dueDate: timestamp("due_date"), // Optional deadline for review completion
+  approvedAt: timestamp("approved_at"),
+  rejectedAt: timestamp("rejected_at"),
+  completedAt: timestamp("completed_at"),
+  completedBy: varchar("completed_by"), // User who completed the final review
+  metadata: jsonb("metadata").default({}), // Review configuration and context
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("reviews_org_idx").on(table.organizationId),
+  index("reviews_workspace_idx").on(table.workspaceId),
+  index("reviews_initiator_idx").on(table.initiatorId),
+  index("reviews_resource_idx").on(table.resourceType, table.resourceId),
+  index("reviews_status_idx").on(table.status),
+  index("reviews_priority_idx").on(table.priority),
+  index("reviews_due_date_idx").on(table.dueDate),
+]);
+
+// Individual steps in approval workflows
+export const reviewSteps = pgTable("review_steps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reviewId: varchar("review_id").notNull(), // Parent review
+  stepNumber: integer("step_number").notNull(), // Order in the approval sequence
+  stepType: varchar("step_type").notNull(), // approval, review, verification, notification
+  title: text("title").notNull(), // Step title
+  description: text("description"), // Step description or instructions
+  status: varchar("status").notNull().default("pending"), // pending, in_progress, completed, skipped
+  isRequired: boolean("is_required").default(true).notNull(), // Whether this step is mandatory
+  canSkip: boolean("can_skip").default(false).notNull(), // Whether this step can be skipped
+  autoComplete: boolean("auto_complete").default(false).notNull(), // Whether step completes automatically
+  conditions: jsonb("conditions").default({}), // Conditions that must be met to proceed
+  completedAt: timestamp("completed_at"),
+  completedBy: varchar("completed_by"), // User who completed this step
+  skipReason: text("skip_reason"), // Reason if step was skipped
+  metadata: jsonb("metadata").default({}), // Step-specific configuration
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("review_steps_review_idx").on(table.reviewId),
+  index("review_steps_order_idx").on(table.reviewId, table.stepNumber),
+  index("review_steps_status_idx").on(table.status),
+  index("review_steps_type_idx").on(table.stepType),
+]);
+
+// Assignments of reviewers to specific reviews/steps
+export const reviewAssignments = pgTable("review_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reviewId: varchar("review_id").notNull(), // Parent review
+  stepId: varchar("step_id"), // Optional specific step (null = applies to entire review)
+  assigneeId: varchar("assignee_id").notNull(), // User assigned to review
+  assigneeType: varchar("assignee_type").notNull().default("user"), // user, team, role
+  assignerRole: varchar("assigner_role").notNull(), // approver, reviewer, observer, required_signer
+  isRequired: boolean("is_required").default(true).notNull(), // Whether this person's approval is required
+  canDelegate: boolean("can_delegate").default(false).notNull(), // Whether assignee can delegate to others
+  delegatedTo: varchar("delegated_to"), // User this assignment was delegated to
+  status: varchar("status").notNull().default("assigned"), // assigned, accepted, completed, declined, delegated
+  response: varchar("response"), // approve, reject, request_changes, no_objection
+  responseReason: text("response_reason"), // Explanation for the response
+  respondedAt: timestamp("responded_at"),
+  assignedAt: timestamp("assigned_at").defaultNow(),
+  notifiedAt: timestamp("notified_at"), // When assignee was notified
+  metadata: jsonb("metadata").default({}), // Assignment-specific data
+}, (table) => [
+  index("review_assignments_review_idx").on(table.reviewId),
+  index("review_assignments_step_idx").on(table.stepId),
+  index("review_assignments_assignee_idx").on(table.assigneeId),
+  index("review_assignments_status_idx").on(table.status),
+  index("review_assignments_role_idx").on(table.assignerRole),
+]);
+
+// Comments and feedback during review processes
+export const reviewComments = pgTable("review_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reviewId: varchar("review_id").notNull(), // Parent review
+  stepId: varchar("step_id"), // Optional specific step
+  assignmentId: varchar("assignment_id"), // Optional specific assignment
+  authorId: varchar("author_id").notNull(), // User who wrote the comment
+  commentType: varchar("comment_type").notNull().default("comment"), // comment, question, suggestion, objection, approval_note
+  content: text("content").notNull(), // Comment content
+  isInternal: boolean("is_internal").default(false).notNull(), // Whether comment is internal to reviewers
+  isResolved: boolean("is_resolved").default(false).notNull(), // Whether comment/issue is resolved
+  resolvedBy: varchar("resolved_by"), // User who marked as resolved
+  resolvedAt: timestamp("resolved_at"),
+  parentCommentId: varchar("parent_comment_id"), // For threaded conversations
+  attachments: jsonb("attachments").default([]), // File attachments
+  metadata: jsonb("metadata").default({}), // Comment metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("review_comments_review_idx").on(table.reviewId),
+  index("review_comments_step_idx").on(table.stepId),
+  index("review_comments_assignment_idx").on(table.assignmentId),
+  index("review_comments_author_idx").on(table.authorId),
+  index("review_comments_type_idx").on(table.commentType),
+  index("review_comments_parent_idx").on(table.parentCommentId),
+  index("review_comments_resolved_idx").on(table.isResolved),
+]);
+
+// ============================================
+// SPRINT 5 - RETENTION/LEGAL HOLD SYSTEM
+// ============================================
+
+// Data retention policies and rules
+export const retentionPolicies = pgTable("retention_policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(), // Organization that owns this policy
+  name: varchar("name").notNull(), // Policy name
+  description: text("description"), // Policy description
+  dataType: varchar("data_type").notNull(), // analysis_sessions, reports, exports, chat_messages, etc.
+  retentionPeriodDays: integer("retention_period_days").notNull(), // How long to keep data
+  gracePeriodDays: integer("grace_period_days").default(30).notNull(), // Grace period before deletion
+  isActive: boolean("is_active").default(true).notNull(), // Whether policy is active
+  priority: integer("priority").default(0).notNull(), // Policy priority (higher wins)
+  conditions: jsonb("conditions").default({}), // Conditions for when this policy applies
+  actions: jsonb("actions").default({}), // Actions to take when retention period expires
+  exemptions: jsonb("exemptions").default([]), // Conditions that exempt data from this policy
+  lastRunAt: timestamp("last_run_at"), // When policy was last executed
+  nextRunAt: timestamp("next_run_at"), // When policy should run next
+  createdBy: varchar("created_by").notNull(), // User who created the policy
+  approvedBy: varchar("approved_by"), // User who approved the policy (if required)
+  approvedAt: timestamp("approved_at"),
+  metadata: jsonb("metadata").default({}), // Additional policy configuration
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("retention_policies_org_idx").on(table.organizationId),
+  index("retention_policies_data_type_idx").on(table.dataType),
+  index("retention_policies_active_idx").on(table.isActive),
+  index("retention_policies_next_run_idx").on(table.nextRunAt),
+  index("retention_policies_priority_idx").on(table.priority),
+]);
+
+// Legal hold orders that override retention policies
+export const legalHolds = pgTable("legal_holds", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(), // Organization under legal hold
+  name: varchar("name").notNull(), // Legal hold name/identifier
+  description: text("description"), // Description of the legal matter
+  holdType: varchar("hold_type").notNull(), // litigation, investigation, audit, regulatory
+  status: varchar("status").notNull().default("active"), // active, released, pending, suspended
+  custodians: jsonb("custodians").default([]), // List of user IDs whose data is on hold
+  dataTypes: jsonb("data_types").default([]), // Types of data covered by hold
+  dateRangeStart: timestamp("date_range_start"), // Start date for data coverage
+  dateRangeEnd: timestamp("date_range_end"), // End date for data coverage
+  searchCriteria: jsonb("search_criteria").default({}), // Criteria for identifying relevant data
+  legalCounsel: varchar("legal_counsel"), // Legal counsel managing this hold
+  matter: varchar("matter"), // Legal matter/case identifier
+  courtOrder: varchar("court_order"), // Court order reference if applicable
+  releasedAt: timestamp("released_at"), // When hold was released
+  releasedBy: varchar("released_by"), // User who released the hold
+  releaseReason: text("release_reason"), // Reason for releasing hold
+  createdBy: varchar("created_by").notNull(), // User who created the hold
+  approvedBy: varchar("approved_by"), // User who approved the hold
+  approvedAt: timestamp("approved_at"),
+  metadata: jsonb("metadata").default({}), // Additional hold configuration
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("legal_holds_org_idx").on(table.organizationId),
+  index("legal_holds_status_idx").on(table.status),
+  index("legal_holds_type_idx").on(table.holdType),
+  index("legal_holds_date_range_idx").on(table.dateRangeStart, table.dateRangeEnd),
+  index("legal_holds_counsel_idx").on(table.legalCounsel),
+]);
+
+// Scheduled retention and deletion jobs
+export const retentionJobs = pgTable("retention_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(), // Organization this job belongs to
+  policyId: varchar("policy_id").notNull(), // Retention policy being executed
+  jobType: varchar("job_type").notNull(), // scan, delete, archive, notify
+  status: varchar("status").notNull().default("pending"), // pending, running, completed, failed, cancelled
+  scheduledAt: timestamp("scheduled_at").notNull(), // When job is scheduled to run
+  startedAt: timestamp("started_at"), // When job actually started
+  completedAt: timestamp("completed_at"), // When job completed
+  dataType: varchar("data_type").notNull(), // Type of data being processed
+  targetCount: integer("target_count"), // Number of records to process
+  processedCount: integer("processed_count").default(0).notNull(), // Number processed so far
+  deletedCount: integer("deleted_count").default(0).notNull(), // Number actually deleted
+  skippedCount: integer("skipped_count").default(0).notNull(), // Number skipped (legal hold, etc.)
+  errorCount: integer("error_count").default(0).notNull(), // Number of errors encountered
+  results: jsonb("results").default({}), // Detailed results of job execution
+  errorLog: text("error_log"), // Error messages if job failed
+  dryRun: boolean("dry_run").default(false).notNull(), // Whether this is a test run
+  createdBy: varchar("created_by").notNull(), // User who scheduled the job
+  metadata: jsonb("metadata").default({}), // Job-specific configuration
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("retention_jobs_org_idx").on(table.organizationId),
+  index("retention_jobs_policy_idx").on(table.policyId),
+  index("retention_jobs_status_idx").on(table.status),
+  index("retention_jobs_scheduled_idx").on(table.scheduledAt),
+  index("retention_jobs_type_idx").on(table.jobType, table.dataType),
+]);
+
+// Classification of data for retention purposes
+export const dataClassifications = pgTable("data_classifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(), // Organization that owns this classification
+  resourceType: varchar("resource_type").notNull(), // analysis_session, report, export, etc.
+  resourceId: varchar("resource_id").notNull(), // ID of the classified resource
+  classification: varchar("classification").notNull(), // public, internal, confidential, restricted, top_secret
+  dataTypes: jsonb("data_types").default([]), // Types of data contained (pii, phi, financial, etc.)
+  sensitivity: varchar("sensitivity").notNull().default("medium"), // low, medium, high, critical
+  retentionCategory: varchar("retention_category"), // business_records, legal_documents, operational_data, etc.
+  isAutomaticallyClassified: boolean("is_automatically_classified").default(false).notNull(), // Whether auto-classified
+  confidenceScore: integer("confidence_score"), // Confidence in automatic classification (0-100)
+  reviewRequired: boolean("review_required").default(false).notNull(), // Whether classification needs human review
+  reviewedBy: varchar("reviewed_by"), // User who reviewed the classification
+  reviewedAt: timestamp("reviewed_at"),
+  classifiedBy: varchar("classified_by").notNull(), // User or system that classified the data
+  justification: text("justification"), // Reason for this classification
+  tags: jsonb("tags").default([]), // Additional classification tags
+  metadata: jsonb("metadata").default({}), // Classification metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("data_classifications_org_idx").on(table.organizationId),
+  index("data_classifications_resource_idx").on(table.resourceType, table.resourceId),
+  index("data_classifications_classification_idx").on(table.classification),
+  index("data_classifications_sensitivity_idx").on(table.sensitivity),
+  index("data_classifications_category_idx").on(table.retentionCategory),
+  index("data_classifications_review_idx").on(table.reviewRequired),
+  // Ensure unique classification per resource
+  unique("data_classifications_resource_unique").on(table.resourceType, table.resourceId),
+]);
+
+// ============================================
+// SPRINT 5 - SCIM USER PROVISIONING SYSTEM
+// ============================================
+
+// SCIM-provisioned users from identity providers
+export const scimUsers = pgTable("scim_users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(), // Organization this SCIM user belongs to
+  externalId: varchar("external_id").notNull(), // ID from the identity provider
+  scimId: varchar("scim_id").unique().notNull(), // SCIM protocol user ID
+  userName: varchar("user_name").notNull(), // SCIM userName attribute
+  email: varchar("email").notNull(), // Primary email address
+  firstName: varchar("first_name"), // Given name
+  lastName: varchar("last_name"), // Family name
+  displayName: varchar("display_name"), // Display name
+  active: boolean("active").default(true).notNull(), // Whether user is active
+  localUserId: varchar("local_user_id"), // Linked local user account ID
+  department: varchar("department"), // User's department
+  title: varchar("title"), // Job title
+  manager: varchar("manager"), // Manager's SCIM ID
+  employeeNumber: varchar("employee_number"), // Employee ID
+  costCenter: varchar("cost_center"), // Cost center
+  division: varchar("division"), // Division/business unit
+  customAttributes: jsonb("custom_attributes").default({}), // Additional SCIM attributes
+  lastSyncAt: timestamp("last_sync_at"), // When this user was last synced
+  syncStatus: varchar("sync_status").notNull().default("active"), // active, inactive, error, pending
+  syncError: text("sync_error"), // Last sync error message
+  provisionedAt: timestamp("provisioned_at").defaultNow(), // When user was first provisioned
+  deprovisionedAt: timestamp("deprovisioned_at"), // When user was deprovisioned
+  metadata: jsonb("metadata").default({}), // Additional SCIM metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("scim_users_org_idx").on(table.organizationId),
+  index("scim_users_external_id_idx").on(table.externalId),
+  index("scim_users_email_idx").on(table.email),
+  index("scim_users_username_idx").on(table.userName),
+  index("scim_users_local_user_idx").on(table.localUserId),
+  index("scim_users_active_idx").on(table.active),
+  index("scim_users_sync_status_idx").on(table.syncStatus),
+  index("scim_users_last_sync_idx").on(table.lastSyncAt),
+  // Ensure unique external ID per organization
+  unique("scim_users_org_external_unique").on(table.organizationId, table.externalId),
+]);
+
+// SCIM groups for role and permission mapping
+export const scimGroups = pgTable("scim_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(), // Organization this group belongs to
+  externalId: varchar("external_id").notNull(), // ID from the identity provider
+  scimId: varchar("scim_id").unique().notNull(), // SCIM protocol group ID
+  displayName: varchar("display_name").notNull(), // Group display name
+  description: text("description"), // Group description
+  groupType: varchar("group_type").default("role"), // role, team, department, project, custom
+  mappedRole: varchar("mapped_role"), // Local role this group maps to
+  mappedTeamId: varchar("mapped_team_id"), // Local team this group maps to
+  permissions: jsonb("permissions").default([]), // Permissions granted by this group
+  customAttributes: jsonb("custom_attributes").default({}), // Additional SCIM attributes
+  lastSyncAt: timestamp("last_sync_at"), // When this group was last synced
+  syncStatus: varchar("sync_status").notNull().default("active"), // active, inactive, error, pending
+  syncError: text("sync_error"), // Last sync error message
+  memberCount: integer("member_count").default(0).notNull(), // Cached member count
+  provisionedAt: timestamp("provisioned_at").defaultNow(), // When group was first provisioned
+  deprovisionedAt: timestamp("deprovisioned_at"), // When group was deprovisioned
+  metadata: jsonb("metadata").default({}), // Additional SCIM metadata
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("scim_groups_org_idx").on(table.organizationId),
+  index("scim_groups_external_id_idx").on(table.externalId),
+  index("scim_groups_display_name_idx").on(table.displayName),
+  index("scim_groups_type_idx").on(table.groupType),
+  index("scim_groups_mapped_role_idx").on(table.mappedRole),
+  index("scim_groups_mapped_team_idx").on(table.mappedTeamId),
+  index("scim_groups_sync_status_idx").on(table.syncStatus),
+  index("scim_groups_last_sync_idx").on(table.lastSyncAt),
+  // Ensure unique external ID per organization
+  unique("scim_groups_org_external_unique").on(table.organizationId, table.externalId),
+]);
+
+// SCIM group membership relationships
+export const scimGroupMemberships = pgTable("scim_group_memberships", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  groupId: varchar("group_id").notNull(), // SCIM group ID
+  userId: varchar("user_id").notNull(), // SCIM user ID
+  membershipType: varchar("membership_type").notNull().default("direct"), // direct, inherited, computed
+  source: varchar("source").default("scim"), // scim, manual, computed
+  lastSyncAt: timestamp("last_sync_at"), // When this membership was last synced
+  syncStatus: varchar("sync_status").notNull().default("active"), // active, pending, error
+  syncError: text("sync_error"), // Last sync error message
+  addedAt: timestamp("added_at").defaultNow(), // When membership was added
+  removedAt: timestamp("removed_at"), // When membership was removed
+  metadata: jsonb("metadata").default({}), // Additional membership metadata
+}, (table) => [
+  index("scim_group_memberships_group_idx").on(table.groupId),
+  index("scim_group_memberships_user_idx").on(table.userId),
+  index("scim_group_memberships_type_idx").on(table.membershipType),
+  index("scim_group_memberships_sync_status_idx").on(table.syncStatus),
+  index("scim_group_memberships_last_sync_idx").on(table.lastSyncAt),
+  // Ensure unique membership per group-user pair
+  unique("scim_group_memberships_group_user_unique").on(table.groupId, table.userId),
+]);
+
+// SCIM provisioning operation logs
+export const provisioningLogs = pgTable("provisioning_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  organizationId: varchar("organization_id").notNull(), // Organization this log belongs to
+  operation: varchar("operation").notNull(), // create, read, update, delete, sync, bulk_import
+  resourceType: varchar("resource_type").notNull(), // user, group, membership
+  resourceId: varchar("resource_id"), // ID of the affected resource
+  externalId: varchar("external_id"), // External ID from identity provider
+  status: varchar("status").notNull(), // success, failure, partial, warning
+  httpStatus: integer("http_status"), // HTTP status code
+  requestId: varchar("request_id"), // Unique request identifier
+  endpoint: varchar("endpoint"), // SCIM endpoint that was called
+  method: varchar("method"), // HTTP method (GET, POST, PUT, PATCH, DELETE)
+  requestBody: jsonb("request_body"), // SCIM request payload
+  responseBody: jsonb("response_body"), // SCIM response payload
+  errorCode: varchar("error_code"), // SCIM error code
+  errorMessage: text("error_message"), // Error message
+  processingTimeMs: integer("processing_time_ms"), // Processing time in milliseconds
+  userAgent: varchar("user_agent"), // Client user agent
+  ipAddress: varchar("ip_address"), // Client IP address
+  batchId: varchar("batch_id"), // Batch identifier for bulk operations
+  retryCount: integer("retry_count").default(0).notNull(), // Number of retries attempted
+  metadata: jsonb("metadata").default({}), // Additional log metadata
+  timestamp: timestamp("timestamp").defaultNow(),
+}, (table) => [
+  index("provisioning_logs_org_idx").on(table.organizationId),
+  index("provisioning_logs_operation_idx").on(table.operation),
+  index("provisioning_logs_resource_idx").on(table.resourceType, table.resourceId),
+  index("provisioning_logs_status_idx").on(table.status),
+  index("provisioning_logs_timestamp_idx").on(table.timestamp),
+  index("provisioning_logs_request_idx").on(table.requestId),
+  index("provisioning_logs_batch_idx").on(table.batchId),
+  index("provisioning_logs_external_idx").on(table.externalId),
+]);
+
+// ============================================
+// SPRINT 5 - ZOD SCHEMAS FOR VALIDATION
+// ============================================
+
+// Reviews/Approvals system schemas
+export const insertReviewSchema = createInsertSchema(reviews).pick({
+  organizationId: true,
+  workspaceId: true,
+  initiatorId: true,
+  resourceType: true,
+  resourceId: true,
+  reviewType: true,
+  title: true,
+  description: true,
+  priority: true,
+  dueDate: true,
+  metadata: true,
+});
+
+export const insertReviewStepSchema = createInsertSchema(reviewSteps).pick({
+  reviewId: true,
+  stepNumber: true,
+  stepType: true,
+  title: true,
+  description: true,
+  isRequired: true,
+  canSkip: true,
+  autoComplete: true,
+  conditions: true,
+  metadata: true,
+});
+
+export const insertReviewAssignmentSchema = createInsertSchema(reviewAssignments).pick({
+  reviewId: true,
+  stepId: true,
+  assigneeId: true,
+  assigneeType: true,
+  assignerRole: true,
+  isRequired: true,
+  canDelegate: true,
+  delegatedTo: true,
+  metadata: true,
+});
+
+export const insertReviewCommentSchema = createInsertSchema(reviewComments).pick({
+  reviewId: true,
+  stepId: true,
+  assignmentId: true,
+  authorId: true,
+  commentType: true,
+  content: true,
+  isInternal: true,
+  parentCommentId: true,
+  attachments: true,
+  metadata: true,
+});
+
+// Retention/Legal Hold system schemas
+export const insertRetentionPolicySchema = createInsertSchema(retentionPolicies).pick({
+  organizationId: true,
+  name: true,
+  description: true,
+  dataType: true,
+  retentionPeriodDays: true,
+  gracePeriodDays: true,
+  isActive: true,
+  priority: true,
+  conditions: true,
+  actions: true,
+  exemptions: true,
+  nextRunAt: true,
+  createdBy: true,
+  approvedBy: true,
+  metadata: true,
+});
+
+export const insertLegalHoldSchema = createInsertSchema(legalHolds).pick({
+  organizationId: true,
+  name: true,
+  description: true,
+  holdType: true,
+  custodians: true,
+  dataTypes: true,
+  dateRangeStart: true,
+  dateRangeEnd: true,
+  searchCriteria: true,
+  legalCounsel: true,
+  matter: true,
+  courtOrder: true,
+  createdBy: true,
+  approvedBy: true,
+  metadata: true,
+});
+
+export const insertRetentionJobSchema = createInsertSchema(retentionJobs).pick({
+  organizationId: true,
+  policyId: true,
+  jobType: true,
+  scheduledAt: true,
+  dataType: true,
+  targetCount: true,
+  dryRun: true,
+  createdBy: true,
+  metadata: true,
+});
+
+export const insertDataClassificationSchema = createInsertSchema(dataClassifications).pick({
+  organizationId: true,
+  resourceType: true,
+  resourceId: true,
+  classification: true,
+  dataTypes: true,
+  sensitivity: true,
+  retentionCategory: true,
+  isAutomaticallyClassified: true,
+  confidenceScore: true,
+  reviewRequired: true,
+  classifiedBy: true,
+  justification: true,
+  tags: true,
+  metadata: true,
+});
+
+// SCIM provisioning system schemas
+export const insertScimUserSchema = createInsertSchema(scimUsers).pick({
+  organizationId: true,
+  externalId: true,
+  scimId: true,
+  userName: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  displayName: true,
+  active: true,
+  localUserId: true,
+  department: true,
+  title: true,
+  manager: true,
+  employeeNumber: true,
+  costCenter: true,
+  division: true,
+  customAttributes: true,
+  syncStatus: true,
+  metadata: true,
+});
+
+export const insertScimGroupSchema = createInsertSchema(scimGroups).pick({
+  organizationId: true,
+  externalId: true,
+  scimId: true,
+  displayName: true,
+  description: true,
+  groupType: true,
+  mappedRole: true,
+  mappedTeamId: true,
+  permissions: true,
+  customAttributes: true,
+  syncStatus: true,
+  metadata: true,
+});
+
+export const insertScimGroupMembershipSchema = createInsertSchema(scimGroupMemberships).pick({
+  groupId: true,
+  userId: true,
+  membershipType: true,
+  source: true,
+  metadata: true,
+});
+
+export const insertProvisioningLogSchema = createInsertSchema(provisioningLogs).pick({
+  organizationId: true,
+  operation: true,
+  resourceType: true,
+  resourceId: true,
+  externalId: true,
+  status: true,
+  httpStatus: true,
+  requestId: true,
+  endpoint: true,
+  method: true,
+  requestBody: true,
+  responseBody: true,
+  errorCode: true,
+  errorMessage: true,
+  processingTimeMs: true,
+  userAgent: true,
+  ipAddress: true,
+  batchId: true,
+  retryCount: true,
+  metadata: true,
+});
+
+// ============================================
+// SPRINT 5 - VALIDATION ENUMS
+// ============================================
+
+// Reviews/Approvals validation schemas
+export const reviewStatusSchema = z.enum(["pending", "in_progress", "approved", "rejected", "cancelled"]);
+export const reviewTypeSchema = z.enum(["content", "export", "policy", "security", "quality", "compliance", "legal"]);
+export const reviewPrioritySchema = z.enum(["low", "medium", "high", "urgent"]);
+export const reviewStepTypeSchema = z.enum(["approval", "review", "verification", "notification", "checkpoint"]);
+export const reviewStepStatusSchema = z.enum(["pending", "in_progress", "completed", "skipped"]);
+export const reviewAssigneeTypeSchema = z.enum(["user", "team", "role", "group"]);
+export const reviewAssignerRoleSchema = z.enum(["approver", "reviewer", "observer", "required_signer", "coordinator"]);
+export const reviewAssignmentStatusSchema = z.enum(["assigned", "accepted", "completed", "declined", "delegated"]);
+export const reviewResponseSchema = z.enum(["approve", "reject", "request_changes", "no_objection", "abstain"]);
+export const reviewCommentTypeSchema = z.enum(["comment", "question", "suggestion", "objection", "approval_note", "change_request"]);
+
+// Retention/Legal Hold validation schemas
+export const retentionDataTypeSchema = z.enum(["analysis_sessions", "reports", "exports", "chat_messages", "user_data", "audit_logs", "all"]);
+export const legalHoldTypeSchema = z.enum(["litigation", "investigation", "audit", "regulatory", "discovery", "compliance"]);
+export const legalHoldStatusSchema = z.enum(["active", "released", "pending", "suspended", "expired"]);
+export const retentionJobTypeSchema = z.enum(["scan", "delete", "archive", "notify", "classify"]);
+export const retentionJobStatusSchema = z.enum(["pending", "running", "completed", "failed", "cancelled", "paused"]);
+export const dataClassificationSchema = z.enum(["public", "internal", "confidential", "restricted", "top_secret"]);
+export const dataSensitivitySchema = z.enum(["low", "medium", "high", "critical"]);
+export const retentionCategorySchema = z.enum(["business_records", "legal_documents", "operational_data", "user_content", "system_logs", "temporary"]);
+
+// SCIM provisioning validation schemas
+export const scimSyncStatusSchema = z.enum(["active", "inactive", "error", "pending", "deprovisioned"]);
+export const scimGroupTypeSchema = z.enum(["role", "team", "department", "project", "custom", "security"]);
+export const scimMembershipTypeSchema = z.enum(["direct", "inherited", "computed", "manual"]);
+export const scimMembershipSourceSchema = z.enum(["scim", "manual", "computed", "inherited"]);
+export const provisioningOperationSchema = z.enum(["create", "read", "update", "delete", "sync", "bulk_import", "bulk_export"]);
+export const provisioningResourceTypeSchema = z.enum(["user", "group", "membership", "schema", "resource_type"]);
+export const provisioningStatusSchema = z.enum(["success", "failure", "partial", "warning", "timeout"]);
+
+// ============================================
+// SPRINT 5 - TYPE DEFINITIONS
+// ============================================
+
+// Reviews/Approvals system types
+export type Review = typeof reviews.$inferSelect;
+export type InsertReview = z.infer<typeof insertReviewSchema>;
+export type ReviewStep = typeof reviewSteps.$inferSelect;
+export type InsertReviewStep = z.infer<typeof insertReviewStepSchema>;
+export type ReviewAssignment = typeof reviewAssignments.$inferSelect;
+export type InsertReviewAssignment = z.infer<typeof insertReviewAssignmentSchema>;
+export type ReviewComment = typeof reviewComments.$inferSelect;
+export type InsertReviewComment = z.infer<typeof insertReviewCommentSchema>;
+
+// Retention/Legal Hold system types
+export type RetentionPolicy = typeof retentionPolicies.$inferSelect;
+export type InsertRetentionPolicy = z.infer<typeof insertRetentionPolicySchema>;
+export type LegalHold = typeof legalHolds.$inferSelect;
+export type InsertLegalHold = z.infer<typeof insertLegalHoldSchema>;
+export type RetentionJob = typeof retentionJobs.$inferSelect;
+export type InsertRetentionJob = z.infer<typeof insertRetentionJobSchema>;
+export type DataClassification = typeof dataClassifications.$inferSelect;
+export type InsertDataClassification = z.infer<typeof insertDataClassificationSchema>;
+
+// SCIM provisioning system types
+export type ScimUser = typeof scimUsers.$inferSelect;
+export type InsertScimUser = z.infer<typeof insertScimUserSchema>;
+export type ScimGroup = typeof scimGroups.$inferSelect;
+export type InsertScimGroup = z.infer<typeof insertScimGroupSchema>;
+export type ScimGroupMembership = typeof scimGroupMemberships.$inferSelect;
+export type InsertScimGroupMembership = z.infer<typeof insertScimGroupMembershipSchema>;
+export type ProvisioningLog = typeof provisioningLogs.$inferSelect;
+export type InsertProvisioningLog = z.infer<typeof insertProvisioningLogSchema>;
+
+// Sprint 5 enum types
+export type ReviewStatus = z.infer<typeof reviewStatusSchema>;
+export type ReviewType = z.infer<typeof reviewTypeSchema>;
+export type ReviewPriority = z.infer<typeof reviewPrioritySchema>;
+export type ReviewStepType = z.infer<typeof reviewStepTypeSchema>;
+export type ReviewStepStatus = z.infer<typeof reviewStepStatusSchema>;
+export type ReviewAssigneeType = z.infer<typeof reviewAssigneeTypeSchema>;
+export type ReviewAssignerRole = z.infer<typeof reviewAssignerRoleSchema>;
+export type ReviewAssignmentStatus = z.infer<typeof reviewAssignmentStatusSchema>;
+export type ReviewResponse = z.infer<typeof reviewResponseSchema>;
+export type ReviewCommentType = z.infer<typeof reviewCommentTypeSchema>;
+
+export type RetentionDataType = z.infer<typeof retentionDataTypeSchema>;
+export type LegalHoldType = z.infer<typeof legalHoldTypeSchema>;
+export type LegalHoldStatus = z.infer<typeof legalHoldStatusSchema>;
+export type RetentionJobType = z.infer<typeof retentionJobTypeSchema>;
+export type RetentionJobStatus = z.infer<typeof retentionJobStatusSchema>;
+export type DataClassificationType = z.infer<typeof dataClassificationSchema>;
+export type DataSensitivity = z.infer<typeof dataSensitivitySchema>;
+export type RetentionCategory = z.infer<typeof retentionCategorySchema>;
+
+export type ScimSyncStatus = z.infer<typeof scimSyncStatusSchema>;
+export type ScimGroupType = z.infer<typeof scimGroupTypeSchema>;
+export type ScimMembershipType = z.infer<typeof scimMembershipTypeSchema>;
+export type ScimMembershipSource = z.infer<typeof scimMembershipSourceSchema>;
+export type ProvisioningOperation = z.infer<typeof provisioningOperationSchema>;
+export type ProvisioningResourceType = z.infer<typeof provisioningResourceTypeSchema>;
+export type ProvisioningStatus = z.infer<typeof provisioningStatusSchema>;
+

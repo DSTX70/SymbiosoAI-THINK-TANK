@@ -13,6 +13,8 @@ import TemplatesPage from "@/pages/templates";
 import TutorialsPage from "@/pages/tutorials";
 import BillingPage from "@/pages/billing";
 import MarketplacePage from "@/pages/marketplace";
+import ReviewsPage from "@/pages/reviews";
+import RetentionPage from "@/pages/retention";
 import Landing from "@/pages/landing";
 import TrustCenter from "@/pages/trust-center";
 import TrustCenterSecurity from "@/pages/trust-center-security";
@@ -25,6 +27,8 @@ import BottomNavigation from "@/components/BottomNavigation";
 import DesktopSidebar from "@/components/DesktopSidebar";
 import OfflineBanner from "@/components/OfflineBanner";
 import TutorialSystem from "@/components/TutorialSystem";
+import { I18nProvider } from "@/components/I18nProvider";
+import { EntitlementsProvider } from "@/components/EntitlementsProvider";
 import { registerServiceWorker } from "@/lib/swRegister";
 
 function Router() {
@@ -56,6 +60,8 @@ function Router() {
           <Route path="/tutorials" component={TutorialsPage} />
           <Route path="/billing" component={BillingPage} />
           <Route path="/marketplace" component={MarketplacePage} />
+          <Route path="/reviews" component={ReviewsPage} />
+          <Route path="/retention" component={RetentionPage} />
           <Route path="/trust-center" component={TrustCenter} />
           <Route path="/trust-center/security" component={TrustCenterSecurity} />
           <Route path="/trust-center/privacy" component={TrustCenterPrivacy} />
@@ -79,12 +85,16 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <TutorialSystem>
-          <Toaster />
-          <Router />
-        </TutorialSystem>
-      </TooltipProvider>
+      <I18nProvider>
+        <EntitlementsProvider>
+          <TooltipProvider>
+            <TutorialSystem>
+              <Toaster />
+              <Router />
+            </TutorialSystem>
+          </TooltipProvider>
+        </EntitlementsProvider>
+      </I18nProvider>
     </QueryClientProvider>
   );
 }

@@ -24,12 +24,25 @@ import {
   type SubscriptionPlan, type SubscriptionStatus, type BillingFeature,
   // Marketplace types
   type TemplateProduct, type InsertTemplateProduct, type TemplatePurchase, type InsertTemplatePurchase,
+  // Sprint 5 - Reviews/Approvals system types
+  type Review, type InsertReview, type ReviewStep, type InsertReviewStep,
+  type ReviewAssignment, type InsertReviewAssignment, type ReviewComment, type InsertReviewComment,
+  // Sprint 5 - Retention/Legal Hold system types
+  type RetentionPolicy, type InsertRetentionPolicy, type LegalHold, type InsertLegalHold,
+  type RetentionJob, type InsertRetentionJob, type DataClassification, type InsertDataClassification,
+  // Sprint 5 - SCIM provisioning system types
+  type ScimUser, type InsertScimUser, type ScimGroup, type InsertScimGroup,
+  type ScimGroupMembership, type InsertScimGroupMembership, type ProvisioningLog, type InsertProvisioningLog,
   users, analysisSessions, workspaces, workspaceMembers, workspaceInvites, generatedReports,
   templates, sessionCodes, sessionParticipants, chatMessages, pushSubscriptions,
   tutorials, tutorialSteps, tutorialProgress, tutorialSettings,
   organizations, organizationMembers, teams, teamMembers, auditLogs, securityEvents,
   usageMetrics, rateLimitRules, performanceMetrics, errorLogs, healthChecks,
-  debateRuns, exportLogs, subscriptions, entitlements, templateProducts, templatePurchases
+  debateRuns, exportLogs, subscriptions, entitlements, templateProducts, templatePurchases,
+  // Sprint 5 table imports
+  reviews, reviewSteps, reviewAssignments, reviewComments,
+  retentionPolicies, legalHolds, retentionJobs, dataClassifications,
+  scimUsers, scimGroups, scimGroupMemberships, provisioningLogs
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { Pool, neonConfig } from '@neondatabase/serverless';
@@ -287,6 +300,159 @@ export interface IStorage {
   checkExistingPurchase(workspaceId: string, templateProductId: string): Promise<TemplatePurchase | undefined>;
   getUserPurchases(userId: string): Promise<(TemplatePurchase & { templateProduct: TemplateProduct & { template: Template } })[]>;
   getWorkspacePurchases(workspaceId: string): Promise<(TemplatePurchase & { templateProduct: TemplateProduct & { template: Template } })[]>;
+
+  // ============================================
+  // SPRINT 5 - REVIEWS/APPROVALS SYSTEM
+  // ============================================
+
+  // Review operations
+  createReview(review: InsertReview): Promise<Review>;
+  getReview(id: string): Promise<Review | undefined>;
+  getReviews(organizationId?: string, workspaceId?: string): Promise<Review[]>;
+  getReviewsByResource(resourceType: string, resourceId: string): Promise<Review[]>;
+  getReviewsByInitiator(initiatorId: string): Promise<Review[]>;
+  getReviewsByStatus(status: string, organizationId?: string): Promise<Review[]>;
+  updateReview(id: string, updates: Partial<Review>): Promise<Review | undefined>;
+  deleteReview(id: string): Promise<boolean>;
+  approveReview(id: string, userId: string): Promise<Review | undefined>;
+  rejectReview(id: string, userId: string, reason?: string): Promise<Review | undefined>;
+
+  // Review step operations
+  createReviewStep(step: InsertReviewStep): Promise<ReviewStep>;
+  getReviewStep(id: string): Promise<ReviewStep | undefined>;
+  getReviewSteps(reviewId: string): Promise<ReviewStep[]>;
+  updateReviewStep(id: string, updates: Partial<ReviewStep>): Promise<ReviewStep | undefined>;
+  deleteReviewStep(id: string): Promise<boolean>;
+  completeReviewStep(id: string, userId: string): Promise<ReviewStep | undefined>;
+  skipReviewStep(id: string, userId: string, reason: string): Promise<ReviewStep | undefined>;
+
+  // Review assignment operations
+  createReviewAssignment(assignment: InsertReviewAssignment): Promise<ReviewAssignment>;
+  getReviewAssignment(id: string): Promise<ReviewAssignment | undefined>;
+  getReviewAssignments(reviewId: string): Promise<ReviewAssignment[]>;
+  getAssignmentsByAssignee(assigneeId: string): Promise<ReviewAssignment[]>;
+  updateReviewAssignment(id: string, updates: Partial<ReviewAssignment>): Promise<ReviewAssignment | undefined>;
+  deleteReviewAssignment(id: string): Promise<boolean>;
+  respondToAssignment(id: string, response: string, reason?: string): Promise<ReviewAssignment | undefined>;
+  delegateAssignment(id: string, delegatedTo: string): Promise<ReviewAssignment | undefined>;
+
+  // Review comment operations
+  createReviewComment(comment: InsertReviewComment): Promise<ReviewComment>;
+  getReviewComment(id: string): Promise<ReviewComment | undefined>;
+  getReviewComments(reviewId: string): Promise<ReviewComment[]>;
+  getCommentsByStep(stepId: string): Promise<ReviewComment[]>;
+  getCommentsByAssignment(assignmentId: string): Promise<ReviewComment[]>;
+  updateReviewComment(id: string, updates: Partial<ReviewComment>): Promise<ReviewComment | undefined>;
+  deleteReviewComment(id: string): Promise<boolean>;
+  resolveComment(id: string, userId: string): Promise<ReviewComment | undefined>;
+
+  // ============================================
+  // SPRINT 5 - RETENTION/LEGAL HOLD SYSTEM
+  // ============================================
+
+  // Retention policy operations
+  createRetentionPolicy(policy: InsertRetentionPolicy): Promise<RetentionPolicy>;
+  getRetentionPolicy(id: string): Promise<RetentionPolicy | undefined>;
+  getRetentionPolicies(organizationId: string): Promise<RetentionPolicy[]>;
+  getRetentionPoliciesByDataType(dataType: string, organizationId: string): Promise<RetentionPolicy[]>;
+  getActiveRetentionPolicies(organizationId: string): Promise<RetentionPolicy[]>;
+  updateRetentionPolicy(id: string, updates: Partial<RetentionPolicy>): Promise<RetentionPolicy | undefined>;
+  deleteRetentionPolicy(id: string): Promise<boolean>;
+  activateRetentionPolicy(id: string): Promise<RetentionPolicy | undefined>;
+  deactivateRetentionPolicy(id: string): Promise<RetentionPolicy | undefined>;
+
+  // Legal hold operations
+  createLegalHold(hold: InsertLegalHold): Promise<LegalHold>;
+  getLegalHold(id: string): Promise<LegalHold | undefined>;
+  getLegalHolds(organizationId: string): Promise<LegalHold[]>;
+  getActiveLegalHolds(organizationId: string): Promise<LegalHold[]>;
+  getLegalHoldsByCustodian(custodianId: string): Promise<LegalHold[]>;
+  getLegalHoldsByDateRange(startDate: Date, endDate: Date, organizationId: string): Promise<LegalHold[]>;
+  updateLegalHold(id: string, updates: Partial<LegalHold>): Promise<LegalHold | undefined>;
+  deleteLegalHold(id: string): Promise<boolean>;
+  releaseLegalHold(id: string, userId: string, reason: string): Promise<LegalHold | undefined>;
+
+  // Retention job operations
+  createRetentionJob(job: InsertRetentionJob): Promise<RetentionJob>;
+  getRetentionJob(id: string): Promise<RetentionJob | undefined>;
+  getRetentionJobs(organizationId: string): Promise<RetentionJob[]>;
+  getRetentionJobsByPolicy(policyId: string): Promise<RetentionJob[]>;
+  getRetentionJobsByStatus(status: string, organizationId: string): Promise<RetentionJob[]>;
+  getScheduledRetentionJobs(organizationId: string): Promise<RetentionJob[]>;
+  updateRetentionJob(id: string, updates: Partial<RetentionJob>): Promise<RetentionJob | undefined>;
+  deleteRetentionJob(id: string): Promise<boolean>;
+  startRetentionJob(id: string): Promise<RetentionJob | undefined>;
+  completeRetentionJob(id: string, results: any): Promise<RetentionJob | undefined>;
+  failRetentionJob(id: string, error: string): Promise<RetentionJob | undefined>;
+
+  // Data classification operations
+  createDataClassification(classification: InsertDataClassification): Promise<DataClassification>;
+  getDataClassification(id: string): Promise<DataClassification | undefined>;
+  getDataClassifications(organizationId: string): Promise<DataClassification[]>;
+  getDataClassificationByResource(resourceType: string, resourceId: string): Promise<DataClassification | undefined>;
+  getDataClassificationsByClassification(classification: string, organizationId: string): Promise<DataClassification[]>;
+  getDataClassificationsBySensitivity(sensitivity: string, organizationId: string): Promise<DataClassification[]>;
+  getDataClassificationsRequiringReview(organizationId: string): Promise<DataClassification[]>;
+  updateDataClassification(id: string, updates: Partial<DataClassification>): Promise<DataClassification | undefined>;
+  deleteDataClassification(id: string): Promise<boolean>;
+  reviewDataClassification(id: string, userId: string): Promise<DataClassification | undefined>;
+
+  // ============================================
+  // SPRINT 5 - SCIM USER PROVISIONING SYSTEM
+  // ============================================
+
+  // SCIM user operations
+  createScimUser(user: InsertScimUser): Promise<ScimUser>;
+  getScimUser(id: string): Promise<ScimUser | undefined>;
+  getScimUserByExternalId(externalId: string, organizationId: string): Promise<ScimUser | undefined>;
+  getScimUserByScimId(scimId: string): Promise<ScimUser | undefined>;
+  getScimUserByEmail(email: string, organizationId: string): Promise<ScimUser | undefined>;
+  getScimUsers(organizationId: string): Promise<ScimUser[]>;
+  getActiveScimUsers(organizationId: string): Promise<ScimUser[]>;
+  getScimUsersBySyncStatus(syncStatus: string, organizationId: string): Promise<ScimUser[]>;
+  updateScimUser(id: string, updates: Partial<ScimUser>): Promise<ScimUser | undefined>;
+  deleteScimUser(id: string): Promise<boolean>;
+  linkScimUserToLocal(scimUserId: string, localUserId: string): Promise<ScimUser | undefined>;
+  syncScimUser(id: string, syncData: any): Promise<ScimUser | undefined>;
+  deprovisionScimUser(id: string): Promise<ScimUser | undefined>;
+
+  // SCIM group operations
+  createScimGroup(group: InsertScimGroup): Promise<ScimGroup>;
+  getScimGroup(id: string): Promise<ScimGroup | undefined>;
+  getScimGroupByExternalId(externalId: string, organizationId: string): Promise<ScimGroup | undefined>;
+  getScimGroupByScimId(scimId: string): Promise<ScimGroup | undefined>;
+  getScimGroups(organizationId: string): Promise<ScimGroup[]>;
+  getScimGroupsByType(groupType: string, organizationId: string): Promise<ScimGroup[]>;
+  getScimGroupsBySyncStatus(syncStatus: string, organizationId: string): Promise<ScimGroup[]>;
+  updateScimGroup(id: string, updates: Partial<ScimGroup>): Promise<ScimGroup | undefined>;
+  deleteScimGroup(id: string): Promise<boolean>;
+  syncScimGroup(id: string, syncData: any): Promise<ScimGroup | undefined>;
+  deprovisionScimGroup(id: string): Promise<ScimGroup | undefined>;
+
+  // SCIM group membership operations
+  createScimGroupMembership(membership: InsertScimGroupMembership): Promise<ScimGroupMembership>;
+  getScimGroupMembership(id: string): Promise<ScimGroupMembership | undefined>;
+  getScimGroupMemberships(groupId: string): Promise<ScimGroupMembership[]>;
+  getScimUserMemberships(userId: string): Promise<ScimGroupMembership[]>;
+  getScimGroupMembershipByIds(groupId: string, userId: string): Promise<ScimGroupMembership | undefined>;
+  getScimGroupMembershipsBySyncStatus(syncStatus: string): Promise<ScimGroupMembership[]>;
+  updateScimGroupMembership(id: string, updates: Partial<ScimGroupMembership>): Promise<ScimGroupMembership | undefined>;
+  deleteScimGroupMembership(id: string): Promise<boolean>;
+  addUserToScimGroup(groupId: string, userId: string, membershipType?: string): Promise<ScimGroupMembership>;
+  removeUserFromScimGroup(groupId: string, userId: string): Promise<boolean>;
+
+  // Provisioning log operations
+  createProvisioningLog(log: InsertProvisioningLog): Promise<ProvisioningLog>;
+  getProvisioningLog(id: string): Promise<ProvisioningLog | undefined>;
+  getProvisioningLogs(organizationId: string): Promise<ProvisioningLog[]>;
+  getProvisioningLogsByOperation(operation: string, organizationId: string): Promise<ProvisioningLog[]>;
+  getProvisioningLogsByResourceType(resourceType: string, organizationId: string): Promise<ProvisioningLog[]>;
+  getProvisioningLogsByStatus(status: string, organizationId: string): Promise<ProvisioningLog[]>;
+  getProvisioningLogsByRequestId(requestId: string): Promise<ProvisioningLog[]>;
+  getProvisioningLogsByBatch(batchId: string): Promise<ProvisioningLog[]>;
+  getProvisioningLogsByDateRange(startDate: Date, endDate: Date, organizationId: string): Promise<ProvisioningLog[]>;
+  updateProvisioningLog(id: string, updates: Partial<ProvisioningLog>): Promise<ProvisioningLog | undefined>;
+  deleteProvisioningLog(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -2363,6 +2529,702 @@ export class DatabaseStorage implements IStorage {
         template: row.templateProduct.template
       }
     }));
+  }
+  // ============================================
+  // SPRINT 5 - REVIEWS/APPROVALS SYSTEM
+  // ============================================
+
+  // Review operations
+  async createReview(review: InsertReview): Promise<Review> {
+    const [newReview] = await db.insert(reviews).values(review).returning();
+    return newReview;
+  }
+
+  async getReview(id: string): Promise<Review | undefined> {
+    const [review] = await db.select().from(reviews).where(eq(reviews.id, id));
+    return review || undefined;
+  }
+
+  async getReviews(organizationId?: string, workspaceId?: string): Promise<Review[]> {
+    let query = db.select().from(reviews);
+    
+    const conditions = [];
+    if (organizationId) {
+      conditions.push(eq(reviews.organizationId, organizationId));
+    }
+    if (workspaceId) {
+      conditions.push(eq(reviews.workspaceId, workspaceId));
+    }
+    
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+    
+    return await query.orderBy(reviews.createdAt);
+  }
+
+  async getReviewsByResource(resourceType: string, resourceId: string): Promise<Review[]> {
+    return await db.select().from(reviews)
+      .where(and(eq(reviews.resourceType, resourceType), eq(reviews.resourceId, resourceId)))
+      .orderBy(reviews.createdAt);
+  }
+
+  async getReviewsByInitiator(initiatorId: string): Promise<Review[]> {
+    return await db.select().from(reviews)
+      .where(eq(reviews.initiatorId, initiatorId))
+      .orderBy(reviews.createdAt);
+  }
+
+  async getReviewsByStatus(status: string, organizationId?: string): Promise<Review[]> {
+    let query = db.select().from(reviews).where(eq(reviews.status, status));
+    
+    if (organizationId) {
+      query = query.where(and(eq(reviews.status, status), eq(reviews.organizationId, organizationId)));
+    }
+    
+    return await query.orderBy(reviews.createdAt);
+  }
+
+  async updateReview(id: string, updates: Partial<Review>): Promise<Review | undefined> {
+    const [review] = await db.update(reviews)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(reviews.id, id))
+      .returning();
+    return review || undefined;
+  }
+
+  async deleteReview(id: string): Promise<boolean> {
+    const result = await db.delete(reviews).where(eq(reviews.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async approveReview(id: string, userId: string): Promise<Review | undefined> {
+    const [review] = await db.update(reviews)
+      .set({ 
+        status: 'approved', 
+        approvedAt: new Date(), 
+        completedBy: userId, 
+        completedAt: new Date(),
+        updatedAt: new Date() 
+      })
+      .where(eq(reviews.id, id))
+      .returning();
+    return review || undefined;
+  }
+
+  async rejectReview(id: string, userId: string, reason?: string): Promise<Review | undefined> {
+    const [review] = await db.update(reviews)
+      .set({ 
+        status: 'rejected', 
+        rejectedAt: new Date(), 
+        completedBy: userId, 
+        completedAt: new Date(),
+        metadata: sql`jsonb_set(metadata, '{rejection_reason}', '"${reason || 'No reason provided'}"')`,
+        updatedAt: new Date() 
+      })
+      .where(eq(reviews.id, id))
+      .returning();
+    return review || undefined;
+  }
+
+  // Review step operations  
+  async createReviewStep(step: InsertReviewStep): Promise<ReviewStep> {
+    const [newStep] = await db.insert(reviewSteps).values(step).returning();
+    return newStep;
+  }
+
+  async getReviewStep(id: string): Promise<ReviewStep | undefined> {
+    const [step] = await db.select().from(reviewSteps).where(eq(reviewSteps.id, id));
+    return step || undefined;
+  }
+
+  async getReviewSteps(reviewId: string): Promise<ReviewStep[]> {
+    return await db.select().from(reviewSteps)
+      .where(eq(reviewSteps.reviewId, reviewId))
+      .orderBy(reviewSteps.stepNumber);
+  }
+
+  async updateReviewStep(id: string, updates: Partial<ReviewStep>): Promise<ReviewStep | undefined> {
+    const [step] = await db.update(reviewSteps)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(reviewSteps.id, id))
+      .returning();
+    return step || undefined;
+  }
+
+  async deleteReviewStep(id: string): Promise<boolean> {
+    const result = await db.delete(reviewSteps).where(eq(reviewSteps.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async completeReviewStep(id: string, userId: string): Promise<ReviewStep | undefined> {
+    const [step] = await db.update(reviewSteps)
+      .set({ 
+        status: 'completed', 
+        completedAt: new Date(), 
+        completedBy: userId,
+        updatedAt: new Date() 
+      })
+      .where(eq(reviewSteps.id, id))
+      .returning();
+    return step || undefined;
+  }
+
+  async skipReviewStep(id: string, userId: string, reason: string): Promise<ReviewStep | undefined> {
+    const [step] = await db.update(reviewSteps)
+      .set({ 
+        status: 'skipped', 
+        completedAt: new Date(), 
+        completedBy: userId,
+        metadata: sql`jsonb_set(metadata, '{skip_reason}', '"${reason}"')`,
+        updatedAt: new Date() 
+      })
+      .where(eq(reviewSteps.id, id))
+      .returning();
+    return step || undefined;
+  }
+
+  // Review assignment operations - stub implementations
+  async createReviewAssignment(assignment: InsertReviewAssignment): Promise<ReviewAssignment> {
+    throw new Error('ReviewAssignment table not created yet - stub implementation');
+  }
+
+  async getReviewAssignment(id: string): Promise<ReviewAssignment | undefined> {
+    throw new Error('ReviewAssignment table not created yet - stub implementation');
+  }
+
+  async getReviewAssignments(reviewId: string): Promise<ReviewAssignment[]> {
+    throw new Error('ReviewAssignment table not created yet - stub implementation');
+  }
+
+  async getAssignmentsByAssignee(assigneeId: string): Promise<ReviewAssignment[]> {
+    throw new Error('ReviewAssignment table not created yet - stub implementation');
+  }
+
+  async updateReviewAssignment(id: string, updates: Partial<ReviewAssignment>): Promise<ReviewAssignment | undefined> {
+    throw new Error('ReviewAssignment table not created yet - stub implementation');
+  }
+
+  async deleteReviewAssignment(id: string): Promise<boolean> {
+    throw new Error('ReviewAssignment table not created yet - stub implementation');
+  }
+
+  async respondToAssignment(id: string, response: string, reason?: string): Promise<ReviewAssignment | undefined> {
+    throw new Error('ReviewAssignment table not created yet - stub implementation');
+  }
+
+  async delegateAssignment(id: string, delegatedTo: string): Promise<ReviewAssignment | undefined> {
+    throw new Error('ReviewAssignment table not created yet - stub implementation');
+  }
+
+  // Review comment operations - stub implementations  
+  async createReviewComment(comment: InsertReviewComment): Promise<ReviewComment> {
+    throw new Error('ReviewComment table not created yet - stub implementation');
+  }
+
+  async getReviewComment(id: string): Promise<ReviewComment | undefined> {
+    throw new Error('ReviewComment table not created yet - stub implementation');
+  }
+
+  async getReviewComments(reviewId: string): Promise<ReviewComment[]> {
+    throw new Error('ReviewComment table not created yet - stub implementation');
+  }
+
+  async getCommentsByStep(stepId: string): Promise<ReviewComment[]> {
+    throw new Error('ReviewComment table not created yet - stub implementation');
+  }
+
+  async getCommentsByAssignment(assignmentId: string): Promise<ReviewComment[]> {
+    throw new Error('ReviewComment table not created yet - stub implementation');
+  }
+
+  async updateReviewComment(id: string, updates: Partial<ReviewComment>): Promise<ReviewComment | undefined> {
+    throw new Error('ReviewComment table not created yet - stub implementation');
+  }
+
+  async deleteReviewComment(id: string): Promise<boolean> {
+    throw new Error('ReviewComment table not created yet - stub implementation');
+  }
+
+  async resolveComment(id: string, userId: string): Promise<ReviewComment | undefined> {
+    throw new Error('ReviewComment table not created yet - stub implementation');
+  }
+
+  // ============================================
+  // SPRINT 5 - RETENTION/LEGAL HOLD SYSTEM
+  // ============================================
+
+  // Retention policy operations
+  async createRetentionPolicy(policy: InsertRetentionPolicy): Promise<RetentionPolicy> {
+    const [newPolicy] = await db.insert(retentionPolicies).values(policy).returning();
+    return newPolicy;
+  }
+
+  async getRetentionPolicy(id: string): Promise<RetentionPolicy | undefined> {
+    const [policy] = await db.select().from(retentionPolicies).where(eq(retentionPolicies.id, id));
+    return policy || undefined;
+  }
+
+  async getRetentionPolicies(organizationId: string): Promise<RetentionPolicy[]> {
+    return await db.select().from(retentionPolicies)
+      .where(eq(retentionPolicies.organizationId, organizationId))
+      .orderBy(retentionPolicies.priority, retentionPolicies.createdAt);
+  }
+
+  async getRetentionPoliciesByDataType(dataType: string, organizationId: string): Promise<RetentionPolicy[]> {
+    return await db.select().from(retentionPolicies)
+      .where(and(eq(retentionPolicies.dataType, dataType), eq(retentionPolicies.organizationId, organizationId)))
+      .orderBy(retentionPolicies.priority);
+  }
+
+  async getActiveRetentionPolicies(organizationId: string): Promise<RetentionPolicy[]> {
+    return await db.select().from(retentionPolicies)
+      .where(and(eq(retentionPolicies.organizationId, organizationId), eq(retentionPolicies.isActive, true)))
+      .orderBy(retentionPolicies.priority);
+  }
+
+  async updateRetentionPolicy(id: string, updates: Partial<RetentionPolicy>): Promise<RetentionPolicy | undefined> {
+    const [policy] = await db.update(retentionPolicies)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(retentionPolicies.id, id))
+      .returning();
+    return policy || undefined;
+  }
+
+  async deleteRetentionPolicy(id: string): Promise<boolean> {
+    const result = await db.delete(retentionPolicies).where(eq(retentionPolicies.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async activateRetentionPolicy(id: string): Promise<RetentionPolicy | undefined> {
+    const [policy] = await db.update(retentionPolicies)
+      .set({ isActive: true, updatedAt: new Date() })
+      .where(eq(retentionPolicies.id, id))
+      .returning();
+    return policy || undefined;
+  }
+
+  async deactivateRetentionPolicy(id: string): Promise<RetentionPolicy | undefined> {
+    const [policy] = await db.update(retentionPolicies)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(retentionPolicies.id, id))
+      .returning();
+    return policy || undefined;
+  }
+
+  // Legal hold operations
+  async createLegalHold(hold: InsertLegalHold): Promise<LegalHold> {
+    const [newHold] = await db.insert(legalHolds).values(hold).returning();
+    return newHold;
+  }
+
+  async getLegalHold(id: string): Promise<LegalHold | undefined> {
+    const [hold] = await db.select().from(legalHolds).where(eq(legalHolds.id, id));
+    return hold || undefined;
+  }
+
+  async getLegalHolds(organizationId: string): Promise<LegalHold[]> {
+    return await db.select().from(legalHolds)
+      .where(eq(legalHolds.organizationId, organizationId))
+      .orderBy(legalHolds.createdAt);
+  }
+
+  async getActiveLegalHolds(organizationId: string): Promise<LegalHold[]> {
+    return await db.select().from(legalHolds)
+      .where(and(eq(legalHolds.organizationId, organizationId), eq(legalHolds.status, 'active')))
+      .orderBy(legalHolds.createdAt);
+  }
+
+  async getLegalHoldsByCustodian(custodianId: string): Promise<LegalHold[]> {
+    return await db.select().from(legalHolds)
+      .where(sql`custodians @> '[${custodianId}]'`)
+      .orderBy(legalHolds.createdAt);
+  }
+
+  async getLegalHoldsByDateRange(startDate: Date, endDate: Date, organizationId: string): Promise<LegalHold[]> {
+    return await db.select().from(legalHolds)
+      .where(and(
+        eq(legalHolds.organizationId, organizationId),
+        sql`date_range_start <= ${endDate}`,
+        sql`date_range_end >= ${startDate}`
+      ))
+      .orderBy(legalHolds.createdAt);
+  }
+
+  async updateLegalHold(id: string, updates: Partial<LegalHold>): Promise<LegalHold | undefined> {
+    const [hold] = await db.update(legalHolds)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(legalHolds.id, id))
+      .returning();
+    return hold || undefined;
+  }
+
+  async deleteLegalHold(id: string): Promise<boolean> {
+    const result = await db.delete(legalHolds).where(eq(legalHolds.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async releaseLegalHold(id: string, userId: string, reason: string): Promise<LegalHold | undefined> {
+    const [hold] = await db.update(legalHolds)
+      .set({ 
+        status: 'released', 
+        releasedBy: userId, 
+        releasedAt: new Date(),
+        metadata: sql`jsonb_set(metadata, '{release_reason}', '"${reason}"')`,
+        updatedAt: new Date() 
+      })
+      .where(eq(legalHolds.id, id))
+      .returning();
+    return hold || undefined;
+  }
+
+  // Retention job operations - stub implementations (tables not created yet)
+  async createRetentionJob(job: InsertRetentionJob): Promise<RetentionJob> {
+    throw new Error('RetentionJob table not created yet - stub implementation');
+  }
+
+  async getRetentionJob(id: string): Promise<RetentionJob | undefined> {
+    throw new Error('RetentionJob table not created yet - stub implementation');
+  }
+
+  async getRetentionJobs(organizationId: string): Promise<RetentionJob[]> {
+    throw new Error('RetentionJob table not created yet - stub implementation');
+  }
+
+  async getRetentionJobsByPolicy(policyId: string): Promise<RetentionJob[]> {
+    throw new Error('RetentionJob table not created yet - stub implementation');
+  }
+
+  async getRetentionJobsByStatus(status: string, organizationId: string): Promise<RetentionJob[]> {
+    throw new Error('RetentionJob table not created yet - stub implementation');
+  }
+
+  async getScheduledRetentionJobs(organizationId: string): Promise<RetentionJob[]> {
+    throw new Error('RetentionJob table not created yet - stub implementation');
+  }
+
+  async updateRetentionJob(id: string, updates: Partial<RetentionJob>): Promise<RetentionJob | undefined> {
+    throw new Error('RetentionJob table not created yet - stub implementation');
+  }
+
+  async deleteRetentionJob(id: string): Promise<boolean> {
+    throw new Error('RetentionJob table not created yet - stub implementation');
+  }
+
+  async startRetentionJob(id: string): Promise<RetentionJob | undefined> {
+    throw new Error('RetentionJob table not created yet - stub implementation');
+  }
+
+  async completeRetentionJob(id: string, results: any): Promise<RetentionJob | undefined> {
+    throw new Error('RetentionJob table not created yet - stub implementation');
+  }
+
+  async failRetentionJob(id: string, error: string): Promise<RetentionJob | undefined> {
+    throw new Error('RetentionJob table not created yet - stub implementation');
+  }
+
+  // Data classification operations - stub implementations (tables not created yet)
+  async createDataClassification(classification: InsertDataClassification): Promise<DataClassification> {
+    throw new Error('DataClassification table not created yet - stub implementation');
+  }
+
+  async getDataClassification(id: string): Promise<DataClassification | undefined> {
+    throw new Error('DataClassification table not created yet - stub implementation');
+  }
+
+  async getDataClassifications(organizationId: string): Promise<DataClassification[]> {
+    throw new Error('DataClassification table not created yet - stub implementation');
+  }
+
+  async getDataClassificationByResource(resourceType: string, resourceId: string): Promise<DataClassification | undefined> {
+    throw new Error('DataClassification table not created yet - stub implementation');
+  }
+
+  async getDataClassificationsByClassification(classification: string, organizationId: string): Promise<DataClassification[]> {
+    throw new Error('DataClassification table not created yet - stub implementation');
+  }
+
+  async getDataClassificationsBySensitivity(sensitivity: string, organizationId: string): Promise<DataClassification[]> {
+    throw new Error('DataClassification table not created yet - stub implementation');
+  }
+
+  async getDataClassificationsRequiringReview(organizationId: string): Promise<DataClassification[]> {
+    throw new Error('DataClassification table not created yet - stub implementation');
+  }
+
+  async updateDataClassification(id: string, updates: Partial<DataClassification>): Promise<DataClassification | undefined> {
+    throw new Error('DataClassification table not created yet - stub implementation');
+  }
+
+  async deleteDataClassification(id: string): Promise<boolean> {
+    throw new Error('DataClassification table not created yet - stub implementation');
+  }
+
+  async reviewDataClassification(id: string, userId: string): Promise<DataClassification | undefined> {
+    throw new Error('DataClassification table not created yet - stub implementation');
+  }
+
+  // ============================================
+  // SPRINT 5 - SCIM USER PROVISIONING SYSTEM
+  // ============================================
+
+  // SCIM user operations
+  async createScimUser(user: InsertScimUser): Promise<ScimUser> {
+    const [newUser] = await db.insert(scimUsers).values(user).returning();
+    return newUser;
+  }
+
+  async getScimUser(id: string): Promise<ScimUser | undefined> {
+    const [user] = await db.select().from(scimUsers).where(eq(scimUsers.id, id));
+    return user || undefined;
+  }
+
+  async getScimUserByExternalId(externalId: string, organizationId: string): Promise<ScimUser | undefined> {
+    const [user] = await db.select().from(scimUsers)
+      .where(and(eq(scimUsers.externalId, externalId), eq(scimUsers.organizationId, organizationId)));
+    return user || undefined;
+  }
+
+  async getScimUserByScimId(scimId: string): Promise<ScimUser | undefined> {
+    const [user] = await db.select().from(scimUsers).where(eq(scimUsers.scimId, scimId));
+    return user || undefined;
+  }
+
+  async getScimUserByEmail(email: string, organizationId: string): Promise<ScimUser | undefined> {
+    const [user] = await db.select().from(scimUsers)
+      .where(and(eq(scimUsers.email, email), eq(scimUsers.organizationId, organizationId)));
+    return user || undefined;
+  }
+
+  async getScimUsers(organizationId: string): Promise<ScimUser[]> {
+    return await db.select().from(scimUsers)
+      .where(eq(scimUsers.organizationId, organizationId))
+      .orderBy(scimUsers.createdAt);
+  }
+
+  async getActiveScimUsers(organizationId: string): Promise<ScimUser[]> {
+    return await db.select().from(scimUsers)
+      .where(and(eq(scimUsers.organizationId, organizationId), eq(scimUsers.active, true)))
+      .orderBy(scimUsers.createdAt);
+  }
+
+  async getScimUsersBySyncStatus(syncStatus: string, organizationId: string): Promise<ScimUser[]> {
+    return await db.select().from(scimUsers)
+      .where(and(eq(scimUsers.syncStatus, syncStatus), eq(scimUsers.organizationId, organizationId)))
+      .orderBy(scimUsers.lastSyncAt);
+  }
+
+  async updateScimUser(id: string, updates: Partial<ScimUser>): Promise<ScimUser | undefined> {
+    const [user] = await db.update(scimUsers)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(scimUsers.id, id))
+      .returning();
+    return user || undefined;
+  }
+
+  async deleteScimUser(id: string): Promise<boolean> {
+    const result = await db.delete(scimUsers).where(eq(scimUsers.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async linkScimUserToLocal(scimUserId: string, localUserId: string): Promise<ScimUser | undefined> {
+    const [user] = await db.update(scimUsers)
+      .set({ localUserId, updatedAt: new Date() })
+      .where(eq(scimUsers.id, scimUserId))
+      .returning();
+    return user || undefined;
+  }
+
+  async syncScimUser(id: string, syncData: any): Promise<ScimUser | undefined> {
+    const [user] = await db.update(scimUsers)
+      .set({ 
+        lastSyncAt: new Date(), 
+        syncStatus: 'active',
+        syncError: null,
+        metadata: syncData,
+        updatedAt: new Date() 
+      })
+      .where(eq(scimUsers.id, id))
+      .returning();
+    return user || undefined;
+  }
+
+  async deprovisionScimUser(id: string): Promise<ScimUser | undefined> {
+    const [user] = await db.update(scimUsers)
+      .set({ 
+        active: false, 
+        syncStatus: 'deprovisioned',
+        deprovisionedAt: new Date(),
+        updatedAt: new Date() 
+      })
+      .where(eq(scimUsers.id, id))
+      .returning();
+    return user || undefined;
+  }
+
+  // SCIM group operations
+  async createScimGroup(group: InsertScimGroup): Promise<ScimGroup> {
+    const [newGroup] = await db.insert(scimGroups).values(group).returning();
+    return newGroup;
+  }
+
+  async getScimGroup(id: string): Promise<ScimGroup | undefined> {
+    const [group] = await db.select().from(scimGroups).where(eq(scimGroups.id, id));
+    return group || undefined;
+  }
+
+  async getScimGroupByExternalId(externalId: string, organizationId: string): Promise<ScimGroup | undefined> {
+    const [group] = await db.select().from(scimGroups)
+      .where(and(eq(scimGroups.externalId, externalId), eq(scimGroups.organizationId, organizationId)));
+    return group || undefined;
+  }
+
+  async getScimGroupByScimId(scimId: string): Promise<ScimGroup | undefined> {
+    const [group] = await db.select().from(scimGroups).where(eq(scimGroups.scimId, scimId));
+    return group || undefined;
+  }
+
+  async getScimGroups(organizationId: string): Promise<ScimGroup[]> {
+    return await db.select().from(scimGroups)
+      .where(eq(scimGroups.organizationId, organizationId))
+      .orderBy(scimGroups.createdAt);
+  }
+
+  async getScimGroupsByType(groupType: string, organizationId: string): Promise<ScimGroup[]> {
+    return await db.select().from(scimGroups)
+      .where(and(eq(scimGroups.groupType, groupType), eq(scimGroups.organizationId, organizationId)))
+      .orderBy(scimGroups.createdAt);
+  }
+
+  async getScimGroupsBySyncStatus(syncStatus: string, organizationId: string): Promise<ScimGroup[]> {
+    return await db.select().from(scimGroups)
+      .where(and(eq(scimGroups.syncStatus, syncStatus), eq(scimGroups.organizationId, organizationId)))
+      .orderBy(scimGroups.lastSyncAt);
+  }
+
+  async updateScimGroup(id: string, updates: Partial<ScimGroup>): Promise<ScimGroup | undefined> {
+    const [group] = await db.update(scimGroups)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(scimGroups.id, id))
+      .returning();
+    return group || undefined;
+  }
+
+  async deleteScimGroup(id: string): Promise<boolean> {
+    const result = await db.delete(scimGroups).where(eq(scimGroups.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async syncScimGroup(id: string, syncData: any): Promise<ScimGroup | undefined> {
+    const [group] = await db.update(scimGroups)
+      .set({ 
+        lastSyncAt: new Date(), 
+        syncStatus: 'active',
+        syncError: null,
+        metadata: syncData,
+        updatedAt: new Date() 
+      })
+      .where(eq(scimGroups.id, id))
+      .returning();
+    return group || undefined;
+  }
+
+  async deprovisionScimGroup(id: string): Promise<ScimGroup | undefined> {
+    const [group] = await db.update(scimGroups)
+      .set({ 
+        syncStatus: 'deprovisioned',
+        deprovisionedAt: new Date(),
+        updatedAt: new Date() 
+      })
+      .where(eq(scimGroups.id, id))
+      .returning();
+    return group || undefined;
+  }
+
+  // SCIM group membership operations - stub implementations (table not created yet)
+  async createScimGroupMembership(membership: InsertScimGroupMembership): Promise<ScimGroupMembership> {
+    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+  }
+
+  async getScimGroupMembership(id: string): Promise<ScimGroupMembership | undefined> {
+    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+  }
+
+  async getScimGroupMemberships(groupId: string): Promise<ScimGroupMembership[]> {
+    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+  }
+
+  async getScimUserMemberships(userId: string): Promise<ScimGroupMembership[]> {
+    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+  }
+
+  async getScimGroupMembershipByIds(groupId: string, userId: string): Promise<ScimGroupMembership | undefined> {
+    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+  }
+
+  async getScimGroupMembershipsBySyncStatus(syncStatus: string): Promise<ScimGroupMembership[]> {
+    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+  }
+
+  async updateScimGroupMembership(id: string, updates: Partial<ScimGroupMembership>): Promise<ScimGroupMembership | undefined> {
+    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+  }
+
+  async deleteScimGroupMembership(id: string): Promise<boolean> {
+    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+  }
+
+  async addUserToScimGroup(groupId: string, userId: string, membershipType?: string): Promise<ScimGroupMembership> {
+    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+  }
+
+  async removeUserFromScimGroup(groupId: string, userId: string): Promise<boolean> {
+    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+  }
+
+  // Provisioning log operations - stub implementations (table not created yet)
+  async createProvisioningLog(log: InsertProvisioningLog): Promise<ProvisioningLog> {
+    throw new Error('ProvisioningLog table not created yet - stub implementation');
+  }
+
+  async getProvisioningLog(id: string): Promise<ProvisioningLog | undefined> {
+    throw new Error('ProvisioningLog table not created yet - stub implementation');
+  }
+
+  async getProvisioningLogs(organizationId: string): Promise<ProvisioningLog[]> {
+    throw new Error('ProvisioningLog table not created yet - stub implementation');
+  }
+
+  async getProvisioningLogsByOperation(operation: string, organizationId: string): Promise<ProvisioningLog[]> {
+    throw new Error('ProvisioningLog table not created yet - stub implementation');
+  }
+
+  async getProvisioningLogsByResourceType(resourceType: string, organizationId: string): Promise<ProvisioningLog[]> {
+    throw new Error('ProvisioningLog table not created yet - stub implementation');
+  }
+
+  async getProvisioningLogsByStatus(status: string, organizationId: string): Promise<ProvisioningLog[]> {
+    throw new Error('ProvisioningLog table not created yet - stub implementation');
+  }
+
+  async getProvisioningLogsByRequestId(requestId: string): Promise<ProvisioningLog[]> {
+    throw new Error('ProvisioningLog table not created yet - stub implementation');
+  }
+
+  async getProvisioningLogsByBatch(batchId: string): Promise<ProvisioningLog[]> {
+    throw new Error('ProvisioningLog table not created yet - stub implementation');
+  }
+
+  async getProvisioningLogsByDateRange(startDate: Date, endDate: Date, organizationId: string): Promise<ProvisioningLog[]> {
+    throw new Error('ProvisioningLog table not created yet - stub implementation');
+  }
+
+  async updateProvisioningLog(id: string, updates: Partial<ProvisioningLog>): Promise<ProvisioningLog | undefined> {
+    throw new Error('ProvisioningLog table not created yet - stub implementation');
+  }
+
+  async deleteProvisioningLog(id: string): Promise<boolean> {
+    throw new Error('ProvisioningLog table not created yet - stub implementation');
   }
 }
 
