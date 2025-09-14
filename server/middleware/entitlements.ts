@@ -292,6 +292,23 @@ export function requireFeature(feature: BillingFeature) {
 
       const workspaceId = req.params.workspaceId || req.body.workspaceId || req.query.workspaceId;
       
+      // Special handling for ADVANCED_AI feature - allow non-workspace usage for individual users
+      if (!workspaceId && feature === BILLING_FEATURES.ADVANCED_AI) {
+        // Check if user has ADVANCED_AI access through their individual subscription
+        const userSubscription = req.user.subscription as any;
+        const userPlan = userSubscription?.plan || 'free';
+        
+        if (PLAN_FEATURES[userPlan]?.includes(feature)) {
+          return next(); // User has individual access to ADVANCED_AI
+        }
+        
+        // If user doesn't have individual access, they need workspace context
+        return res.status(400).json({ 
+          error: "Workspace context required for Expert mode analysis. Please create a workspace or upgrade your plan.",
+          code: "WORKSPACE_CONTEXT_REQUIRED" 
+        });
+      }
+      
       if (!workspaceId) {
         return res.status(400).json({ 
           error: "Workspace context required for feature access",
