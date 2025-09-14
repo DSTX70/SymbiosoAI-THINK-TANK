@@ -2820,3 +2820,225 @@ export type InsertDunningEvent = z.infer<typeof insertDunningEventSchema>;
 export type Seat = typeof seats.$inferSelect;
 export type InsertSeat = z.infer<typeof insertSeatsSchema>;
 
+// ============================================
+// SPRINT 12 - GA LAUNCH FEATURES
+// ============================================
+
+// Documentation articles for live docs system
+export const docs = pgTable("docs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  category: varchar("category").notNull(), // getting-started, features, api, troubleshooting
+  tags: text("tags").array().default([]), // searchable tags
+  slug: varchar("slug").unique().notNull(), // URL-friendly identifier
+  author: varchar("author"),
+  isPublished: boolean("is_published").default(true),
+  viewCount: integer("view_count").default(0),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+  metadata: jsonb("metadata").default({}), // Additional doc metadata
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("docs_category_idx").on(table.category),
+  index("docs_published_idx").on(table.isPublished),
+  index("docs_slug_idx").on(table.slug),
+]);
+
+// Admin settings for system configuration
+export const adminSettings = pgTable("admin_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: varchar("key").unique().notNull(), // Unique setting identifier
+  value: text("value").notNull(), // Setting value (JSON or string)
+  description: text("description"), // Human-readable description
+  category: varchar("category").notNull(), // system, security, features, billing
+  dataType: varchar("data_type").notNull().default("string"), // string, number, boolean, json
+  isEditable: boolean("is_editable").default(true),
+  isRequired: boolean("is_required").default(false),
+  validationRules: jsonb("validation_rules").default({}), // Validation constraints
+  lastModifiedBy: varchar("last_modified_by"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("admin_settings_category_idx").on(table.category),
+  index("admin_settings_key_idx").on(table.key),
+]);
+
+// Marketplace items for catalog and publishing
+export const marketplaceItems = pgTable("marketplace_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  category: varchar("category").notNull(), // templates, tools, integrations, services
+  subcategory: varchar("subcategory"), // More specific categorization
+  price: decimal("price", { precision: 10, scale: 2 }).default("0"), // Free items have 0 price
+  currency: varchar("currency").default("USD"),
+  publisher: varchar("publisher").notNull(), // Publisher name/organization
+  publisherId: varchar("publisher_id"), // Reference to user/org who published
+  status: varchar("status").notNull().default("draft"), // draft, under_review, published, archived
+  tags: text("tags").array().default([]), // Search tags
+  images: text("images").array().default([]), // Image URLs
+  downloadUrl: varchar("download_url"), // Download link for items
+  demoUrl: varchar("demo_url"), // Live demo link
+  githubUrl: varchar("github_url"), // Source code link
+  rating: decimal("rating", { precision: 3, scale: 2 }).default("0"), // Average rating
+  ratingCount: integer("rating_count").default(0), // Number of ratings
+  downloadCount: integer("download_count").default(0), // Download statistics
+  viewCount: integer("view_count").default(0), // View statistics
+  featured: boolean("featured").default(false), // Featured items
+  metadata: jsonb("metadata").default({}), // Additional item data
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("marketplace_items_category_idx").on(table.category),
+  index("marketplace_items_status_idx").on(table.status),
+  index("marketplace_items_publisher_idx").on(table.publisherId),
+  index("marketplace_items_featured_idx").on(table.featured),
+  index("marketplace_items_rating_idx").on(table.rating),
+]);
+
+// Changelog entries for release communications
+export const changelogEntries = pgTable("changelog_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  version: varchar("version").unique().notNull(), // e.g., "1.2.0", "2024.1"
+  title: text("title").notNull(), // Release title
+  content: text("content").notNull(), // Markdown content of changelog
+  type: varchar("type").notNull(), // major, minor, patch, hotfix
+  category: varchar("category").notNull().default("general"), // feature, bugfix, security, performance
+  isPublished: boolean("is_published").default(false),
+  isPinned: boolean("is_pinned").default(false), // Pin important releases
+  tags: text("tags").array().default([]), // Release tags
+  author: varchar("author").notNull(), // Who created the entry
+  releaseDate: timestamp("release_date"), // When the release was deployed
+  announcementChannels: text("announcement_channels").array().default([]), // Where to announce
+  metadata: jsonb("metadata").default({}), // Additional release data
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("changelog_entries_version_idx").on(table.version),
+  index("changelog_entries_published_idx").on(table.isPublished),
+  index("changelog_entries_type_idx").on(table.type),
+  index("changelog_entries_release_date_idx").on(table.releaseDate),
+]);
+
+// Success playbooks for user onboarding and guidance
+export const playbooks = pgTable("playbooks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  content: text("content").notNull(), // Markdown content
+  type: varchar("type").notNull(), // onboarding, success, best_practices, troubleshooting
+  role: varchar("role").notNull(), // beginner, intermediate, expert, admin, developer
+  category: varchar("category").notNull(), // getting-started, features, workflows, optimization
+  steps: jsonb("steps").default([]), // Structured step-by-step content
+  estimatedDuration: integer("estimated_duration"), // Minutes to complete
+  prerequisites: text("prerequisites").array().default([]), // Required knowledge/setup
+  goals: text("goals").array().default([]), // Learning objectives
+  resources: jsonb("resources").default([]), // Links, references, tools
+  tags: text("tags").array().default([]), // Search tags
+  isActive: boolean("is_active").default(true),
+  usageCount: integer("usage_count").default(0), // How many times accessed
+  rating: decimal("rating", { precision: 3, scale: 2 }).default("0"), // User rating
+  ratingCount: integer("rating_count").default(0), // Number of ratings
+  author: varchar("author"), // Creator of the playbook
+  lastReviewed: timestamp("last_reviewed"), // Last content review date
+  metadata: jsonb("metadata").default({}), // Additional playbook data
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("playbooks_type_idx").on(table.type),
+  index("playbooks_role_idx").on(table.role),
+  index("playbooks_category_idx").on(table.category),
+  index("playbooks_active_idx").on(table.isActive),
+  index("playbooks_rating_idx").on(table.rating),
+]);
+
+// Sprint 12 Zod schemas
+export const insertDocsSchema = createInsertSchema(docs).pick({
+  title: true,
+  content: true,
+  category: true,
+  tags: true,
+  slug: true,
+  author: true,
+  isPublished: true,
+  metadata: true,
+});
+
+export const insertAdminSettingsSchema = createInsertSchema(adminSettings).pick({
+  key: true,
+  value: true,
+  description: true,
+  category: true,
+  dataType: true,
+  isEditable: true,
+  isRequired: true,
+  validationRules: true,
+  lastModifiedBy: true,
+});
+
+export const insertMarketplaceItemsSchema = createInsertSchema(marketplaceItems).pick({
+  title: true,
+  description: true,
+  category: true,
+  subcategory: true,
+  price: true,
+  currency: true,
+  publisher: true,
+  publisherId: true,
+  status: true,
+  tags: true,
+  images: true,
+  downloadUrl: true,
+  demoUrl: true,
+  githubUrl: true,
+  featured: true,
+  metadata: true,
+});
+
+export const insertChangelogEntriesSchema = createInsertSchema(changelogEntries).pick({
+  version: true,
+  title: true,
+  content: true,
+  type: true,
+  category: true,
+  isPublished: true,
+  isPinned: true,
+  tags: true,
+  author: true,
+  releaseDate: true,
+  announcementChannels: true,
+  metadata: true,
+});
+
+export const insertPlaybooksSchema = createInsertSchema(playbooks).pick({
+  title: true,
+  description: true,
+  content: true,
+  type: true,
+  role: true,
+  category: true,
+  steps: true,
+  estimatedDuration: true,
+  prerequisites: true,
+  goals: true,
+  resources: true,
+  tags: true,
+  isActive: true,
+  author: true,
+  metadata: true,
+});
+
+// Sprint 12 Types
+export type Docs = typeof docs.$inferSelect;
+export type InsertDocs = z.infer<typeof insertDocsSchema>;
+export type AdminSettings = typeof adminSettings.$inferSelect;
+export type InsertAdminSettings = z.infer<typeof insertAdminSettingsSchema>;
+export type MarketplaceItems = typeof marketplaceItems.$inferSelect;
+export type InsertMarketplaceItems = z.infer<typeof insertMarketplaceItemsSchema>;
+export type ChangelogEntries = typeof changelogEntries.$inferSelect;
+export type InsertChangelogEntries = z.infer<typeof insertChangelogEntriesSchema>;
+export type Playbooks = typeof playbooks.$inferSelect;
+export type InsertPlaybooks = z.infer<typeof insertPlaybooksSchema>;
+

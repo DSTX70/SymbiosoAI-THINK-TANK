@@ -41,6 +41,10 @@ import {
   type EnhancedUsageMetric, type InsertEnhancedUsageMetric,
   // Sprint 11 - Billing & Entitlements types
   type Invoice, type InsertInvoice, type DunningEvent, type InsertDunningEvent, type Seat, type InsertSeat,
+  // Sprint 12 - GA Launch types
+  type Docs, type InsertDocs, type AdminSettings, type InsertAdminSettings,
+  type MarketplaceItems, type InsertMarketplaceItems, type ChangelogEntries, type InsertChangelogEntries,
+  type Playbooks, type InsertPlaybooks,
   users, analysisSessions, workspaces, workspaceMembers, workspaceInvites, generatedReports,
   templates, sessionCodes, sessionParticipants, chatMessages, pushSubscriptions,
   tutorials, tutorialSteps, tutorialProgress, tutorialSettings,
@@ -55,7 +59,9 @@ import {
   workflowDefinitions, workflowExecutions, workflowEvents,
   organizationAnalytics, organizationDailyReports, enhancedUsageMetrics,
   // Sprint 11 table imports
-  invoices, dunningEvents, seats
+  invoices, dunningEvents, seats,
+  // Sprint 12 table imports
+  docs, adminSettings, marketplaceItems, changelogEntries, playbooks
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { Pool, neonConfig } from '@neondatabase/serverless';
@@ -548,6 +554,69 @@ export interface IStorage {
   createSeats(seats: InsertSeat): Promise<Seat>;
   getSeats(orgId: string): Promise<Seat | undefined>;
   updateSeats(orgId: string, seats: number): Promise<Seat | undefined>;
+
+  // ============================================
+  // SPRINT 12 - GA LAUNCH FEATURES
+  // ============================================
+
+  // Documentation operations
+  createDoc(doc: InsertDocs): Promise<Docs>;
+  getDoc(id: string): Promise<Docs | undefined>;
+  getDocBySlug(slug: string): Promise<Docs | undefined>;
+  getAllDocs(): Promise<Docs[]>;
+  getDocsByCategory(category: string): Promise<Docs[]>;
+  getPublishedDocs(): Promise<Docs[]>;
+  updateDoc(id: string, updates: Partial<Docs>): Promise<Docs | undefined>;
+  deleteDoc(id: string): Promise<boolean>;
+  incrementDocViewCount(id: string): Promise<Docs | undefined>;
+  searchDocs(query: string): Promise<Docs[]>;
+
+  // Admin settings operations
+  createAdminSetting(setting: InsertAdminSettings): Promise<AdminSettings>;
+  getAdminSetting(key: string): Promise<AdminSettings | undefined>;
+  getAllAdminSettings(): Promise<AdminSettings[]>;
+  getAdminSettingsByCategory(category: string): Promise<AdminSettings[]>;
+  updateAdminSetting(key: string, value: string, lastModifiedBy?: string): Promise<AdminSettings | undefined>;
+  deleteAdminSetting(key: string): Promise<boolean>;
+
+  // Marketplace operations
+  createMarketplaceItem(item: InsertMarketplaceItems): Promise<MarketplaceItems>;
+  getMarketplaceItem(id: string): Promise<MarketplaceItems | undefined>;
+  getAllMarketplaceItems(): Promise<MarketplaceItems[]>;
+  getMarketplaceItemsByCategory(category: string): Promise<MarketplaceItems[]>;
+  getPublishedMarketplaceItems(): Promise<MarketplaceItems[]>;
+  getFeaturedMarketplaceItems(): Promise<MarketplaceItems[]>;
+  getMarketplaceItemsByPublisher(publisherId: string): Promise<MarketplaceItems[]>;
+  updateMarketplaceItem(id: string, updates: Partial<MarketplaceItems>): Promise<MarketplaceItems | undefined>;
+  deleteMarketplaceItem(id: string): Promise<boolean>;
+  incrementMarketplaceItemViews(id: string): Promise<MarketplaceItems | undefined>;
+  incrementMarketplaceItemDownloads(id: string): Promise<MarketplaceItems | undefined>;
+  searchMarketplaceItems(query: string): Promise<MarketplaceItems[]>;
+
+  // Changelog operations
+  createChangelogEntry(entry: InsertChangelogEntries): Promise<ChangelogEntries>;
+  getChangelogEntry(id: string): Promise<ChangelogEntries | undefined>;
+  getChangelogEntryByVersion(version: string): Promise<ChangelogEntries | undefined>;
+  getAllChangelogEntries(): Promise<ChangelogEntries[]>;
+  getPublishedChangelogEntries(): Promise<ChangelogEntries[]>;
+  getPinnedChangelogEntries(): Promise<ChangelogEntries[]>;
+  getChangelogEntriesByType(type: string): Promise<ChangelogEntries[]>;
+  updateChangelogEntry(id: string, updates: Partial<ChangelogEntries>): Promise<ChangelogEntries | undefined>;
+  deleteChangelogEntry(id: string): Promise<boolean>;
+  publishChangelogEntry(id: string, author: string): Promise<ChangelogEntries | undefined>;
+
+  // Playbooks operations
+  createPlaybook(playbook: InsertPlaybooks): Promise<Playbooks>;
+  getPlaybook(id: string): Promise<Playbooks | undefined>;
+  getAllPlaybooks(): Promise<Playbooks[]>;
+  getPlaybooksByType(type: string): Promise<Playbooks[]>;
+  getPlaybooksByRole(role: string): Promise<Playbooks[]>;
+  getPlaybooksByCategory(category: string): Promise<Playbooks[]>;
+  getActivePlaybooks(): Promise<Playbooks[]>;
+  updatePlaybook(id: string, updates: Partial<Playbooks>): Promise<Playbooks | undefined>;
+  deletePlaybook(id: string): Promise<boolean>;
+  incrementPlaybookUsage(id: string): Promise<Playbooks | undefined>;
+  searchPlaybooks(query: string): Promise<Playbooks[]>;
 }
 
 export class MemStorage implements IStorage {

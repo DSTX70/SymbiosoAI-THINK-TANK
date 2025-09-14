@@ -66,6 +66,8 @@ import { AppError, createValidationError, createAuthenticationError, createCircu
 import billingRoutes from "./routes/billing";
 import entitlementsRoutes from "./routes/entitlements";
 import adminRoutes from "./routes/admin";
+// Sprint 12 - GA Launch imports
+import sprint12Routes from "./routes/sprint12";
 import { startDunningWorker } from "./workers/dunningWorker";
 
 // Helper function to format report object into readable content
@@ -3061,6 +3063,15 @@ Provide additional insights, explore deeper implications, or address related asp
   app.use('/entitlements', entitlementsRoutes);
   app.use('/admin', adminRoutes);
   console.log('✅ Sprint 11 routes mounted: /billing/*, /entitlements/*, /admin/*');
+
+  // ============================================
+  // SPRINT 12 - MOUNT GA LAUNCH ROUTES
+  // ============================================
+  
+  // Mount Sprint 12 routes for GA Launch
+  app.use('/api/sprint12', sprint12Routes);
+  app.use('/api', sprint12Routes); // Also mount directly under /api for easier access
+  console.log('✅ Sprint 12 GA Launch routes mounted: /api/sprint12/*, /api/docs/*, /api/marketplace/*, /api/pricing/*, /api/changelog/*, /api/playbooks/*');
 
   // ============================================
   // SPRINT 6 - INITIALIZE WORKERS

@@ -25,6 +25,7 @@ import TrustCenterCompliance from "@/pages/trust-center-compliance";
 import TrustCenterContact from "@/pages/trust-center-contact";
 import Sprint10Page from "@/pages/sprint10";
 import Sprint11Page from "@/pages/sprint11";
+import Sprint12Page from "@/pages/sprint12";
 import BottomNavigation from "@/components/BottomNavigation";
 import DesktopSidebar from "@/components/DesktopSidebar";
 import OfflineBanner from "@/components/OfflineBanner";
@@ -73,6 +74,7 @@ function Router() {
           <Route path="/trust-center/contact" component={TrustCenterContact} />
           <Route path="/sprint10" component={Sprint10Page} />
           <Route path="/sprint11" component={Sprint11Page} />
+          <Route path="/sprint12" component={Sprint12Page} />
           <Route component={() => <div>Page not found</div>} />
         </Switch>
       </div>
