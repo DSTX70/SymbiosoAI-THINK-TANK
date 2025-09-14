@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const API_BASE = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
 
@@ -109,6 +110,7 @@ export default function DemoWalkthrough() {
   const [log, setLog] = useState<string[]>([]);
   const [done, setDone] = useState<Record<StepId, boolean>>({} as any);
   const [statusMap, setStatusMap] = useState<Record<StepId, number | null>>({} as any);
+  const [demoAvailable, setDemoAvailable] = useState<boolean | null>(null);
 
   const idxMap = useMemo(() => Object.fromEntries(steps.map((s, i) => [s.id, i])), []);
   const percent = useMemo(() => {
@@ -159,6 +161,46 @@ export default function DemoWalkthrough() {
       await new Promise((r) => setTimeout(r, 150));
     }
   }, [clear, runStep]);
+
+  // Check if demo login is available
+  useEffect(() => {
+    fetch(`${API_BASE}/api/demo-login`, { 
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include'
+    })
+      .then((r) => setDemoAvailable(r.status !== 404))
+      .catch(() => setDemoAvailable(false));
+  }, []);
+
+  // Show warning if demo is not available
+  if (demoAvailable === false) {
+    return (
+      <div className="mx-auto max-w-5xl space-y-6 p-6">
+        <Alert variant="destructive">
+          <AlertDescription>
+            <strong>Demo login is disabled.</strong> 
+            <br />
+            Ensure <code>ENABLE_DEMO_LOGIN=true</code> environment variable is set and you're running in development mode.
+            <br />
+            <code>NODE_ENV=development</code>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  // Show loading state while checking demo availability
+  if (demoAvailable === null) {
+    return (
+      <div className="mx-auto max-w-5xl space-y-6 p-6">
+        <div className="flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <span className="ml-2 text-muted-foreground">Checking demo availability...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6">

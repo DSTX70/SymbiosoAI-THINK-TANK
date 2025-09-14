@@ -1,0 +1,158 @@
+// File: DEMO_UI_SETUP.md
+# Demo Walkthrough UI — Setup Instructions
+
+## 1. Scaffold shadcn/ui Components
+Install shadcn/ui CLI (if not already):
+```bash
+npx shadcn-ui@latest init
+```
+
+Generate the components we use:
+```bash
+npx shadcn-ui@latest add button card badge progress
+```
+
+This will create files like:
+- `src/components/ui/button.tsx`
+- `src/components/ui/card.tsx`
+- `src/components/ui/badge.tsx`
+- `src/components/ui/progress.tsx`
+
+These match the imports used in `DemoWalkthrough.tsx`.
+
+---
+
+## 2. Install Dependencies
+```bash
+npm install react react-dom framer-motion
+npm install -D vite @vitejs/plugin-react tailwindcss postcss autoprefixer
+```
+
+---
+
+## 3. Tailwind Setup
+Run:
+```bash
+npx tailwindcss init -p
+```
+
+Configure `tailwind.config.ts`:
+```ts
+import type { Config } from 'tailwindcss';
+export default {
+  content: ['./index.html', './src/**/*.{ts,tsx}'],
+  theme: { extend: {} },
+  plugins: [],
+} satisfies Config;
+```
+
+Add `src/index.css`:
+```css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+
+---
+
+## 4. Vite Config
+`vite.config.ts`:
+```ts
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'node:path';
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+    },
+  },
+  build: {
+    outDir: 'public',
+    emptyOutDir: false,
+    rollupOptions: {
+      input: path.resolve(__dirname, 'index.html'),
+      output: {
+        entryFileNames: 'demo-walkthrough.bundle.js',
+        chunkFileNames: 'demo-[name].js',
+        assetFileNames: 'demo-[name][extname]',
+      },
+    },
+  },
+});
+```
+
+---
+
+## 5. Entry Files
+`index.html`:
+```html
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Demo Walkthrough</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+```
+
+`src/main.tsx`:
+```tsx
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import DemoWalkthrough from './pages/DemoWalkthrough';
+import './index.css';
+
+const root = createRoot(document.getElementById('root')!);
+root.render(<DemoWalkthrough />);
+```
+
+---
+
+## 6. Route Guards & Warnings
+In `DemoWalkthrough.tsx`, add a guard for demo login availability:
+```tsx
+const [demoAvailable, setDemoAvailable] = useState<boolean | null>(null);
+
+useEffect(() => {
+  fetch(`${API_BASE}/api/demo-login`, { method: 'POST' })
+    .then((r) => setDemoAvailable(r.status !== 404))
+    .catch(() => setDemoAvailable(false));
+}, []);
+
+if (demoAvailable === false) {
+  return (
+    <div className="p-6 text-red-600">
+      Demo login is disabled. Ensure <code>ENABLE_DEMO_LOGIN=true</code> and run in dev mode.
+    </div>
+  );
+}
+```
+
+Also, when `/api/demo-login` fails with 404, show a clear warning banner in the UI.
+
+---
+
+## 7. Build & Run
+```bash
+npm run dev       # run vite dev server on localhost:5173
+npm run build:demo # build to /public/demo-walkthrough.bundle.js
+```
+
+Then ensure your Express app serves `/demo` route that loads `public/demo-walkthrough.bundle.js`.
+
+---
+
+## 8. Verify Flow
+1. Visit `/demo` in browser.
+2. Click **Run All** or step through manually.
+3. Observe progress bar, live log, and shadcn/ui cards.
+
+If `ENABLE_DEMO_LOGIN` is not set → you’ll see a red warning that demo login is disabled.
