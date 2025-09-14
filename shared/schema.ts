@@ -2519,7 +2519,7 @@ export const enhancedUsageMetrics = pgTable("enhanced_usage_metrics", {
   metricType: varchar("metric_type").notNull(), // usage, performance, billing, quota
   value: decimal("value", { precision: 10, scale: 2 }).notNull(), // Metric value
   unit: varchar("unit").notNull(), // count, seconds, bytes, requests, percentage
-  tags: jsonb("tags").default([]), // Additional categorization
+  tags: text("tags").array().default([]), // Additional categorization - PostgreSQL text array
   dimensions: jsonb("dimensions").default({}), // Metric dimensions
   timestamp: timestamp("timestamp").defaultNow(),
   metadata: jsonb("metadata").default({}), // Additional metric data

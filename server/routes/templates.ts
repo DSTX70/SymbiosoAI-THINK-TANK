@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { insertTemplateSchema, templateCategorySchema, type Template } from '@shared/schema';
 import { z } from 'zod';
 import crypto from 'crypto';
+import { requireAuth, requireWorkspaceAccess, requireWorkspacePermission, WORKSPACE_PERMISSIONS } from '../middleware/rbac';
+import { loadEntitlementsContext, requireFeature, BILLING_FEATURES } from '../middleware/entitlements';
 
 const router = Router();
 
@@ -173,13 +175,19 @@ const templateStore: Record<string, Template> = {
 };
 
 // Get all templates - returns direct array matching frontend expectations
-router.get('/templates', (_req, res) => {
+router.get('/templates', 
+  requireAuth,
+  loadEntitlementsContext,
+  (_req, res) => {
   const templates = Object.values(templateStore);
   res.json(templates);
 });
 
 // Get specific template
-router.get('/templates/:id', (req, res) => {
+router.get('/templates/:id',
+  requireAuth,
+  loadEntitlementsContext,
+  (req, res) => {
   const template = templateStore[req.params.id];
   if (!template) {
     return res.status(404).json({ error: 'Template not found' });
@@ -188,7 +196,12 @@ router.get('/templates/:id', (req, res) => {
 });
 
 // Create new template
-router.post('/templates', (req, res) => {
+router.post('/templates',
+  requireAuth,
+  loadEntitlementsContext,
+  requireFeature(BILLING_FEATURES.CUSTOM_TEMPLATES),
+  requireWorkspacePermission(WORKSPACE_PERMISSIONS.MANAGE_TEMPLATES),
+  (req, res) => {
   try {
     // Validate request body using Zod schema
     const validatedData = insertTemplateSchema.parse(req.body);
@@ -224,7 +237,12 @@ router.post('/templates', (req, res) => {
 });
 
 // Update template
-router.patch('/templates/:id', (req, res) => {
+router.patch('/templates/:id',
+  requireAuth,
+  loadEntitlementsContext,
+  requireFeature(BILLING_FEATURES.CUSTOM_TEMPLATES),
+  requireWorkspacePermission(WORKSPACE_PERMISSIONS.MANAGE_TEMPLATES),
+  (req, res) => {
   try {
     const template = templateStore[req.params.id];
     if (!template) {
@@ -257,7 +275,10 @@ router.patch('/templates/:id', (req, res) => {
 });
 
 // Use template (increment usage count)
-router.post('/templates/:id/use', (req, res) => {
+router.post('/templates/:id/use',
+  requireAuth,
+  loadEntitlementsContext,
+  (req, res) => {
   const template = templateStore[req.params.id];
   if (!template) {
     return res.status(404).json({ error: 'Template not found' });
@@ -270,7 +291,12 @@ router.post('/templates/:id/use', (req, res) => {
 });
 
 // Delete template
-router.delete('/templates/:id', (req, res) => {
+router.delete('/templates/:id',
+  requireAuth,
+  loadEntitlementsContext,
+  requireFeature(BILLING_FEATURES.CUSTOM_TEMPLATES),
+  requireWorkspacePermission(WORKSPACE_PERMISSIONS.MANAGE_TEMPLATES),
+  (req, res) => {
   const template = templateStore[req.params.id];
   if (!template) {
     return res.status(404).json({ error: 'Template not found' });

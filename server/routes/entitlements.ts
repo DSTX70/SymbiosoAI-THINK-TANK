@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { getOrganizationFeatures, checkOrganizationFeature } from '../middleware/entitlementGuard';
+import { requireAuth, requireSystemPermission, SYSTEM_PERMISSIONS } from '../middleware/rbac';
+import { loadEntitlementsContext } from '../middleware/entitlements';
 
 const router = Router();
 
@@ -15,7 +17,11 @@ const entitlementCheckSchema = z.object({
  * GET /entitlements/check
  * Check entitlements for organization and specific features
  */
-router.get('/check', async (req, res) => {
+router.get('/check',
+  requireAuth,
+  loadEntitlementsContext,
+  requireSystemPermission(SYSTEM_PERMISSIONS.VIEW_AUDIT_LOGS),
+  async (req, res) => {
   try {
     const query = req.query as any;
     const orgId = query.orgId || (req as any).orgId || (req as any).user?.organizationId || 'demo-org';
@@ -68,7 +74,11 @@ router.get('/check', async (req, res) => {
  * POST /entitlements/check
  * Batch check entitlements (alternative to GET with request body)
  */
-router.post('/check', async (req, res) => {
+router.post('/check',
+  requireAuth,
+  loadEntitlementsContext,
+  requireSystemPermission(SYSTEM_PERMISSIONS.VIEW_AUDIT_LOGS),
+  async (req, res) => {
   try {
     const body = entitlementCheckSchema.parse(req.body);
     const orgId = body.orgId || (req as any).orgId || (req as any).user?.organizationId || 'demo-org';

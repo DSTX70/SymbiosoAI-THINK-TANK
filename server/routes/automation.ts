@@ -1,6 +1,8 @@
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import { automationService } from "../services/automationService";
+import { requireAuth, requireSystemPermission, requireWorkspaceAccess, requireWorkspacePermission, SYSTEM_PERMISSIONS, WORKSPACE_PERMISSIONS } from "../middleware/rbac";
+import { loadEntitlementsContext, requireFeature, BILLING_FEATURES } from "../middleware/entitlements";
 import { 
   insertTimeLogSchema, 
   insertInvoiceSchema, 
@@ -16,7 +18,12 @@ export function registerAutomationRoutes(app: Express) {
   // ============================================
 
   // Start time tracking
-  app.post("/api/automation/time-logs/start", async (req: Request, res: Response) => {
+  app.post("/api/automation/time-logs/start",
+    requireAuth,
+    loadEntitlementsContext,
+    requireFeature(BILLING_FEATURES.CUSTOM_WORKFLOWS),
+    requireWorkspacePermission(WORKSPACE_PERMISSIONS.CREATE_SESSIONS),
+    async (req: Request, res: Response) => {
     try {
       const data = insertTimeLogSchema.omit({ endTime: true, duration: true }).parse(req.body);
       const timeLogId = await automationService.startTimeLog(data);
@@ -28,7 +35,12 @@ export function registerAutomationRoutes(app: Express) {
   });
 
   // Stop time tracking
-  app.post("/api/automation/time-logs/:id/stop", async (req: Request, res: Response) => {
+  app.post("/api/automation/time-logs/:id/stop",
+    requireAuth,
+    loadEntitlementsContext,
+    requireFeature(BILLING_FEATURES.CUSTOM_WORKFLOWS),
+    requireWorkspacePermission(WORKSPACE_PERMISSIONS.CREATE_SESSIONS),
+    async (req: Request, res: Response) => {
     try {
       await automationService.stopTimeLog(req.params.id);
       res.json({ success: true });
@@ -39,7 +51,11 @@ export function registerAutomationRoutes(app: Express) {
   });
 
   // Get billable time logs
-  app.get("/api/automation/time-logs/billable", async (req: Request, res: Response) => {
+  app.get("/api/automation/time-logs/billable",
+    requireAuth,
+    loadEntitlementsContext,
+    requireSystemPermission(SYSTEM_PERMISSIONS.MANAGE_BILLING),
+    async (req: Request, res: Response) => {
     try {
       const { organizationId, startDate, endDate } = req.query;
       
@@ -61,7 +77,11 @@ export function registerAutomationRoutes(app: Express) {
   });
 
   // Generate invoice
-  app.post("/api/automation/invoices/generate", async (req: Request, res: Response) => {
+  app.post("/api/automation/invoices/generate",
+    requireAuth,
+    loadEntitlementsContext,
+    requireSystemPermission(SYSTEM_PERMISSIONS.MANAGE_BILLING),
+    async (req: Request, res: Response) => {
     try {
       const schema = z.object({
         organizationId: z.string(),
@@ -89,7 +109,11 @@ export function registerAutomationRoutes(app: Express) {
   });
 
   // Get invoices
-  app.get("/api/automation/invoices", async (req: Request, res: Response) => {
+  app.get("/api/automation/invoices",
+    requireAuth,
+    loadEntitlementsContext,
+    requireSystemPermission(SYSTEM_PERMISSIONS.MANAGE_BILLING),
+    async (req: Request, res: Response) => {
     try {
       const { organizationId, status } = req.query;
       

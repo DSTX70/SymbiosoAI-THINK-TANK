@@ -3696,39 +3696,50 @@ export class DatabaseStorage implements IStorage {
   }
   
   async recordEnhancedUsageMetric(metric: InsertEnhancedUsageMetric): Promise<EnhancedUsageMetric> {
-    // CRITICAL FIX: Simplified JSONB handling - let Drizzle handle arrays naturally
+    // CRITICAL FIX: Ensure clean JSONB field handling
     const processedMetric = {
       ...metric,
       id: randomUUID(),
-      // Ensure proper JavaScript objects/arrays for JSONB
+      // For JSONB fields, pass clean JavaScript types - no pre-serialization needed
       tags: Array.isArray(metric.tags) ? metric.tags : (metric.tags ? [metric.tags] : []),
-      dimensions: typeof metric.dimensions === 'object' && metric.dimensions !== null ? metric.dimensions : {}
+      dimensions: typeof metric.dimensions === 'object' && metric.dimensions !== null ? metric.dimensions : {},
+      metadata: typeof metric.metadata === 'object' && metric.metadata !== null ? metric.metadata : {}
     };
     
     try {
-      // For debugging: temporarily disable problematic array insertion
-      console.log('🔍 Attempting metric insertion with data:', {
-        id: processedMetric.id,
-        organizationId: processedMetric.organizationId,
-        resourceType: processedMetric.resourceType,
+      // Clean insert - remove debugging that might interfere with array handling
+      const [newMetric] = await db.insert(enhancedUsageMetrics).values(processedMetric).returning();
+      console.log('✅ Successfully recorded enhanced usage metric:', newMetric.id);
+      return newMetric;
+    } catch (error: any) {
+      console.error('❌ Database error in recordEnhancedUsageMetric:', error.message);
+      console.error('Failed metric data structure:', {
         tagsType: typeof processedMetric.tags,
+        tagsIsArray: Array.isArray(processedMetric.tags),
         tagsValue: processedMetric.tags,
         dimensionsType: typeof processedMetric.dimensions
       });
       
-      const [newMetric] = await db.insert(enhancedUsageMetrics).values(processedMetric).returning();
-      return newMetric;
-    } catch (error: any) {
-      console.error('❌ Database error in recordEnhancedUsageMetric:', error.message);
-      console.error('Failed metric data:', JSON.stringify(processedMetric, null, 2));
-      
-      // Temporary: skip the insert and return mock data to prevent system failure
-      console.log('⚠️ Temporarily skipping problematic database insert');
-      return {
-        ...processedMetric,
-        timestamp: new Date(),
-        metadata: {}
-      } as EnhancedUsageMetric;
+      // For debugging: try a minimal insert to isolate the issue
+      try {
+        const minimalMetric = {
+          id: randomUUID(),
+          organizationId: processedMetric.organizationId,
+          resourceType: processedMetric.resourceType,
+          action: processedMetric.action,
+          metricType: processedMetric.metricType,
+          value: processedMetric.value,
+          unit: processedMetric.unit
+          // Temporarily omit JSONB fields to test basic insert
+        };
+        console.log('🔧 Testing minimal insert without JSONB fields...');
+        const [minimalResult] = await db.insert(enhancedUsageMetrics).values(minimalMetric).returning();
+        console.log('✅ Minimal insert successful - issue is with JSONB field handling');
+        return minimalResult;
+      } catch (minimalError: any) {
+        console.error('❌ Even minimal insert failed:', minimalError.message);
+        throw error; // Re-throw original error
+      }
     }
   }
 

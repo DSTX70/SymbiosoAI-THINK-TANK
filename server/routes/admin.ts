@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { requireEntitlement } from '../middleware/entitlementGuard';
+import { requireAuth, requireSystemRole, requireSystemPermission, SYSTEM_PERMISSIONS } from '../middleware/rbac';
+import { loadEntitlementsContext, requireFeature, BILLING_FEATURES } from '../middleware/entitlements';
 
 const router = Router();
 
@@ -7,7 +8,12 @@ const router = Router();
  * GET /admin/sla
  * Return SLA performance readouts and targets
  */
-router.get('/sla', requireEntitlement('admin.monitoring'), (req, res) => {
+router.get('/sla',
+  requireAuth,
+  loadEntitlementsContext,
+  requireSystemRole('admin'),
+  requireFeature(BILLING_FEATURES.ADVANCED_ANALYTICS),
+  (req, res) => {
   try {
     // Get SLA targets from environment variables
     const debateP95Ms = Number(process.env.SLA_DEBATE_P95_MS || 30000);
@@ -54,7 +60,12 @@ router.get('/sla', requireEntitlement('admin.monitoring'), (req, res) => {
  * GET /admin/a11y/quickcheck
  * Return accessibility quick check results
  */
-router.get('/a11y/quickcheck', requireEntitlement('admin.monitoring'), (req, res) => {
+router.get('/a11y/quickcheck',
+  requireAuth,
+  loadEntitlementsContext,
+  requireSystemRole('admin'),
+  requireFeature(BILLING_FEATURES.ADVANCED_ANALYTICS),
+  (req, res) => {
   try {
     // Get accessibility checks from environment
     const a11yChecks = (process.env.A11Y_CHECKS || 'aria,contrast,keyboard').split(',');
@@ -95,7 +106,11 @@ router.get('/a11y/quickcheck', requireEntitlement('admin.monitoring'), (req, res
  * GET /admin/health
  * System health check endpoint
  */
-router.get('/health', (req, res) => {
+router.get('/health',
+  requireAuth,
+  loadEntitlementsContext,
+  requireSystemPermission(SYSTEM_PERMISSIONS.ADMIN_DASHBOARD),
+  (req, res) => {
   try {
     const health = {
       status: 'healthy',

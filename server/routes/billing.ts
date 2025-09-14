@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { storage } from '../storage';
+import { requireAuth, requireSystemPermission, SYSTEM_PERMISSIONS } from '../middleware/rbac';
+import { loadEntitlementsContext, requireFeature } from '../middleware/entitlements';
 
 const router = Router();
 
@@ -24,7 +26,11 @@ const dunningSimulateSchema = z.object({
  * POST /billing/proration/preview
  * Calculate proration delta for plan upgrades/downgrades
  */
-router.post('/proration/preview', async (req, res) => {
+router.post('/proration/preview', 
+  requireAuth,
+  loadEntitlementsContext,
+  requireSystemPermission(SYSTEM_PERMISSIONS.MANAGE_BILLING),
+  async (req, res) => {
   try {
     const body = prorationPreviewSchema.parse(req.body);
     
@@ -67,7 +73,11 @@ router.post('/proration/preview', async (req, res) => {
  * POST /billing/dunning/simulate
  * Simulate dunning flow for overdue invoices
  */
-router.post('/dunning/simulate', async (req, res) => {
+router.post('/dunning/simulate',
+  requireAuth,
+  loadEntitlementsContext,
+  requireSystemPermission(SYSTEM_PERMISSIONS.MANAGE_BILLING),
+  async (req, res) => {
   try {
     const body = dunningSimulateSchema.parse(req.body);
     
@@ -112,7 +122,11 @@ router.post('/dunning/simulate', async (req, res) => {
  * GET /billing/portal
  * Get self-serve billing portal URL
  */
-router.get('/portal', async (req, res) => {
+router.get('/portal',
+  requireAuth,
+  loadEntitlementsContext,
+  requireSystemPermission(SYSTEM_PERMISSIONS.MANAGE_BILLING),
+  async (req, res) => {
   try {
     // In production, this would generate a Stripe billing portal session
     const orgId = (req as any).orgId || 'demo-org';

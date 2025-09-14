@@ -2,12 +2,20 @@ import { Router, Request, Response } from 'express';
 import { sanitizeFilename } from '../utils/sanitizeFilename';
 import { dlpMiddleware } from '../middleware/dlp';
 import { requireAuth } from '../middleware/auth';
+import { requireWorkspaceAccess, requireWorkspacePermission, WORKSPACE_PERMISSIONS } from '../middleware/rbac';
+import { loadEntitlementsContext, requireFeature, BILLING_FEATURES } from '../middleware/entitlements';
 import { storage } from '../storage';
 
 const router = Router();
 
 // POST /api/export - DLP-protected export endpoint
-router.post('/export', requireAuth, dlpMiddleware, async (req: Request, res: Response) => {
+router.post('/export',
+  requireAuth,
+  loadEntitlementsContext,
+  requireFeature(BILLING_FEATURES.EXPORT_PDF),
+  requireWorkspacePermission(WORKSPACE_PERMISSIONS.EXPORT_DATA),
+  dlpMiddleware,
+  async (req: Request, res: Response) => {
   try {
     const { filename = 'decision-dossier.txt', content = '' } = req.body || {};
     const safe = sanitizeFilename(filename);
@@ -41,7 +49,11 @@ router.post('/export', requireAuth, dlpMiddleware, async (req: Request, res: Res
 });
 
 // GET /api/export/logs - Get export logs for current user
-router.get('/export/logs', requireAuth, async (req: Request, res: Response) => {
+router.get('/export/logs',
+  requireAuth,
+  loadEntitlementsContext,
+  requireWorkspacePermission(WORKSPACE_PERMISSIONS.EXPORT_DATA),
+  async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id || (req as any).session?.user?.id;
     

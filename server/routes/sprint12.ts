@@ -8,7 +8,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { requireAuth, requireSystemRole, requireSystemPermission } from "../middleware/rbac";
-import { requireFeature, requirePlanLimit } from "../middleware/entitlements";
+import { loadEntitlementsContext, requireFeature, requirePlanLimit } from "../middleware/entitlements";
 import { AppError, createValidationError } from "../utils/errors";
 
 const router = Router();
@@ -18,7 +18,10 @@ const router = Router();
 // ============================================
 
 // GET /docs/index - Get all documentation articles
-router.get("/docs/index", async (req: Request, res: Response) => {
+router.get("/docs/index", 
+  requireAuth,
+  loadEntitlementsContext,
+  async (req: Request, res: Response) => {
   try {
     const { category, published } = req.query;
     
@@ -49,7 +52,10 @@ router.get("/docs/index", async (req: Request, res: Response) => {
 });
 
 // GET /docs/article/:id - Get specific documentation article
-router.get("/docs/article/:id", async (req: Request, res: Response) => {
+router.get("/docs/article/:id",
+  requireAuth,
+  loadEntitlementsContext,
+  async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const doc = await storage.getDoc(id);
@@ -78,7 +84,10 @@ router.get("/docs/article/:id", async (req: Request, res: Response) => {
 });
 
 // GET /docs/slug/:slug - Get documentation by slug
-router.get("/docs/slug/:slug", async (req: Request, res: Response) => {
+router.get("/docs/slug/:slug",
+  requireAuth,
+  loadEntitlementsContext,
+  async (req: Request, res: Response) => {
   try {
     const { slug } = req.params;
     const doc = await storage.getDocBySlug(slug);
@@ -107,7 +116,10 @@ router.get("/docs/slug/:slug", async (req: Request, res: Response) => {
 });
 
 // GET /docs/search - Search documentation
-router.get("/docs/search", async (req: Request, res: Response) => {
+router.get("/docs/search",
+  requireAuth,
+  loadEntitlementsContext,
+  async (req: Request, res: Response) => {
   try {
     const { q: query } = req.query;
     
@@ -433,7 +445,10 @@ router.get("/marketplace/item/:id", async (req: Request, res: Response) => {
 });
 
 // GET /marketplace/search - Search marketplace items
-router.get("/marketplace/search", async (req: Request, res: Response) => {
+router.get("/marketplace/search",
+  requireAuth,
+  loadEntitlementsContext,
+  async (req: Request, res: Response) => {
   try {
     const { q: query } = req.query;
     
@@ -737,7 +752,10 @@ router.post("/pricing/configure",
 // ============================================
 
 // GET /changelog/list - Get changelog entries
-router.get("/changelog/list", async (req: Request, res: Response) => {
+router.get("/changelog/list",
+  requireAuth,
+  loadEntitlementsContext,
+  async (req: Request, res: Response) => {
   try {
     const { type, pinned } = req.query;
     
@@ -768,7 +786,10 @@ router.get("/changelog/list", async (req: Request, res: Response) => {
 });
 
 // GET /changelog/:version - Get specific changelog entry
-router.get("/changelog/:version", async (req: Request, res: Response) => {
+router.get("/changelog/:version",
+  requireAuth,
+  loadEntitlementsContext,
+  async (req: Request, res: Response) => {
   try {
     const { version } = req.params;
     const entry = await storage.getChangelogEntryByVersion(version);
@@ -859,7 +880,10 @@ router.put("/changelog/:id/publish",
 // ============================================
 
 // GET /playbooks/onboarding - Get onboarding playbooks
-router.get("/playbooks/onboarding", async (req: Request, res: Response) => {
+router.get("/playbooks/onboarding",
+  requireAuth,
+  loadEntitlementsContext,
+  async (req: Request, res: Response) => {
   try {
     const playbooks = await storage.getPlaybooksByType("onboarding");
     
@@ -881,7 +905,10 @@ router.get("/playbooks/onboarding", async (req: Request, res: Response) => {
 });
 
 // GET /playbooks/success/:role - Get success playbooks by role
-router.get("/playbooks/success/:role", async (req: Request, res: Response) => {
+router.get("/playbooks/success/:role",
+  requireAuth,
+  loadEntitlementsContext,
+  async (req: Request, res: Response) => {
   try {
     const { role } = req.params;
     const playbooks = await storage.getPlaybooksByRole(role);
@@ -904,7 +931,10 @@ router.get("/playbooks/success/:role", async (req: Request, res: Response) => {
 });
 
 // GET /playbooks/catalog - Get all playbooks catalog
-router.get("/playbooks/catalog", async (req: Request, res: Response) => {
+router.get("/playbooks/catalog",
+  requireAuth,
+  loadEntitlementsContext,
+  async (req: Request, res: Response) => {
   try {
     const { type, role, category } = req.query;
     
@@ -939,7 +969,10 @@ router.get("/playbooks/catalog", async (req: Request, res: Response) => {
 });
 
 // GET /playbooks/:id - Get specific playbook
-router.get("/playbooks/:id", async (req: Request, res: Response) => {
+router.get("/playbooks/:id",
+  requireAuth,
+  loadEntitlementsContext,
+  async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const playbook = await storage.getPlaybook(id);
@@ -968,7 +1001,10 @@ router.get("/playbooks/:id", async (req: Request, res: Response) => {
 });
 
 // GET /tutorials/catalog - Get tutorials catalog (aliased from playbooks)
-router.get("/tutorials/catalog", async (req: Request, res: Response) => {
+router.get("/tutorials/catalog",
+  requireAuth,
+  loadEntitlementsContext,
+  async (req: Request, res: Response) => {
   try {
     const tutorials = await storage.getPlaybooksByType("onboarding");
     
