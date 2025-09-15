@@ -247,6 +247,15 @@ export function ResultsArea({
               <Button 
                 variant="outline" 
                 size="sm" 
+                onClick={() => onExport('docx')}
+                data-testid="button-export-word"
+              >
+                <Download size={14} className="mr-1" />
+                Word
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
                 onClick={() => onExport('json')}
                 data-testid="button-export-json"
               >

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Download, 
   Printer, 
@@ -15,9 +16,11 @@ import {
   BookOpen,
   ExternalLink,
   Copy,
-  X
+  X,
+  ChevronDown
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 import type { GeneratedReport } from "@shared/schema";
 
 interface ReportViewerDialogProps {
@@ -50,8 +53,32 @@ const REPORT_TYPE_INFO = {
   }
 } as const;
 
+const EXPORT_FORMATS = {
+  local: {
+    label: "Original Format",
+    description: "Download in the report's current format",
+    icon: FileText,
+  },
+  word: {
+    label: "Word Document",
+    description: "Download as Word (.docx) file",
+    icon: FileText,
+  },
+  text: {
+    label: "Plain Text",
+    description: "Download as text (.txt) file",
+    icon: FileText,
+  },
+  json: {
+    label: "JSON Data",
+    description: "Download as JSON (.json) file",
+    icon: FileText,
+  },
+} as const;
+
 export function ReportViewerDialog({ report, open, onOpenChange }: ReportViewerDialogProps) {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [selectedFormat, setSelectedFormat] = useState<string>("local");
   const { toast } = useToast();
 
   if (!report) return null;
@@ -59,24 +86,94 @@ export function ReportViewerDialog({ report, open, onOpenChange }: ReportViewerD
   const typeInfo = REPORT_TYPE_INFO[report.reportType as keyof typeof REPORT_TYPE_INFO] || REPORT_TYPE_INFO.detailed;
   const IconComponent = typeInfo.icon;
 
-  const handleDownload = async () => {
+  const handleWordDownload = async () => {
+    setIsDownloading(true);
+    
+    try {
+      // Call the backend API to generate Word document
+      const response = await apiRequest('POST', '/api/export', {
+        filename: `${report.title.replace(/[^a-z0-9]/gi, '_')}.docx`,
+        content: report.content,
+        format: 'docx',
+        title: report.title,
+        metadata: {
+          reportType: report.reportType,
+          generatedAt: report.generatedAt,
+          sessionId: (report.metadata as any)?.sessionId,
+          ...(report.metadata && typeof report.metadata === 'object' ? report.metadata : {})
+        }
+      });
+
+      // Get the binary data from response
+      const blob = await response.blob();
+      
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${report.title.replace(/[^a-z0-9]/gi, '_')}.docx`;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      toast({
+        description: "Word document downloaded successfully!",
+      });
+    } catch (error) {
+      console.error('Word download failed:', error);
+      toast({
+        title: "Download Failed",
+        description: "Failed to download Word document. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleLocalDownload = async (format: string) => {
     setIsDownloading(true);
     
     try {
       let content = report.content;
       let mimeType = "text/plain";
       let extension = ".txt";
+      let formatLabel = "text";
 
-      if (report.format === "html") {
-        mimeType = "text/html";
-        extension = ".html";
-      } else if (report.format === "markdown") {
-        mimeType = "text/markdown";
-        extension = ".md";
-      } else {
-        // JSON format
+      if (format === "json") {
+        // Create JSON format
+        const jsonData = {
+          title: report.title,
+          reportType: report.reportType,
+          format: report.format,
+          content: report.content,
+          metadata: report.metadata,
+          generatedAt: report.generatedAt
+        };
+        content = JSON.stringify(jsonData, null, 2);
         mimeType = "application/json";
         extension = ".json";
+        formatLabel = "JSON";
+      } else if (format === "text") {
+        // Plain text format
+        content = report.content;
+        mimeType = "text/plain";
+        extension = ".txt";
+        formatLabel = "text";
+      } else {
+        // Original format
+        if (report.format === "html") {
+          mimeType = "text/html";
+          extension = ".html";
+          formatLabel = "HTML";
+        } else if (report.format === "markdown") {
+          mimeType = "text/markdown";
+          extension = ".md";
+          formatLabel = "Markdown";
+        } else {
+          mimeType = "text/plain";
+          extension = ".txt";
+          formatLabel = "text";
+        }
       }
 
       const defaultFileName = `${report.title.replace(/[^a-z0-9]/gi, '_')}${extension}`;
@@ -87,7 +184,7 @@ export function ReportViewerDialog({ report, open, onOpenChange }: ReportViewerD
           const fileHandle = await (window as any).showSaveFilePicker({
             suggestedName: defaultFileName,
             types: [{
-              description: `${report.format.toUpperCase()} files`,
+              description: `${formatLabel.toUpperCase()} files`,
               accept: {
                 [mimeType]: [extension],
               },
@@ -129,6 +226,14 @@ export function ReportViewerDialog({ report, open, onOpenChange }: ReportViewerD
       });
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (selectedFormat === "word") {
+      await handleWordDownload();
+    } else {
+      await handleLocalDownload(selectedFormat);
     }
   };
 
@@ -328,16 +433,62 @@ export function ReportViewerDialog({ report, open, onOpenChange }: ReportViewerD
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 py-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDownload}
-            disabled={isDownloading}
-            data-testid="button-download-report"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            {isDownloading ? "Downloading..." : "Download"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Select value={selectedFormat} onValueChange={setSelectedFormat}>
+              <SelectTrigger className="w-48" data-testid="select-export-format">
+                <SelectValue placeholder="Choose format" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="local">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    <div>
+                      <div className="font-medium">{EXPORT_FORMATS.local.label}</div>
+                      <div className="text-xs text-muted-foreground">{EXPORT_FORMATS.local.description}</div>
+                    </div>
+                  </div>
+                </SelectItem>
+                <SelectItem value="word">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    <div>
+                      <div className="font-medium">{EXPORT_FORMATS.word.label}</div>
+                      <div className="text-xs text-muted-foreground">{EXPORT_FORMATS.word.description}</div>
+                    </div>
+                  </div>
+                </SelectItem>
+                <SelectItem value="text">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    <div>
+                      <div className="font-medium">{EXPORT_FORMATS.text.label}</div>
+                      <div className="text-xs text-muted-foreground">{EXPORT_FORMATS.text.description}</div>
+                    </div>
+                  </div>
+                </SelectItem>
+                <SelectItem value="json">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    <div>
+                      <div className="font-medium">{EXPORT_FORMATS.json.label}</div>
+                      <div className="text-xs text-muted-foreground">{EXPORT_FORMATS.json.description}</div>
+                    </div>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownload}
+              disabled={isDownloading}
+              data-testid="button-download-report"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {isDownloading ? "Downloading..." : "Download"}
+            </Button>
+          </div>
           <Button
             variant="outline"
             size="sm"
