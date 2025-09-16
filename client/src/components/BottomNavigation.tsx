@@ -51,7 +51,7 @@ export default function BottomNavigation() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border md:hidden">
-      <nav className="flex items-center justify-around py-2 px-4 max-w-sm mx-auto">
+      <nav className="grid grid-cols-3 gap-2 py-3 px-4 max-w-sm mx-auto">
         {navItems.map((item) => {
           const isActive = location === item.href;
           const Icon = item.icon;
@@ -60,7 +60,7 @@ export default function BottomNavigation() {
             <Link key={item.href} href={item.href}>
               <div 
                 className={cn(
-                  "flex flex-col items-center gap-1 p-2 rounded-lg transition-all duration-200 relative min-w-[60px]",
+                  "flex flex-col items-center gap-1 p-2 rounded-lg transition-all duration-200 relative",
                   isActive 
                     ? "text-primary bg-primary/10" 
                     : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -76,7 +76,7 @@ export default function BottomNavigation() {
                   )}
                 </div>
                 <span className={cn(
-                  "text-xs font-medium transition-colors",
+                  "text-xs font-medium transition-colors text-center",
                   isActive ? "text-primary" : "text-muted-foreground"
                 )}>
                   {item.label}
