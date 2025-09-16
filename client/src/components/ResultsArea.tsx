@@ -269,7 +269,7 @@ export function ResultsArea({
       
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-          <TabsList className="grid w-full grid-cols-8">
+          <TabsList className="grid w-full grid-cols-4 gap-1 h-auto">
             <TabsTrigger value="consensus" data-testid="tab-consensus">
               Consensus
             </TabsTrigger>
