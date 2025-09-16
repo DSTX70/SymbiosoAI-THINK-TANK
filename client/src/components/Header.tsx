@@ -39,26 +39,69 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 header-gradient text-white">
       <div className="max-w-7xl mx-auto px-6 py-1">
-        {/* Logo Row with Sessions + Menu */}
+        {/* Logo Row with Navigation and Sessions + Menu */}
         <div className="flex items-center justify-between mb-2">
-          <Link href="/" className="flex items-center" data-testid="link-home">
-            <img 
-              src={logoImage} 
-              alt="SymbiosoAi - Collaborative Intelligence, redefined"
-              className="h-32 w-auto max-w-lg"
-              data-testid="logo-symbiosoai"
-              onError={(e) => {
-                console.error('Logo failed to load:', e);
-                e.currentTarget.style.display = 'none';
-              }}
-              onLoad={() => {
-                console.log('Logo loaded successfully');
-              }}
-            />
-            <div className="text-white text-xl font-bold" style={{display: 'none'}}>
-              SymbiosoAi
-            </div>
-          </Link>
+          <div className="flex items-center gap-6">
+            <Link href="/" className="flex items-center" data-testid="link-home">
+              <img 
+                src={logoImage} 
+                alt="SymbiosoAi - Collaborative Intelligence, redefined"
+                className="h-32 w-auto max-w-lg"
+                data-testid="logo-symbiosoai"
+                onError={(e) => {
+                  console.error('Logo failed to load:', e);
+                  e.currentTarget.style.display = 'none';
+                }}
+                onLoad={() => {
+                  console.log('Logo loaded successfully');
+                }}
+              />
+              <div className="text-white text-xl font-bold" style={{display: 'none'}}>
+                SymbiosoAi
+              </div>
+            </Link>
+            
+            {/* Navigation positioned with logo - Hidden on mobile */}
+            {!isMobile && (
+              <nav className="flex gap-2 items-center">
+                <Link 
+                  href="/" 
+                  className={`mode-pill ${location === "/" ? "active" : ""}`}
+                  data-testid="link-home"
+                >
+                  Home
+                </Link>
+                <Link 
+                  href="/simple" 
+                  className={`mode-pill ${location === "/simple" ? "active" : ""}`}
+                  data-testid="link-simple-mode"
+                >
+                  Simple
+                </Link>
+                <Link 
+                  href="/guided" 
+                  className={`mode-pill ${location === "/guided" ? "active" : ""}`}
+                  data-testid="link-guided-mode"
+                >
+                  Guided
+                </Link>
+                <Link 
+                  href="/expert" 
+                  className={`mode-pill ${location === "/expert" ? "active" : ""}`}
+                  data-testid="link-expert-mode"
+                >
+                  Expert
+                </Link>
+                <Link 
+                  href="/trust-center" 
+                  className={`mode-pill ${location === "/trust-center" ? "active" : ""}`}
+                  data-testid="link-trust-center"
+                >
+                  Trust
+                </Link>
+              </nav>
+            )}
+          </div>
           
           {/* Right side: Sessions + Dropdown */}
           <div className="flex items-center gap-2">
@@ -136,48 +179,6 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Navigation Row - Hidden on mobile (using bottom nav), shown on desktop - moved to bottom */}
-        {!isMobile && (
-          <div className="flex justify-center mt-4 pb-3">
-            <nav className="flex gap-2 items-center">
-              <Link 
-                href="/" 
-                className={`mode-pill ${location === "/" ? "active" : ""}`}
-                data-testid="link-home"
-              >
-                Home
-              </Link>
-              <Link 
-                href="/simple" 
-                className={`mode-pill ${location === "/simple" ? "active" : ""}`}
-                data-testid="link-simple-mode"
-              >
-                Simple
-              </Link>
-              <Link 
-                href="/guided" 
-                className={`mode-pill ${location === "/guided" ? "active" : ""}`}
-                data-testid="link-guided-mode"
-              >
-                Guided
-              </Link>
-              <Link 
-                href="/expert" 
-                className={`mode-pill ${location === "/expert" ? "active" : ""}`}
-                data-testid="link-expert-mode"
-              >
-                Expert
-              </Link>
-              <Link 
-                href="/trust-center" 
-                className={`mode-pill ${location === "/trust-center" ? "active" : ""}`}
-                data-testid="link-trust-center"
-              >
-                Trust
-              </Link>
-            </nav>
-          </div>
-        )}
       </div>
     </header>
   );
