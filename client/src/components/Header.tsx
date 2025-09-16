@@ -136,9 +136,9 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Navigation Row - Hidden on mobile (using bottom nav), shown on desktop */}
+        {/* Navigation Row - Hidden on mobile (using bottom nav), shown on desktop - moved to bottom */}
         {!isMobile && (
-          <div className="flex justify-center">
+          <div className="flex justify-center mt-4 pb-3">
             <nav className="flex gap-2 items-center">
               <Link 
                 href="/" 
@@ -167,6 +167,13 @@ export default function Header() {
                 data-testid="link-expert-mode"
               >
                 Expert
+              </Link>
+              <Link 
+                href="/trust-center" 
+                className={`mode-pill ${location === "/trust-center" ? "active" : ""}`}
+                data-testid="link-trust-center"
+              >
+                Trust
               </Link>
             </nav>
           </div>
