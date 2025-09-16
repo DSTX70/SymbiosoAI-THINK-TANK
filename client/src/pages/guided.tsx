@@ -295,10 +295,10 @@ export default function GuidedPage() {
         {/* Session Transfer Option */}
         <Card variant="elevated" className="mb-6">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+            <div className="space-y-3">
               <div>
                 <h3 className="font-medium">Continue Previous Debate</h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground leading-tight">
                   Build upon insights from your previous discussions with enhanced Guided mode features
                 </p>
               </div>

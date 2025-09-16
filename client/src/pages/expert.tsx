@@ -734,10 +734,10 @@ export default function ExpertPage() {
               {/* Session Transfer Option */}
               <Card variant="elevated">
                 <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
+                  <div className="space-y-3">
                     <div>
                       <h3 className="font-medium">Continue Previous Debate</h3>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground leading-tight">
                         Build upon insights from previous sessions with full Expert mode capabilities
                       </p>
                     </div>

@@ -73,8 +73,8 @@ export function SessionTransfer({ currentMode, onTransfer, disabled = false }: S
             <FileText className="w-5 h-5" />
             Continue Previous Debate in {currentMode.charAt(0).toUpperCase() + currentMode.slice(1)} Mode
           </DialogTitle>
-          <DialogDescription>
-            Select a previous debate session to continue with enhanced {currentMode} mode features.
+          <DialogDescription className="text-sm leading-tight">
+            Select a previous debate session to continue with enhanced {currentMode} mode features. 
             The new debate will build upon the previous consensus, dissents, and discussion history.
           </DialogDescription>
         </DialogHeader>
