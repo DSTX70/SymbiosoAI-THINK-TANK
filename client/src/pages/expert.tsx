@@ -502,11 +502,11 @@ export default function ExpertPage() {
         {/* Center (fills remaining width) */}
         <section className="min-w-0 overflow-y-auto px-4 md:px-6 py-6">
           <Tabs defaultValue="analysis" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5 gap-1">
+            <TabsList className="grid w-full grid-cols-3 gap-1 h-auto">
               <TabsTrigger value="analysis" data-testid="tab-analysis">Analysis</TabsTrigger>
               <TabsTrigger value="ai-capabilities" data-testid="tab-ai-capabilities">AI Capabilities</TabsTrigger>
               <TabsTrigger value="integrations" data-testid="tab-integrations">Integrations</TabsTrigger>
-              <TabsTrigger value="analytics" data-testid="tab-analytics">Analytics</TabsTrigger>
+              <TabsTrigger value="analytics" data-testid="tab-analytics" className="col-start-1">Analytics</TabsTrigger>
               <TabsTrigger value="workspace" data-testid="tab-workspace">Workspace</TabsTrigger>
             </TabsList>
 

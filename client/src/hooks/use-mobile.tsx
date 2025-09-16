@@ -12,18 +12,27 @@ export function useIsMobile() {
     }
 
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
-    const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    const onChange = (e: MediaQueryListEvent) => {
+      setIsMobile(e.matches)
     }
     
     // Set initial value
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    setIsMobile(mql.matches)
     
-    // Add listener
+    // Add listener for media query changes (handles orientation changes)
     mql.addEventListener("change", onChange)
     
+    // Also listen for resize events to catch edge cases
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    }
+    window.addEventListener("resize", handleResize)
+    
     // Cleanup
-    return () => mql.removeEventListener("change", onChange)
+    return () => {
+      mql.removeEventListener("change", onChange)
+      window.removeEventListener("resize", handleResize)
+    }
   }, [])
 
   return isMobile
