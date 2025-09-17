@@ -53,13 +53,13 @@ export default function GuidedPage() {
   // Onboarding setup
   const onboarding = useOnboarding();
 
-  // Trigger onboarding on guided page visit
-  useEffect(() => {
-    onboarding.triggerOnboarding({ 
-      visited_guided: true,
-      has_sessions: true 
-    });
-  }, [onboarding.triggerOnboarding]);
+  // Trigger onboarding on guided page visit - TEMPORARILY DISABLED due to database issues
+  // useEffect(() => {
+  //   onboarding.triggerOnboarding({ 
+  //     visited_guided: true,
+  //     has_sessions: true 
+  //   });
+  // }, [onboarding.triggerOnboarding]);
 
   const thinkMutation = useMutation({
     mutationFn: async (data: ThinkRequest) => {
