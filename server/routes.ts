@@ -413,6 +413,189 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bootstrap endpoint for first system admin creation
+  app.post('/api/admin/bootstrap', requireAuth, express.json(), async (req: any, res) => {
+    const startTime = Date.now();
+    let auditDetails: any = {
+      success: false,
+      user_id: null,
+      bootstrap_token_provided: false,
+      admin_already_exists: false,
+      error_type: null
+    };
+    
+    try {
+      const userId = req.user?.claims?.sub;
+      const bootstrapToken = req.headers['x-bootstrap-token'];
+      const ipAddress = req.ip || req.connection.remoteAddress;
+      const userAgent = req.get('User-Agent');
+      
+      auditDetails.user_id = userId;
+      auditDetails.bootstrap_token_provided = !!bootstrapToken;
+      
+      // Security logging for bootstrap attempts
+      console.log(`🔐 Bootstrap attempt from user ${userId}, IP: ${ipAddress}`);
+      
+      // 1. Check if bootstrap token is provided
+      if (!bootstrapToken) {
+        auditDetails.error_type = 'missing_token';
+        console.warn(`⚠️ Bootstrap attempt without token from user ${userId}`);
+        return res.status(400).json({
+          error: "Bootstrap token required",
+          code: "BOOTSTRAP_TOKEN_REQUIRED",
+          message: "X-Bootstrap-Token header must be provided for admin bootstrap"
+        });
+      }
+      
+      // 2. Validate bootstrap token
+      const expectedToken = process.env.ADMIN_BOOTSTRAP_TOKEN;
+      if (!expectedToken) {
+        auditDetails.error_type = 'server_misconfiguration';
+        console.error(`❌ ADMIN_BOOTSTRAP_TOKEN not configured on server`);
+        return res.status(500).json({
+          error: "Bootstrap not configured",
+          code: "BOOTSTRAP_NOT_CONFIGURED",
+          message: "Server bootstrap token not configured"
+        });
+      }
+      
+      if (bootstrapToken !== expectedToken) {
+        auditDetails.error_type = 'invalid_token';
+        console.warn(`⚠️ Invalid bootstrap token attempt from user ${userId}, IP: ${ipAddress}`);
+        
+        // Rate limiting for invalid token attempts
+        const rateLimiter = new EnterpriseRateLimiter();
+        const rateCheck = await rateLimiter.checkRateLimit(req, 'admin_bootstrap', 'requests_per_minute');
+        if (!rateCheck.allowed) {
+          console.warn(`🚫 Rate limit exceeded for bootstrap attempts from IP: ${ipAddress}`);
+          return res.status(429).json({
+            error: "Rate limit exceeded",
+            code: "RATE_LIMIT_EXCEEDED",
+            message: "Too many bootstrap attempts. Please try again later.",
+            retryAfter: Math.ceil((rateCheck.resetTime - Date.now()) / 1000)
+          });
+        }
+        
+        return res.status(401).json({
+          error: "Invalid bootstrap token",
+          code: "INVALID_BOOTSTRAP_TOKEN",
+          message: "The provided bootstrap token is invalid"
+        });
+      }
+      
+      // 3. Check if any system admin already exists
+      const adminExists = await storage.anySystemAdminExists();
+      auditDetails.admin_already_exists = adminExists;
+      
+      if (adminExists) {
+        auditDetails.error_type = 'admin_exists';
+        console.warn(`⚠️ Bootstrap attempt when admin already exists from user ${userId}`);
+        return res.status(409).json({
+          error: "System admin already exists",
+          code: "ADMIN_ALREADY_EXISTS",
+          message: "Bootstrap is permanently disabled once a system admin exists"
+        });
+      }
+      
+      // 4. Promote current user to system_admin
+      const updatedUser = await storage.setUserRole(userId, 'system_admin');
+      if (!updatedUser) {
+        auditDetails.error_type = 'user_not_found';
+        console.error(`❌ Failed to find user ${userId} for bootstrap promotion`);
+        return res.status(404).json({
+          error: "User not found",
+          code: "USER_NOT_FOUND",
+          message: "Current user not found for promotion"
+        });
+      }
+      
+      // 5. Success - Log and audit
+      auditDetails.success = true;
+      const duration = Date.now() - startTime;
+      
+      console.log(`✅ Bootstrap successful: User ${userId} promoted to system_admin in ${duration}ms`);
+      
+      // Create audit log entry for successful bootstrap
+      try {
+        await storage.createAuditLog({
+          organizationId: null,
+          userId: userId,
+          action: 'ADMIN_BOOTSTRAP_SUCCESS',
+          resourceType: 'user_role',
+          resourceId: userId,
+          details: {
+            promoted_to_role: 'system_admin',
+            bootstrap_method: 'api_endpoint',
+            ip_address: ipAddress,
+            user_agent: userAgent,
+            duration_ms: duration,
+            timestamp: new Date().toISOString()
+          },
+          ipAddress: ipAddress,
+          userAgent: userAgent,
+          createdAt: new Date()
+        });
+      } catch (auditError) {
+        console.error(`⚠️ Failed to create audit log for bootstrap:`, auditError);
+        // Don't fail the request if audit logging fails
+      }
+      
+      // Return success response with updated user info
+      res.status(200).json({
+        success: true,
+        message: "System admin bootstrap completed successfully",
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          firstName: updatedUser.firstName,
+          lastName: updatedUser.lastName,
+          role: updatedUser.role,
+          createdAt: updatedUser.createdAt,
+          updatedAt: updatedUser.updatedAt
+        },
+        bootstrapCompletedAt: new Date().toISOString()
+      });
+      
+    } catch (error: any) {
+      const duration = Date.now() - startTime;
+      auditDetails.error_type = 'server_error';
+      auditDetails.error_message = error.message;
+      
+      console.error(`❌ Bootstrap error after ${duration}ms:`, error);
+      
+      // Create audit log entry for failed bootstrap
+      try {
+        await storage.createAuditLog({
+          organizationId: null,
+          userId: auditDetails.user_id,
+          action: 'ADMIN_BOOTSTRAP_FAILURE',
+          resourceType: 'user_role',
+          resourceId: auditDetails.user_id || 'unknown',
+          details: {
+            error_type: auditDetails.error_type,
+            error_message: error.message,
+            ip_address: req.ip,
+            user_agent: req.get('User-Agent'),
+            duration_ms: duration,
+            audit_details: auditDetails,
+            timestamp: new Date().toISOString()
+          },
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent') || null,
+          createdAt: new Date()
+        });
+      } catch (auditError) {
+        console.error(`⚠️ Failed to create audit log for bootstrap failure:`, auditError);
+      }
+      
+      res.status(500).json({
+        error: "Bootstrap failed",
+        code: "BOOTSTRAP_ERROR",
+        message: "An error occurred during admin bootstrap"
+      });
+    }
+  });
+
   // Authentication routes with organization context
   app.get('/api/auth/user', requireAuth, async (req: any, res) => {
     try {
