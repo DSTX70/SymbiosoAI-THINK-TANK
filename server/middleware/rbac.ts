@@ -1,6 +1,12 @@
 import type { Request, Response, NextFunction } from "express";
-import type { User, WorkspaceMember } from "@shared/schema";
+import type { User, WorkspaceMember, SystemUserRole, WorkspaceRole } from "@shared/schema";
 import { storage } from "../storage";
+
+// Extend User interface to ensure required fields for RBAC
+interface RequestUser extends User {
+  id: string;
+  role: string;
+}
 
 // Define user roles hierarchy (higher number = more permissions)
 // IMPORTANT: These must match the roles used in shared/schema.ts and getSystemPermissions()
@@ -13,8 +19,6 @@ export const USER_ROLES = {
   owner: 4,          // Workspace owner
   system_admin: 5    // System-wide admin
 } as const;
-
-export type UserRole = keyof typeof USER_ROLES;
 
 // Define system-wide permissions
 export const SYSTEM_PERMISSIONS = {
@@ -57,8 +61,8 @@ declare global {
 /**
  * Check if user has required system-level role
  */
-export function hasSystemRole(userRole: string, requiredRole: UserRole): boolean {
-  const userRoleLevel = USER_ROLES[userRole as UserRole] || 0;
+export function hasSystemRole(userRole: string, requiredRole: SystemUserRole): boolean {
+  const userRoleLevel = USER_ROLES[userRole as SystemUserRole] || 0;
   const requiredRoleLevel = USER_ROLES[requiredRole];
   return userRoleLevel >= requiredRoleLevel;
 }
@@ -66,8 +70,8 @@ export function hasSystemRole(userRole: string, requiredRole: UserRole): boolean
 /**
  * Check if user has required workspace-level role
  */
-export function hasWorkspaceRole(membershipRole: string, requiredRole: UserRole): boolean {
-  const memberRoleLevel = USER_ROLES[membershipRole as UserRole] || 0;
+export function hasWorkspaceRole(membershipRole: string, requiredRole: WorkspaceRole): boolean {
+  const memberRoleLevel = USER_ROLES[membershipRole as WorkspaceRole] || 0;
   const requiredRoleLevel = USER_ROLES[requiredRole];
   return memberRoleLevel >= requiredRoleLevel;
 }
@@ -180,7 +184,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 /**
  * Middleware to require specific system role
  */
-export function requireSystemRole(requiredRole: UserRole) {
+export function requireSystemRole(requiredRole: SystemUserRole) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ 
@@ -189,12 +193,12 @@ export function requireSystemRole(requiredRole: UserRole) {
       });
     }
 
-    if (!hasSystemRole(req.user.role, requiredRole)) {
+    if (!hasSystemRole((req.user as RequestUser).role, requiredRole)) {
       return res.status(403).json({ 
         error: "Insufficient permissions",
         code: "INSUFFICIENT_PERMISSIONS",
         required: requiredRole,
-        current: req.user.role
+        current: (req.user as RequestUser).role
       });
     }
 
@@ -214,13 +218,13 @@ export function requireSystemPermission(permission: SystemPermission) {
       });
     }
 
-    const userPermissions = getSystemPermissions(req.user.role);
+    const userPermissions = getSystemPermissions((req.user as RequestUser).role);
     if (!userPermissions.includes(permission)) {
       return res.status(403).json({ 
         error: "Insufficient permissions",
         code: "INSUFFICIENT_PERMISSIONS",
         required: permission,
-        userRole: req.user.role
+        userRole: (req.user as RequestUser).role
       });
     }
 
@@ -231,7 +235,7 @@ export function requireSystemPermission(permission: SystemPermission) {
 /**
  * Middleware to load workspace context and check access
  */
-export function requireWorkspaceAccess(requiredRole?: UserRole) {
+export function requireWorkspaceAccess(requiredRole?: WorkspaceRole) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.user) {
@@ -261,7 +265,7 @@ export function requireWorkspaceAccess(requiredRole?: UserRole) {
       }
 
       // Load user's membership in this workspace
-      const membership = await storage.getWorkspaceMembership(workspaceId, req.user.id);
+      const membership = await storage.getWorkspaceMembership(workspaceId, (req.user as RequestUser).id);
       if (!membership) {
         return res.status(403).json({ 
           error: "Access denied to workspace",
@@ -317,7 +321,7 @@ export function requireWorkspacePermission(permission: WorkspacePermission) {
           });
         }
 
-        const membership = await storage.getWorkspaceMembership(workspaceId, req.user.id);
+        const membership = await storage.getWorkspaceMembership(workspaceId, (req.user as RequestUser).id);
         if (!membership) {
           return res.status(403).json({ 
             error: "Access denied to workspace",
@@ -361,13 +365,13 @@ export function requireResourceAccess(resourceUserIdField = 'userId') {
     }
 
     // System admins can access any resource
-    if (hasSystemRole(req.user.role, 'admin')) {
+    if (hasSystemRole((req.user as RequestUser).role, 'admin')) {
       return next();
     }
 
     // Check if user is accessing their own resource
     const resourceUserId = req.params[resourceUserIdField] || req.body[resourceUserIdField];
-    if (resourceUserId && resourceUserId !== req.user.id) {
+    if (resourceUserId && resourceUserId !== (req.user as RequestUser).id) {
       return res.status(403).json({ 
         error: "Access denied to resource",
         code: "RESOURCE_ACCESS_DENIED" 

@@ -47,6 +47,8 @@ import {
   type Playbooks, type InsertPlaybooks,
   // Workspace Synchronization types
   type WorkspaceEvent, type InsertWorkspaceEvent, type WorkspaceConnection, type InsertWorkspaceConnection,
+  // Role types
+  type SystemUserRole,
   users, analysisSessions, workspaces, workspaceMembers, workspaceInvites, generatedReports,
   templates, sessionCodes, sessionParticipants, chatMessages, pushSubscriptions,
   tutorials, tutorialSteps, tutorialProgress, tutorialSettings,
@@ -89,6 +91,8 @@ export interface IStorage {
   updateUserPreferences(id: string, preferences: UserPreferences): Promise<User | undefined>;
   updateUserSubscription(id: string, subscription: any): Promise<User | undefined>;
   updateOnboardingProgress(id: string, progress: any): Promise<User | undefined>;
+  setUserRole(userId: string, role: SystemUserRole): Promise<User | undefined>;
+  anySystemAdminExists(): Promise<boolean>;
   
   // Analysis session management
   createAnalysisSession(session: InsertAnalysisSession & { results?: any; telemetry?: any; debateHistory?: any }): Promise<AnalysisSession>;
@@ -800,6 +804,24 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
+  async setUserRole(userId: string, role: SystemUserRole): Promise<User | undefined> {
+    const existing = this.users.get(userId);
+    if (!existing) return undefined;
+    
+    const updated = { 
+      ...existing, 
+      role,
+      updatedAt: new Date() 
+    };
+    this.users.set(userId, updated);
+    return updated;
+  }
+
+  async anySystemAdminExists(): Promise<boolean> {
+    const allUsers = Array.from(this.users.values());
+    return allUsers.some(user => user.role === 'system_admin');
+  }
+
   async createAnalysisSession(sessionData: InsertAnalysisSession & { results?: any; telemetry?: any; debateHistory?: any }): Promise<AnalysisSession> {
     const id = randomUUID();
     const session: AnalysisSession = {
@@ -1302,12 +1324,12 @@ export class MemStorage implements IStorage {
     cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
     
     let cleanedCount = 0;
-    for (const [id, event] of this.workspaceEvents.entries()) {
+    Array.from(this.workspaceEvents.entries()).forEach(([id, event]) => {
       if (event.workspaceId === workspaceId && event.createdAt < cutoffDate) {
         this.workspaceEvents.delete(id);
         cleanedCount++;
       }
-    }
+    });
     return cleanedCount;
   }
 
@@ -1360,7 +1382,7 @@ export class MemStorage implements IStorage {
 
   async updateConnectionPing(connectionId: string): Promise<WorkspaceConnection | undefined> {
     // Find connection by connectionId
-    for (const [id, conn] of this.workspaceConnections.entries()) {
+    for (const [id, conn] of Array.from(this.workspaceConnections.entries())) {
       if (conn.connectionId === connectionId) {
         const updated = {
           ...conn,
@@ -1376,7 +1398,7 @@ export class MemStorage implements IStorage {
 
   async deactivateConnection(connectionId: string): Promise<boolean> {
     // Find connection by connectionId and deactivate
-    for (const [id, conn] of this.workspaceConnections.entries()) {
+    for (const [id, conn] of Array.from(this.workspaceConnections.entries())) {
       if (conn.connectionId === connectionId) {
         const updated = {
           ...conn,
@@ -1392,7 +1414,7 @@ export class MemStorage implements IStorage {
 
   async deactivateUserConnections(workspaceId: string, userId: string): Promise<number> {
     let deactivatedCount = 0;
-    for (const [id, conn] of this.workspaceConnections.entries()) {
+    Array.from(this.workspaceConnections.entries()).forEach(([id, conn]) => {
       if (conn.workspaceId === workspaceId && conn.userId === userId && conn.isActive) {
         const updated = {
           ...conn,
@@ -1402,7 +1424,7 @@ export class MemStorage implements IStorage {
         this.workspaceConnections.set(id, updated);
         deactivatedCount++;
       }
-    }
+    });
     return deactivatedCount;
   }
 
@@ -1411,7 +1433,7 @@ export class MemStorage implements IStorage {
     cutoffTime.setMinutes(cutoffTime.getMinutes() - olderThanMinutes);
     
     let cleanedCount = 0;
-    for (const [id, conn] of this.workspaceConnections.entries()) {
+    Array.from(this.workspaceConnections.entries()).forEach(([id, conn]) => {
       if (conn.lastPing && conn.lastPing < cutoffTime) {
         const updated = {
           ...conn,
@@ -1421,7 +1443,7 @@ export class MemStorage implements IStorage {
         this.workspaceConnections.set(id, updated);
         cleanedCount++;
       }
-    }
+    });
     return cleanedCount;
   }
 
@@ -1444,7 +1466,7 @@ export class MemStorage implements IStorage {
     
     // Build result with user data
     const result: { userId: string; user: User; connectionsCount: number; lastActivity: Date }[] = [];
-    for (const [userId, data] of userConnectionsMap.entries()) {
+    Array.from(userConnectionsMap.entries()).forEach(([userId, data]) => {
       const user = this.users.get(userId);
       if (user) {
         result.push({
@@ -1454,7 +1476,7 @@ export class MemStorage implements IStorage {
           lastActivity: data.lastActivity
         });
       }
-    }
+    });
     
     return result.sort((a, b) => b.lastActivity.getTime() - a.lastActivity.getTime());
   }
@@ -1812,6 +1834,59 @@ export class DatabaseStorage implements IStorage {
     return await this.updateUser(id, { 
       onboardingProgress: existing.onboardingProgress ? { ...existing.onboardingProgress, ...progress } : progress
     });
+  }
+
+  async setUserRole(userId: string, role: SystemUserRole): Promise<User | undefined> {
+    try {
+      const existing = await this.getUser(userId);
+      if (!existing) {
+        return undefined;
+      }
+
+      const [updatedUser] = await db.update(users)
+        .set({ role, updatedAt: new Date() })
+        .where(eq(users.id, userId))
+        .returning();
+
+      // Log role change for audit purposes
+      try {
+        await this.createAuditLog({
+          action: 'user_role_changed',
+          userId: userId,
+          details: {
+            previousRole: existing.role,
+            newRole: role,
+            changedAt: new Date()
+          },
+          metadata: {
+            userEmail: existing.email,
+            operation: 'setUserRole'
+          }
+        });
+      } catch (auditError) {
+        console.error('Failed to log role change audit:', auditError);
+        // Don't fail the operation if audit logging fails
+      }
+
+      return updatedUser;
+    } catch (error) {
+      console.error('Failed to update user role:', error);
+      throw error;
+    }
+  }
+
+  async anySystemAdminExists(): Promise<boolean> {
+    try {
+      const systemAdmins = await db.select({ id: users.id })
+        .from(users)
+        .where(eq(users.role, 'system_admin'))
+        .limit(1);
+      
+      return systemAdmins.length > 0;
+    } catch (error) {
+      console.error('Failed to check for system admin users:', error);
+      throw error;
+    }
   }
 
   async updateUserSubscription(id: string, subscription: any): Promise<User | undefined> {

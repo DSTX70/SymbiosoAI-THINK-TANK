@@ -809,7 +809,20 @@ export const reportResponseSchema = z.object({
 // Type definitions
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
-export type User = typeof users.$inferSelect;
+export interface User {
+  id: string;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  profileImageUrl: string | null;
+  role: string;
+  stripeCustomerId: string | null;
+  preferences: any;
+  onboardingProgress: any;
+  subscription: any;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
 export type AnalysisSession = typeof analysisSessions.$inferSelect;
 export type InsertAnalysisSession = z.infer<typeof insertAnalysisSessionSchema>;
 export type Workspace = typeof workspaces.$inferSelect;
@@ -3173,4 +3186,8 @@ export interface SystemEventData {
   severity: 'info' | 'warning' | 'error';
   metadata?: any;
 }
+
+// Role types to avoid circular dependencies
+export type SystemUserRole = 'user' | 'premium_user' | 'admin' | 'system_admin';
+export type WorkspaceRole = 'viewer' | 'member' | 'admin' | 'owner';
 
