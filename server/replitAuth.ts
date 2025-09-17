@@ -7,6 +7,7 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
+import type { SystemUserRole } from "@shared/schema";
 
 if (!process.env.REPLIT_DOMAINS) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
@@ -107,6 +108,107 @@ async function upsertUser(
   }
 }
 
+/**
+ * Parse comma-separated allowlist from environment variable
+ * @param envVar Environment variable name
+ * @returns Array of user IDs or empty array if not set
+ */
+function parseAllowlist(envVar: string): string[] {
+  const value = process.env[envVar];
+  if (!value || value.trim() === '') {
+    return [];
+  }
+  
+  return value
+    .split(',')
+    .map(id => id.trim())
+    .filter(id => id.length > 0);
+}
+
+/**
+ * Auto-elevate user role based on allowlists
+ * Only upgrades roles, never downgrades
+ * @param userId User ID to check
+ * @param claims OAuth claims containing user information
+ */
+async function maybeElevateRole(userId: string, claims: any): Promise<void> {
+  try {
+    const userSub = claims.sub;
+    if (!userSub) {
+      console.warn("⚠️ No sub claim found, skipping role elevation for user:", userId);
+      return;
+    }
+
+    // Parse allowlists from environment variables
+    const systemAdminAllowlist = parseAllowlist('SYSTEM_ADMIN_ALLOWLIST_SUBS');
+    const adminAllowlist = parseAllowlist('ADMIN_ALLOWLIST_SUBS');
+
+    if (systemAdminAllowlist.length === 0 && adminAllowlist.length === 0) {
+      console.log("📝 No role allowlists configured, skipping auto-elevation");
+      return;
+    }
+
+    // Get current user to check existing role
+    const currentUser = await storage.getUser(userId);
+    if (!currentUser) {
+      console.warn("⚠️ User not found during role elevation:", userId);
+      return;
+    }
+
+    const currentRole = currentUser.role as SystemUserRole;
+    
+    // Define role hierarchy (higher values = higher privilege)
+    const roleHierarchy: Record<SystemUserRole, number> = {
+      'user': 0,
+      'premium_user': 1,
+      'admin': 2,
+      'system_admin': 3
+    };
+
+    let targetRole: SystemUserRole | null = null;
+
+    // Check for system_admin elevation (highest priority)
+    if (systemAdminAllowlist.includes(userSub)) {
+      targetRole = 'system_admin';
+      console.log("🔍 User sub found in SYSTEM_ADMIN_ALLOWLIST_SUBS:", userSub);
+    }
+    // Check for admin elevation (only if not already system_admin or higher)
+    else if (adminAllowlist.includes(userSub) && roleHierarchy[currentRole] < roleHierarchy['admin']) {
+      targetRole = 'admin';
+      console.log("🔍 User sub found in ADMIN_ALLOWLIST_SUBS:", userSub);
+    }
+
+    // Only elevate if target role is higher than current role
+    if (targetRole && roleHierarchy[targetRole] > roleHierarchy[currentRole]) {
+      console.log(`🚀 Auto-elevating user ${userId} from ${currentRole} to ${targetRole}`);
+      
+      await storage.setUserRole(userId, targetRole);
+      
+      // Log elevation event for audit purposes
+      console.log("✅ Role elevation successful", {
+        userId,
+        userSub,
+        email: claims.email,
+        fromRole: currentRole,
+        toRole: targetRole,
+        elevatedAt: new Date().toISOString(),
+        source: 'oauth_allowlist'
+      });
+    } else if (targetRole && roleHierarchy[targetRole] <= roleHierarchy[currentRole]) {
+      console.log(`📋 User ${userId} already has equal or higher role (${currentRole}), no elevation needed`);
+    } else {
+      console.log(`📝 User sub ${userSub} not found in any allowlists, keeping current role: ${currentRole}`);
+    }
+  } catch (error) {
+    // Log error but don't throw - we don't want to break login flow
+    console.error("❌ Error during role elevation (login will continue):", error, {
+      userId,
+      userSub: claims.sub,
+      email: claims.email
+    });
+  }
+}
+
 export async function setupAuth(app: Express) {
   app.set("trust proxy", 1);
   app.use(getSession());
@@ -122,7 +224,11 @@ export async function setupAuth(app: Express) {
     try {
       const user = {};
       updateUserSession(user, tokens);
-      await upsertUser(tokens.claims());
+      const upsertedUser = await upsertUser(tokens.claims());
+      
+      // Auto-elevate role based on allowlists after user is created/updated
+      await maybeElevateRole(upsertedUser.id, tokens.claims());
+      
       verified(null, user);
     } catch (error) {
       console.error("❌ Verification failed:", error);
@@ -171,10 +277,17 @@ export async function setupAuth(app: Express) {
               profileImageUrl: sessionData.claims.profile_image_url,
             });
             console.log("✅ User auto-provisioned during deserialization:", user.id);
+            
+            // Auto-elevate role for newly provisioned user
+            await maybeElevateRole(user.id, sessionData.claims);
           } catch (error) {
             console.error("❌ Failed to auto-provision user during deserialization:", error);
             return cb(error, null);
           }
+        } else {
+          // For existing users, also check for role elevation on each session load
+          // This ensures role changes take effect even for users with existing sessions
+          await maybeElevateRole(user.id, sessionData.claims);
         }
         
         // Attach the fresh user data and preserve session tokens
