@@ -87,12 +87,14 @@ const db = drizzle(pool);
 export interface IStorage {
   // User management (Replit OpenID Connect compatible)
   getUser(id: string): Promise<User | undefined>;
+  getAllUsers(limit?: number, offset?: number): Promise<User[]>;
   upsertUser(user: UpsertUser): Promise<User>;
   updateUserPreferences(id: string, preferences: UserPreferences): Promise<User | undefined>;
   updateUserSubscription(id: string, subscription: any): Promise<User | undefined>;
   updateOnboardingProgress(id: string, progress: any): Promise<User | undefined>;
   setUserRole(userId: string, role: SystemUserRole): Promise<User | undefined>;
   anySystemAdminExists(): Promise<boolean>;
+  getUserCount(): Promise<number>;
   
   // Analysis session management
   createAnalysisSession(session: InsertAnalysisSession & { results?: any; telemetry?: any; debateHistory?: any }): Promise<AnalysisSession>;
@@ -817,9 +819,18 @@ export class MemStorage implements IStorage {
     return updated;
   }
 
+  async getAllUsers(limit: number = 100, offset: number = 0): Promise<User[]> {
+    const allUsers = Array.from(this.users.values());
+    return allUsers.slice(offset, offset + limit);
+  }
+
   async anySystemAdminExists(): Promise<boolean> {
     const allUsers = Array.from(this.users.values());
     return allUsers.some(user => user.role === 'system_admin');
+  }
+
+  async getUserCount(): Promise<number> {
+    return this.users.size;
   }
 
   async createAnalysisSession(sessionData: InsertAnalysisSession & { results?: any; telemetry?: any; debateHistory?: any }): Promise<AnalysisSession> {
@@ -1838,39 +1849,84 @@ export class DatabaseStorage implements IStorage {
 
   async setUserRole(userId: string, role: SystemUserRole): Promise<User | undefined> {
     try {
-      const existing = await this.getUser(userId);
-      if (!existing) {
-        return undefined;
-      }
+      // Use a database transaction to ensure atomicity
+      return await db.transaction(async (tx) => {
+        // First, get the current user data within the transaction
+        const [existing] = await tx.select().from(users).where(eq(users.id, userId));
+        if (!existing) {
+          return undefined;
+        }
 
-      const [updatedUser] = await db.update(users)
-        .set({ role, updatedAt: new Date() })
-        .where(eq(users.id, userId))
-        .returning();
-
-      // Log role change for audit purposes
-      try {
-        await this.createAuditLog({
-          action: 'user_role_changed',
-          userId: userId,
-          details: {
-            previousRole: existing.role,
-            newRole: role,
-            changedAt: new Date()
-          },
-          metadata: {
-            userEmail: existing.email,
-            operation: 'setUserRole'
+        // Critical security check: Prevent removal of last system_admin
+        if (existing.role === 'system_admin' && role !== 'system_admin') {
+          // Count total system_admins within the transaction to prevent race conditions
+          const [adminCount] = await tx.select({ count: sql`count(*)` })
+            .from(users)
+            .where(eq(users.role, 'system_admin'));
+          
+          const totalSystemAdmins = Number(adminCount?.count || 0);
+          
+          // If this is the only system_admin, block the demotion
+          if (totalSystemAdmins <= 1) {
+            throw new Error('LAST_SYSTEM_ADMIN_PROTECTION: Cannot remove the last system administrator. This would leave the system without administrative access.');
           }
-        });
-      } catch (auditError) {
-        console.error('Failed to log role change audit:', auditError);
-        // Don't fail the operation if audit logging fails
-      }
+        }
 
-      return updatedUser;
-    } catch (error) {
+        // Perform the role update within the transaction
+        const [updatedUser] = await tx.update(users)
+          .set({ role, updatedAt: new Date() })
+          .where(eq(users.id, userId))
+          .returning();
+
+        // Log role change for audit purposes within the transaction
+        try {
+          await tx.insert(auditLogs).values({
+            action: 'user_role_changed',
+            userId: userId,
+            details: {
+              previousRole: existing.role,
+              newRole: role,
+              changedAt: new Date()
+            },
+            metadata: {
+              userEmail: existing.email,
+              operation: 'setUserRole',
+              transactional: true
+            },
+            createdAt: new Date()
+          });
+        } catch (auditError) {
+          console.error('Failed to log role change audit:', auditError);
+          // Don't fail the transaction if audit logging fails
+          // But still try to complete the role change
+        }
+
+        console.log(`✅ Role change completed: ${existing.role} → ${role} for user ${userId}`);
+        return updatedUser;
+      });
+    } catch (error: any) {
       console.error('Failed to update user role:', error);
+      
+      // Handle specific protection error with clear message
+      if (error.message?.includes('LAST_SYSTEM_ADMIN_PROTECTION')) {
+        throw new Error('Cannot demote the last system administrator. The system must always have at least one system_admin.');
+      }
+      
+      throw error;
+    }
+  }
+
+  async getAllUsers(limit: number = 100, offset: number = 0): Promise<User[]> {
+    try {
+      const userList = await db.select()
+        .from(users)
+        .limit(limit)
+        .offset(offset)
+        .orderBy(users.createdAt);
+      
+      return userList;
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
       throw error;
     }
   }
@@ -1885,6 +1941,18 @@ export class DatabaseStorage implements IStorage {
       return systemAdmins.length > 0;
     } catch (error) {
       console.error('Failed to check for system admin users:', error);
+      throw error;
+    }
+  }
+
+  async getUserCount(): Promise<number> {
+    try {
+      const result = await db.select({ count: sql`count(*)` })
+        .from(users);
+      
+      return Number(result[0]?.count || 0);
+    } catch (error) {
+      console.error('Failed to get user count:', error);
       throw error;
     }
   }

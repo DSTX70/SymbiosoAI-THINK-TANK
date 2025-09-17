@@ -3191,3 +3191,7 @@ export interface SystemEventData {
 export type SystemUserRole = 'user' | 'premium_user' | 'admin' | 'system_admin';
 export type WorkspaceRole = 'viewer' | 'member' | 'admin' | 'owner';
 
+// Zod schemas for roles to prevent schema drift
+export const systemUserRoleSchema = z.enum(['user', 'premium_user', 'admin', 'system_admin']);
+export const workspaceRoleSchema = z.enum(['viewer', 'member', 'admin', 'owner']);
+

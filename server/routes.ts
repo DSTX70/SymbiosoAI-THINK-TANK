@@ -14,7 +14,9 @@ import {
   // Sprint 5 - Retention/Legal Hold system imports
   insertRetentionPolicySchema, insertLegalHoldSchema, type RetentionPolicy, type LegalHold,
   // Sprint 5 - SCIM provisioning imports
-  insertScimUserSchema, insertScimGroupSchema, type ScimUser, type ScimGroup
+  insertScimUserSchema, insertScimGroupSchema, type ScimUser, type ScimGroup,
+  // User management types and schemas
+  type SystemUserRole, systemUserRoleSchema
 } from "@shared/schema";
 import { runMultiAgentDebate, runBrainstormingSession, runReportGeneration } from "./ai-service";
 import { perplexityService } from "./services/perplexity";
@@ -24,6 +26,7 @@ import type { Citation, FactCheckFinding } from "@shared/schema";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { optionalAuth, getCurrentUser } from "./auth";
 import express from "express";
+import { z } from "zod";
 import { SecurityMiddleware } from "./middleware/security";
 import { EnterpriseRateLimiter } from "./middleware/rateLimiting";
 import { PerformanceMonitor } from "./middleware/monitoring";
@@ -42,7 +45,6 @@ import {
   requireResourceAccess,
   SYSTEM_PERMISSIONS,
   WORKSPACE_PERMISSIONS,
-  type UserRole,
   type SystemPermission,
   type WorkspacePermission
 } from "./middleware/rbac";
@@ -72,6 +74,14 @@ import sprint12Routes from "./routes/sprint12";
 import { startDunningWorker } from "./workers/dunningWorker";
 // Workspace Synchronization imports
 import { registerWorkspaceSyncRoutes } from "./routes/workspace-sync";
+
+// Using shared systemUserRoleSchema from @shared/schema to prevent duplication and schema drift
+
+// Pagination validation schema
+const paginationSchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0)
+});
 
 // Helper function to format report object into readable content
 function formatReportContent(report: any, format: string): string {
@@ -1209,6 +1219,208 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================
+  // ADMIN USER MANAGEMENT - User Promotion APIs
+  // ============================================
+
+  // Get all users (for admin interface)
+  app.get("/api/admin/users", 
+    requireAuth,
+    requireSystemRole("admin"),
+    async (req: any, res) => {
+    try {
+      const userId = req.user.id; // Fixed: use req.user.id instead of req.user.claims.sub
+      
+      // Validate pagination parameters
+      const paginationResult = paginationSchema.safeParse(req.query);
+      if (!paginationResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid pagination parameters",
+          details: paginationResult.error.issues
+        });
+      }
+      
+      const { limit, offset } = paginationResult.data;
+      
+      console.log(`Admin ${userId} requesting user list with limit=${limit}, offset=${offset}`);
+      
+      // Get users with pagination
+      const users = await storage.getAllUsers(limit, offset);
+      
+      // Get total count for proper pagination (separate query needed)
+      const totalUsers = await storage.getUserCount();
+      
+      // Return sanitized user data (exclude sensitive fields)
+      const sanitizedUsers = users.map(user => ({
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      }));
+      
+      // Log audit event for user list access
+      try {
+        await storage.createAuditLog({
+          action: 'admin_user_list_accessed',
+          userId: userId,
+          details: {
+            limit,
+            offset,
+            userCount: sanitizedUsers.length,
+            totalUsers
+          },
+          metadata: {
+            operation: 'getAllUsers',
+            adminRole: req.user.role
+          }
+        });
+      } catch (auditError) {
+        console.error('Failed to log user list access audit:', auditError);
+      }
+      
+      res.json({
+        users: sanitizedUsers,
+        total: totalUsers, // Fixed: return actual total count from database
+        limit,
+        offset,
+        hasMore: offset + users.length < totalUsers
+      });
+    } catch (error: any) {
+      console.error("Get users error:", error);
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  // Update user role (user promotion/demotion)
+  app.post("/api/admin/users/:id/role",
+    requireAuth,
+    requireSystemRole("system_admin"),
+    express.json(),
+    async (req: any, res) => {
+    try {
+      const adminUserId = req.user.id; // Fixed: use req.user.id instead of req.user.claims.sub
+      const targetUserId = req.params.id;
+      const { role } = req.body;
+      
+      console.log(`System admin ${adminUserId} attempting to change role of user ${targetUserId} to ${role}`);
+      
+      // Validate input
+      const validationResult = systemUserRoleSchema.safeParse(role);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid role",
+          validRoles: ['user', 'premium_user', 'admin', 'system_admin'],
+          provided: role
+        });
+      }
+      
+      // Check if target user exists
+      const targetUser = await storage.getUser(targetUserId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Note: Self-demotion protection is now handled atomically in the transactional setUserRole method
+      // This prevents race conditions while ensuring system always has at least one system_admin
+      
+      // Store original role for audit logging
+      const originalRole = targetUser.role;
+      
+      // Update user role (with atomic last-admin protection)
+      const updatedUser = await storage.setUserRole(targetUserId, role as SystemUserRole);
+      
+      if (!updatedUser) {
+        return res.status(500).json({ error: "Failed to update user role" });
+      }
+      
+      // Log audit event for role change
+      try {
+        await storage.createAuditLog({
+          action: 'user_role_changed_by_admin',
+          userId: adminUserId,
+          details: {
+            targetUserId: targetUserId,
+            targetUserEmail: targetUser.email,
+            previousRole: originalRole,
+            newRole: role,
+            changedAt: new Date()
+          },
+          metadata: {
+            operation: 'adminUserRoleChange',
+            adminEmail: req.user.email, // Fixed: use req.user.email instead of req.user.claims.email
+            adminRole: req.user.role
+          }
+        });
+        
+        // Also log an audit event from the perspective of the target user
+        await storage.createAuditLog({
+          action: 'user_role_changed',
+          userId: targetUserId,
+          details: {
+            changedByUserId: adminUserId,
+            changedByEmail: req.user.email, // Fixed: use req.user.email instead of req.user.claims.email
+            previousRole: originalRole,
+            newRole: role,
+            changedAt: new Date()
+          },
+          metadata: {
+            operation: 'userRoleChanged',
+            changedByAdmin: true
+          }
+        });
+      } catch (auditError) {
+        console.error('Failed to log role change audit:', auditError);
+        // Don't fail the operation if audit logging fails
+      }
+      
+      console.log(`✅ Successfully changed user ${targetUserId} role from ${originalRole} to ${role}`);
+      
+      // Return sanitized user data
+      const sanitizedUser = {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        role: updatedUser.role,
+        updatedAt: updatedUser.updatedAt
+      };
+      
+      res.json({
+        success: true,
+        user: sanitizedUser,
+        changes: {
+          previousRole: originalRole,
+          newRole: role,
+          changedBy: adminUserId,
+          changedAt: new Date()
+        }
+      });
+    } catch (error: any) {
+      console.error("Update user role error:", error);
+      
+      // Return appropriate error based on error type
+      if (error.message?.includes('not found')) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Handle last system admin protection error
+      if (error.message?.includes('Cannot demote the last system administrator')) {
+        return res.status(409).json({ 
+          error: "Cannot demote the last system administrator. The system must always have at least one system_admin.",
+          code: "LAST_SYSTEM_ADMIN_PROTECTION"
+        });
+      }
+      
+      res.status(500).json({ 
+        error: "Failed to update user role",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  });
+
+  // ============================================
   // ENTERPRISE FEATURES - Audit Logging APIs
   // ============================================
 
@@ -1218,8 +1430,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     requireSystemPermission(SYSTEM_PERMISSIONS.VIEW_AUDIT_LOGS),
     async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const { organizationId, action, limit = 50, offset = 0 } = req.query;
+      const userId = req.user.id; // Fixed: use req.user.id instead of req.user.claims.sub
+      
+      // Validate pagination parameters
+      const paginationResult = paginationSchema.safeParse(req.query);
+      if (!paginationResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid pagination parameters",
+          details: paginationResult.error.issues
+        });
+      }
+      
+      const { limit, offset } = paginationResult.data;
+      const { organizationId, action } = req.query;
       
       // Check if user has permission to view audit logs
       if (organizationId) {
