@@ -26,6 +26,7 @@
 
 ### Key Features ✨
 - **Three Progressive Complexity Levels**: Simple, Guided, and Expert modes
+- **Document Upload Integration**: Upload and analyze documents in all analysis modes with AI-powered content processing
 - **Cross-Mode Debate Transfer**: Seamlessly continue debates across different modes for progressive enhancement
 - **Collaborative Brainstorming**: Transform debate results into actionable solutions and implementation plans
 - **18+ Specialized Domain Experts**: Legal, Medical, Financial, Technology, Business, and more
@@ -71,6 +72,130 @@
 
 ---
 
+## Document Upload & Analysis 📄
+
+### 🚀 **NEW: Comprehensive Document Integration**
+SymbiosoAi ThinkTank now supports document upload and analysis across all platform modes, enabling AI agents to analyze and reference your documents during collaborative debates.
+
+### **Supported File Types**
+- **PDF Documents**: .pdf files - Research papers, reports, presentations, manuals
+- **Word Documents**: .docx and .doc files with text content and formatting
+- **Text Files**: .txt files with plain text content
+- **Markdown Files**: .md files with markdown formatting
+- **File Size Limit**: Up to 10MB per document
+- **Upload Limit**: One document per analysis session
+
+### **How Document Upload Works**
+
+#### **Upload Process**
+1. **Select File**: Click "Choose Document" button in any analysis mode
+2. **File Selection**: Choose from supported file types (.pdf, .docx, .doc, .txt, .md)
+3. **File Validation**: System validates file type and size (max 10MB)
+4. **Secure Upload**: Document is securely stored with access controls
+5. **AI Processing**: Content is extracted and prepared for AI analysis
+6. **Confirmation**: File name and size displayed when upload is successful
+7. **Integration**: Document content becomes available to all AI agents in the current session
+
+#### **AI Content Integration**
+- **Content Extraction**: AI automatically extracts text and key information from documents
+- **Context Awareness**: All AI agents receive document context during debates
+- **Reference Capability**: AI agents can quote and reference specific document sections
+- **Document Context**: AI agents reference and analyze uploaded document content during debates
+
+#### **Security & Privacy**
+- **Secure Storage**: Documents stored in secure object storage with access controls
+- **Access Control**: Document access restricted to your user account and current session
+- **File Management**: Documents can be removed and replaced during the session
+- **Enterprise Security**: Secure file handling with proper validation and storage protocols
+
+### **Document Analysis Across Modes**
+
+#### **Simple Mode Document Analysis**
+- Upload single documents for quick analysis
+- AI agents automatically incorporate document content into debates
+- Perfect for analyzing reports, contracts, or research papers
+- Streamlined workflow with minimal configuration
+
+#### **Guided Mode Document Analysis**
+- Upload documents with specialized domain expert analysis
+- Choose relevant experts (Legal, Medical, Financial, etc.) based on document type
+- Domain experts provide specialized insights based on document content
+- Configure debate depth for thorough document analysis
+
+#### **Expert Mode Document Analysis**
+- Advanced document analysis with full enterprise features
+- Single document upload with comprehensive AI analysis capabilities
+- Custom AI agent configurations for document-specific analysis
+- Team collaboration on document reviews and analysis
+- Template-based document analysis workflows
+
+### **Best Practices for Document Upload**
+
+#### **Document Preparation**
+- **Clear Text**: Ensure documents have clear, readable text
+- **Relevant Content**: Focus on documents directly related to your analysis question
+- **File Organization**: Use descriptive filenames for easy identification
+- **Size Optimization**: Optimize file sizes while maintaining content quality (max 10MB)
+- **File Format**: Use supported formats (.pdf, .docx, .doc, .txt, .md) for best results
+
+#### **Analysis Optimization**
+- **Specific Questions**: Ask targeted questions about document content
+- **Context Setting**: Provide brief context about the document's purpose
+- **Expert Selection**: Choose domain experts relevant to document type
+- **Follow-up Questions**: Use follow-up questions to explore document details
+
+### **Using Document Upload Step-by-Step**
+
+#### **In Simple Mode**
+1. Navigate to Simple Mode page
+2. Locate the document upload section below the prompt textarea
+3. Click "Choose Document" button
+4. Select a file (.pdf, .docx, .doc, .txt, .md) under 10MB
+5. Wait for upload confirmation (file name and size displayed)
+6. Enter your analysis question in the prompt field
+7. Click "Start Analysis" - AI agents will automatically reference your document
+
+#### **In Guided Mode**
+1. Navigate to Guided Mode page
+2. Find the document upload section in the main form
+3. Click "Choose Document" button and select your file
+4. Upload confirmation shows file details
+5. Configure your analysis settings (agents, experts, etc.)
+6. Enter your question about the document
+7. Start analysis - domain experts will provide specialized document insights
+
+#### **In Expert Mode**
+1. Access Expert Mode and go to the Expert Analysis tab
+2. Locate document upload in the analysis configuration area
+3. Click "Choose Document" and upload your file
+4. Verify upload success with file name display
+5. Configure advanced AI settings and collaboration options
+6. Enter detailed analysis prompt
+7. Launch analysis with full enterprise document capabilities
+
+### **Managing Uploaded Documents**
+- **File Status**: Uploaded file name and size shown below upload button
+- **Replace Document**: Upload a new file to replace the current one
+- **Remove Document**: Clear the uploaded file to proceed without document context
+- **File Limits**: One document per session; maximum 10MB file size
+
+### **Troubleshooting Document Upload**
+
+#### **Common Issues**
+- **File Too Large**: Reduce file size to under 10MB or split into smaller documents
+- **Unsupported Format**: Convert to supported formats (.pdf, .docx, .doc, .txt, .md)
+- **Upload Failed**: Check internet connection and try again
+- **No Content Extracted**: Ensure document contains readable text (not just images)
+- **Analysis Not Including Document**: Verify file upload succeeded and try rephrasing your question
+
+#### **Best Results Tips**
+- **Clear Text**: Use documents with clear, searchable text rather than scanned images
+- **Relevant Content**: Upload documents directly related to your analysis question
+- **Question Clarity**: Ask specific questions about document content for focused analysis
+- **File Quality**: Ensure documents are not corrupted and contain the content you expect
+
+---
+
 ## Platform Modes
 
 ### 🟢 Simple Mode
@@ -78,6 +203,7 @@
 
 **Features:**
 - Streamlined interface with essential controls
+- **Document Upload**: Upload PDFs, Word documents, or text files for AI analysis
 - Default AI agent configuration (Analyst, Critic, Synthesizer)
 - Basic debate rounds (3-5 rounds typical)
 - Instant results with clear conclusions
@@ -93,6 +219,7 @@
 **Balanced approach with customization options**
 
 **Features:**
+- **Document Upload**: Upload and analyze documents with specialized domain experts
 - Selectable domain experts from 18+ specializations
 - Configurable debate rounds (1-10 rounds)
 - Basic collaboration features
@@ -117,6 +244,7 @@
 **Three-Tab Interface:**
 
 #### 1. **Expert Analysis Tab**
+- **Document Upload & Analysis**: Upload complex documents for deep AI analysis with enterprise security
 - Advanced AI agent configuration
 - Custom reasoning frameworks
 - Thinking pattern selection
