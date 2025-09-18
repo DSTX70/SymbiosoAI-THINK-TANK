@@ -35,6 +35,7 @@ import { WebhookConfiguration } from "@/components/WebhookConfiguration";
 import { CustomExportTemplates } from "@/components/CustomExportTemplates";
 import { SSOIntegration } from "@/components/SSOIntegration";
 import { SessionTransfer } from "@/components/SessionTransfer";
+import { DocumentUploader } from "@/components/DocumentUploader";
 import { useCollaboration } from "@/hooks/useCollaboration";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -56,6 +57,7 @@ export default function ExpertPage() {
   const [brainstormResults, setBrainstormResults] = useState<BrainstormResponse | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [attachedDocument, setAttachedDocument] = useState<{fileName: string; fileUrl: string; fileSize: number} | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
 

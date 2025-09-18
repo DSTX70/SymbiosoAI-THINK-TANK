@@ -12,6 +12,7 @@ import TelemetryPanel from "@/components/TelemetryPanel";
 import ResultsSection from "@/components/ResultsSection";
 import LiveStreamingSection from "@/components/LiveStreamingSection";
 import TutorialHelpButton from "@/components/TutorialHelpButton";
+import { DocumentUploader } from "@/components/DocumentUploader";
 import { createStreamUrl } from "@/lib/streamUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -32,6 +33,7 @@ export default function SimplePage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [isProcessingQuestion, setIsProcessingQuestion] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
+  const [attachedDocument, setAttachedDocument] = useState<{fileName: string; fileUrl: string; fileSize: number} | null>(null);
   const { toast } = useToast();
 
   // Onboarding setup
@@ -96,6 +98,7 @@ export default function SimplePage() {
         enable_fact_check: enableFactCheck,
         live_web: enableLiveWeb,
         model_provider: selectedModel,
+        attached_document: attachedDocument,
       };
       thinkMutation.mutate(requestData);
     }
@@ -159,6 +162,7 @@ export default function SimplePage() {
       enable_fact_check: enableFactCheck,
       live_web: enableLiveWeb,
       model_provider: selectedModel,
+      attached_document: attachedDocument, // Include document for follow-up questions too
     };
 
     try {
@@ -243,6 +247,25 @@ export default function SimplePage() {
                   placeholder="Describe your challenge or question for collaborative AI analysis..."
                   className="resize-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
                   data-testid="input-prompt"
+                />
+                
+                {/* Document Upload Section */}
+                <DocumentUploader
+                  onFileUpload={(fileInfo) => {
+                    setAttachedDocument(fileInfo);
+                    toast({
+                      title: "Document attached",
+                      description: `${fileInfo.fileName} has been attached to your prompt`,
+                    });
+                  }}
+                  onFileRemove={() => {
+                    setAttachedDocument(null);
+                    toast({
+                      description: "Document attachment removed"
+                    });
+                  }}
+                  disabled={thinkMutation.isPending || isStreaming}
+                  className="border-t pt-4"
                 />
                 
                 <div className="flex flex-wrap gap-4">

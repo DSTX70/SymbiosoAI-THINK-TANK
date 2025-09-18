@@ -16,6 +16,7 @@ import ResultsSection from "@/components/ResultsSection";
 import LiveStreamingSection from "@/components/LiveStreamingSection";
 import TutorialHelpButton from "@/components/TutorialHelpButton";
 import { SessionTransfer } from "@/components/SessionTransfer";
+import { DocumentUploader } from "@/components/DocumentUploader";
 import { createStreamUrl } from "@/lib/streamUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -48,6 +49,7 @@ export default function GuidedPage() {
   const [isProcessingQuestion, setIsProcessingQuestion] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
   const [transferSessionId, setTransferSessionId] = useState<string | null>(null);
+  const [attachedDocument, setAttachedDocument] = useState<{fileName: string; fileUrl: string; fileSize: number} | null>(null);
   const { toast } = useToast();
 
   // Onboarding setup
@@ -127,6 +129,7 @@ export default function GuidedPage() {
         enable_fact_check: enableFactCheck,
         live_web: enableLiveWeb,
         model_provider: selectedModel,
+        attached_document: attachedDocument,
         verification: {
           fact_check: enableFactCheck,
           min_sources: 1,
@@ -213,6 +216,7 @@ export default function GuidedPage() {
       enable_fact_check: enableFactCheck,
       live_web: enableLiveWeb,
       model_provider: selectedModel,
+      attached_document: attachedDocument, // Include document for follow-up questions too
       verification: {
         fact_check: enableFactCheck,
         min_sources: 1,
@@ -280,7 +284,7 @@ export default function GuidedPage() {
               Collaborative Prompt
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <Textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
@@ -288,6 +292,25 @@ export default function GuidedPage() {
               placeholder="Describe your challenge for collaborative AI thinking..."
               className="resize-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
               data-testid="input-collaborative-prompt"
+            />
+            
+            {/* Document Upload Section */}
+            <DocumentUploader
+              onFileUpload={(fileInfo) => {
+                setAttachedDocument(fileInfo);
+                toast({
+                  title: "Document attached",
+                  description: `${fileInfo.fileName} has been attached to your collaborative prompt`,
+                });
+              }}
+              onFileRemove={() => {
+                setAttachedDocument(null);
+                toast({
+                  description: "Document attachment removed"
+                });
+              }}
+              disabled={thinkMutation.isPending || isStreaming}
+              className="border-t pt-4"
             />
           </CardContent>
         </Card>

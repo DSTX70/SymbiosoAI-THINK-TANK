@@ -18,6 +18,8 @@ import {
   // User management types and schemas
   type SystemUserRole, systemUserRoleSchema
 } from "@shared/schema";
+import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { ObjectPermission } from "./objectAcl";
 import { runMultiAgentDebate, runBrainstormingSession, runReportGeneration } from "./ai-service";
 import { perplexityService } from "./services/perplexity";
 import { advancedFactChecker } from "./services/factchecker";
@@ -3489,6 +3491,177 @@ Provide additional insights, explore deeper implications, or address related asp
     } catch (error: any) {
       console.error('Record NPS error:', error);
       res.status(500).json({ error: 'Failed to record NPS' });
+    }
+  });
+  
+  // ============================================
+  // DOCUMENT UPLOAD API ROUTES
+  // ============================================
+  
+  // Get presigned upload URL for document upload
+  app.post('/api/documents/upload', requireAuth, express.json(), async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { fileName, fileSize, fileType } = req.body;
+      
+      if (!fileName || !fileSize) {
+        return res.status(400).json({
+          error: "Missing required fields",
+          message: "fileName and fileSize are required"
+        });
+      }
+      
+      // Validate file size (max 10MB)
+      const maxFileSize = 10 * 1024 * 1024; // 10MB
+      if (fileSize > maxFileSize) {
+        return res.status(400).json({
+          error: "File too large",
+          message: `File size must be less than ${maxFileSize / (1024 * 1024)}MB`
+        });
+      }
+      
+      // Validate file type
+      const allowedTypes = [
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/msword',
+        'text/plain',
+        'text/markdown'
+      ];
+      
+      if (fileType && !allowedTypes.includes(fileType)) {
+        return res.status(400).json({
+          error: "File type not allowed",
+          message: "Only PDF, Word documents, text, and markdown files are allowed"
+        });
+      }
+      
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      
+      // Generate a document ID for tracking
+      const documentId = require('crypto').randomUUID();
+      
+      console.log(`📄 Generated upload URL for user ${userId}, file: ${fileName}`);
+      
+      res.json({
+        uploadURL,
+        documentId,
+        message: "Upload URL generated successfully"
+      });
+      
+    } catch (error: any) {
+      console.error('Document upload URL generation error:', error);
+      res.status(500).json({
+        error: "Failed to generate upload URL",
+        message: "Please try again later"
+      });
+    }
+  });
+  
+  // Finalize document upload and set ACL policy
+  app.post('/api/documents/finalize', requireAuth, express.json(), async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const { documentId, uploadURL, fileName, fileSize, fileType } = req.body;
+      
+      if (!documentId || !uploadURL || !fileName) {
+        return res.status(400).json({
+          error: "Missing required fields",
+          message: "documentId, uploadURL, and fileName are required"
+        });
+      }
+      
+      const objectStorageService = new ObjectStorageService();
+      
+      // Set ACL policy for the uploaded document
+      const documentPath = await objectStorageService.trySetObjectEntityAclPolicy(
+        uploadURL,
+        {
+          owner: userId,
+          visibility: "private", // Documents are private by default
+          aclRules: [] // Can be expanded later for sharing
+        }
+      );
+      
+      console.log(`📄 Document upload finalized: ${fileName} for user ${userId}`);
+      
+      // Create an audit log for the document upload
+      try {
+        await storage.createAuditLog({
+          action: 'document_uploaded',
+          userId: userId,
+          details: {
+            fileName,
+            fileSize,
+            fileType,
+            documentId,
+            documentPath
+          },
+          metadata: {
+            operation: 'document_upload',
+            timestamp: new Date().toISOString()
+          }
+        });
+      } catch (auditError) {
+        console.error('Failed to log document upload audit:', auditError);
+      }
+      
+      res.json({
+        success: true,
+        documentUrl: documentPath,
+        documentId,
+        message: "Document uploaded successfully"
+      });
+      
+    } catch (error: any) {
+      console.error('Document upload finalization error:', error);
+      res.status(500).json({
+        error: "Failed to finalize upload",
+        message: "Please try again later"
+      });
+    }
+  });
+  
+  // Serve private documents with authentication and ACL checking
+  app.get('/objects/:objectPath(*)', requireAuth, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      const objectStorageService = new ObjectStorageService();
+      
+      const objectFile = await objectStorageService.getObjectEntityFile(
+        req.path,
+      );
+      
+      const canAccess = await objectStorageService.canAccessObjectEntity({
+        objectFile,
+        userId: userId,
+        requestedPermission: ObjectPermission.READ,
+      });
+      
+      if (!canAccess) {
+        console.warn(`🚫 Unauthorized document access attempt by user ${userId}: ${req.path}`);
+        return res.status(403).json({
+          error: "Access denied",
+          message: "You don't have permission to access this document"
+        });
+      }
+      
+      console.log(`📄 Document accessed by user ${userId}: ${req.path}`);
+      objectStorageService.downloadObject(objectFile, res);
+      
+    } catch (error) {
+      console.error('Document access error:', error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.status(404).json({
+          error: "Document not found",
+          message: "The requested document does not exist"
+        });
+      }
+      return res.status(500).json({
+        error: "Failed to access document",
+        message: "Please try again later"
+      });
     }
   });
   

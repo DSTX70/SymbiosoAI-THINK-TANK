@@ -511,6 +511,12 @@ export const thinkRequestSchema = z.object({
   prompt: z.string().min(1),
   mode: z.enum(["simple", "guided", "expert"]),
   transfer_from_session_id: z.string().optional(), // ID of previous session to transfer from
+  // Document attachment
+  attached_document: z.object({
+    fileName: z.string(),
+    fileUrl: z.string(),
+    fileSize: z.number(),
+  }).optional(),
   // Simple mode options
   require_citations: z.boolean().optional(),
   enable_fact_check: z.boolean().optional(),
@@ -3193,5 +3199,4 @@ export type WorkspaceRole = 'viewer' | 'member' | 'admin' | 'owner';
 
 // Zod schemas for roles to prevent schema drift
 export const systemUserRoleSchema = z.enum(['user', 'premium_user', 'admin', 'system_admin']);
-export const workspaceRoleSchema = z.enum(['viewer', 'member', 'admin', 'owner']);
 

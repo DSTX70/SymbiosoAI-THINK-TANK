@@ -1,4 +1,7 @@
 import OpenAI from "openai";
+import { ObjectStorageService } from "./objectStorage";
+import fetch from "node-fetch";
+
 // Define types here since @shared/types may not be available in server context
 export interface Citation {
   title: string;
@@ -294,6 +297,36 @@ export async function runMultiAgentDebate(
     debate_history = [...settings.previousDebateHistory];
     console.log(`🔄 Initializing with ${debate_history.length} previous debate entries from transfer`);
   }
+
+  // Process attached document if provided
+  let documentContext = "";
+  if (settings.attached_document) {
+    try {
+      console.log(`📄 Processing attached document: ${settings.attached_document.fileName}`);
+      
+      // Fetch document content from the object storage URL
+      const response = await fetch(settings.attached_document.fileUrl);
+      if (response.ok) {
+        const documentContent = await response.text();
+        
+        // Truncate document if too large (max 2000 characters for context)
+        const maxLength = 2000;
+        const truncatedContent = documentContent.length > maxLength 
+          ? documentContent.substring(0, maxLength) + "...\n[Document truncated for length]"
+          : documentContent;
+        
+        documentContext = `\n\n📄 ATTACHED DOCUMENT CONTEXT:\nDocument: ${settings.attached_document.fileName}\nSize: ${Math.round(settings.attached_document.fileSize / 1024)}KB\n\nContent:\n${truncatedContent}\n\n`;
+        
+        console.log(`📄 Document processed successfully: ${documentContent.length} characters`);
+      } else {
+        console.warn(`📄 Failed to fetch document content: ${response.status}`);
+        documentContext = `\n\n📄 ATTACHED DOCUMENT: ${settings.attached_document.fileName} (Content unavailable)\n\n`;
+      }
+    } catch (error) {
+      console.error("📄 Error processing attached document:", error);
+      documentContext = `\n\n📄 ATTACHED DOCUMENT: ${settings.attached_document.fileName} (Error loading content)\n\n`;
+    }
+  }
   
   // Run debate rounds
   for (let round = 0; round < rounds; round++) {
@@ -332,11 +365,11 @@ export async function runMultiAgentDebate(
           messages: [
             {
               role: "system",
-              content: `${agent.systemPrompt}\n\nYou are participating in a collaborative AI debate about: "${prompt}"\n\nProvide a thoughtful response that contributes to the discussion.${context}${roleSpecificInstructions}`
+              content: `${agent.systemPrompt}\n\nYou are participating in a collaborative AI debate about: "${prompt}"\n\nProvide a thoughtful response that contributes to the discussion.${context}${roleSpecificInstructions}${documentContext}`
             },
             {
               role: "user",
-              content: `Round ${round + 1}: Please provide your perspective on: ${prompt}`
+              content: `Round ${round + 1}: Please provide your perspective on: ${prompt}${documentContext ? '\n\nPlease consider the attached document in your analysis.' : ''}`
             }
           ],
           max_completion_tokens: settings.response_length === "detailed" ? 800 : settings.response_length === "brief" ? 300 : 500,
