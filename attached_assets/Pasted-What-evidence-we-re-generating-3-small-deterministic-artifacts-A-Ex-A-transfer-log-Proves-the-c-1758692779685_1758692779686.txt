@@ -1,0 +1,82 @@
+What evidence we’re generating (3 small, deterministic artifacts)
+
+A. Ex_A_transfer.log
+Proves the cross-mode transfer flow: re-hydration payload → role-policy overlay (incl. Devil’s Advocate) → correspondence table tuples → exported priming payload fields.
+
+B. Ex_B_brainstorm.json
+Proves the validator pipeline: a fail → fix → pass sequence with machine-readable error {reason, suggestedFix} and a passed artifact with schemaVersion. Optionally include multi-rater scores used to gate export.
+
+C. Ex_C_telemetry.log
+Proves the telemetry controller with hysteresis: metric sequence (latency/quality/accuracy), no flip inside the band, and a policy change only after dwell time.
+
+2) Is this a script you should create?
+
+Yes—unless you want to use the ready-made scaffolds I already generated. Either way works:
+
+Option A — Use the ready-made script (recommended)
+
+Download and copy these into your repo (from the pack I provided):
+
+code_scaffolds/transfer/adversarialOverlay.ts
+
+code_scaffolds/validator/multiRater.ts
+
+code_scaffolds/telemetry/hysteresisController.ts
+
+code_scaffolds/scripts/generateEvidence.ts
+
+Then run (Node 18+):
+
+# install runner if needed
+pnpm add -D ts-node typescript  # or npm/yarn
+
+# generate the artifacts
+npx ts-node code_scaffolds/scripts/generateEvidence.ts
+
+
+Outputs (to repo root):
+
+Ex_A_transfer.log
+Ex_B_brainstorm.json
+Ex_C_telemetry.log
+
+Option B — You create your own script
+
+Yes, create a script that writes the same three files. Suggested path/name:
+
+code_scaffolds/scripts/generateEvidence.ts
+
+
+I can adapt to any path you prefer—just tell me and I’ll tweak the imports/outputs.
+
+3) Acceptance criteria (so we know it’s “good”)
+
+Ex_A_transfer.log (JSON must include):
+
+tuples: array of { role: "pro"|"adv"|"neutral", turnId, intentTag?, policyId?, safetyEvent? }
+
+priming.systemPrompt
+
+priming.memoryItems[]
+
+priming.correspondenceMap[] (mirrors tuples)
+
+priming.constraints[]
+
+Ex_B_brainstorm.json:
+
+mr.scores[] with { raterId, score, reliability? }
+
+mr.consensus, mr.reliabilityMetric
+
+artifact.status = "fail" or "pass"
+
+if fail: error.reason, error.suggestedFix
+
+if pass: artifact.schemaVersion, artifact.data (any small object)
+
+Ex_C_telemetry.log:
+
+seq[]: samples with t, avgLatencyMs, tps, quality, activeAgents, accuracy?
+
+states[]: resulting policy states showing no change inside the hysteresis band and switch only after dwell
