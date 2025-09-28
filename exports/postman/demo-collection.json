@@ -1,0 +1,123 @@
+{
+  "info": {
+    "name": "Demo Mode — Example API",
+    "description": "Interactive collection for demo@example.com user login → Expert → Export → Analytics → Upgrade → Export again.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.1.0"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "demoEmail", "value": "demo@example.com" }
+  ],
+  "item": [
+    {
+      "name": "1) Demo Login",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/api/demo-login", "host": ["{{baseUrl}}"], "path": ["api","demo-login"] },
+        "body": { "mode": "raw", "raw": "{\n  \"username\": \"demo\",\n  \"password\": \"demo123\"\n}" }
+      },
+      "response": [
+        {
+          "name": "Demo Login Success",
+          "originalRequest": {},
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"message\": \"Demo login successful\",\n  \"user\": {\n    \"id\": \"demo-user-12345\",\n    \"email\": \"demo@example.com\",\n    \"isDemo\": true,\n    \"subscription\": { \"plan\": \"demo\" }\n  },\n  \"plan\": \"demo\",\n  \"features\": [\"ADVANCED_AI\"]\n}"
+        }
+      ]
+    },
+    {
+      "name": "2) Expert Mode (ADVANCED_AI)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/api/think", "host": ["{{baseUrl}}"], "path": ["api","think"] },
+        "body": { "mode": "raw", "raw": "{\n  \"mode\": \"expert\",\n  \"prompt\": \"Hello from Postman\"\n}" }
+      },
+      "response": [
+        {
+          "name": "Expert OK",
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"ok\": true,\n  \"analysis\": \"... AI output ...\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "3) Export (expect 402, auto-provision demo workspace)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/api/export", "host": ["{{baseUrl}}"], "path": ["api","export"] },
+        "body": { "mode": "raw", "raw": "{}" }
+      },
+      "response": [
+        {
+          "name": "Export Requires Upgrade",
+          "status": "Payment Required",
+          "code": 402,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"error\": \"Feature requires upgrade\",\n  \"code\": \"FEATURE_REQUIRES_UPGRADE\",\n  \"feature\": \"EXPORT_PDF\",\n  \"workspaceId\": \"demo-ws-demo-user-12345\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "4) Analytics (expect 402, seeded)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/api/analytics/run", "host": ["{{baseUrl}}"], "path": ["api","analytics","run"] },
+        "body": { "mode": "raw", "raw": "{}" }
+      },
+      "response": [
+        {
+          "name": "Analytics Requires Upgrade",
+          "status": "Payment Required",
+          "code": 402,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"error\": \"Feature requires upgrade\",\n  \"code\": \"FEATURE_REQUIRES_UPGRADE\",\n  \"feature\": \"ADVANCED_ANALYTICS\",\n  \"workspaceId\": \"demo-ws-demo-user-12345\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "5) Upgrade Demo → Pro (purge demo artifacts)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/api/upgrade-demo", "host": ["{{baseUrl}}"], "path": ["api","upgrade-demo"] },
+        "body": { "mode": "raw", "raw": "{}" }
+      },
+      "response": [
+        {
+          "name": "Upgrade Success",
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"message\": \"Upgraded to pro and purged demo artifacts\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "6) Export After Upgrade (expect 400 workspace required)",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/api/export", "host": ["{{baseUrl}}"], "path": ["api","export"] },
+        "body": { "mode": "raw", "raw": "{}" }
+      },
+      "response": [
+        {
+          "name": "Workspace Context Required",
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"error\": \"Workspace context required for feature access\",\n  \"code\": \"WORKSPACE_CONTEXT_REQUIRED\"\n}"
+        }
+      ]
+    }
+  ]
+}

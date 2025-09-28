@@ -1,0 +1,331 @@
+@import '../../tokens/variables.css';
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Ensure full-height layout and prevent overlay issues */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+/* Avoid accidental collapse on Mobile Safari */
+body { 
+  min-height: 100vh; 
+}
+
+/* Ensure app content participates in stacking properly */
+#root { 
+  isolation: isolate; 
+  position: relative;
+}
+
+:root {
+  /* Shadcn compatibility using SymbiosoAi tokens */
+  --background: var(--surface-bg);
+  --foreground: var(--text-primary);
+  --card: var(--surface-panel);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-panel);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--color-brand-accent-500);
+  --primary-foreground: var(--color-neutral-white);
+  --secondary: var(--color-brand-teal-500);
+  --secondary-foreground: var(--color-neutral-white);
+  --muted: var(--color-neutral-silver-tint);
+  --muted-foreground: var(--text-secondary);
+  --accent: var(--color-brand-teal-tint);
+  --accent-foreground: var(--text-primary);
+  --destructive: #ef4444;
+  --destructive-foreground: var(--color-neutral-white);
+  --border: var(--border-muted);
+  --input: var(--border-muted);
+  --ring: var(--focus-ring);
+  --radius: var(--radius-md);
+  --font-sans: var(--font-body);
+  --font-serif: 'Georgia', serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* SymbiosoAi brand colors */
+  --blue: var(--color-brand-accent-500);
+  --teal: var(--color-brand-teal-500);
+  --slate: var(--color-neutral-slate);
+  --silver: var(--color-neutral-silver);
+  --warm: var(--color-neutral-white);
+  --midnight: var(--color-neutral-black);
+  --ink: var(--color-neutral-black);
+}
+
+[data-theme="dark"], .dark {
+  /* Dark mode using SymbiosoAi tokens */
+  --background: var(--surface-bg);
+  --foreground: var(--text-primary);
+  --card: var(--surface-panel);
+  --card-foreground: var(--text-primary);
+  --popover: var(--surface-panel);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--color-brand-accent-500);
+  --primary-foreground: var(--color-neutral-white);
+  --secondary: var(--color-brand-teal-500);
+  --secondary-foreground: var(--color-neutral-white);
+  --muted: var(--border-muted);
+  --muted-foreground: var(--text-secondary);
+  --accent: var(--color-brand-teal-tint);
+  --accent-foreground: var(--text-primary);
+  --destructive: #ef4444;
+  --destructive-foreground: var(--color-neutral-white);
+  --border: var(--border-muted);
+  --input: var(--border-muted);
+  --ring: var(--focus-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-family: var(--font-body);
+    background: var(--gradient-hero);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  /* Official SymbiosoAi typography */
+  h1, h2, h3, h4, h5, h6, .display {
+    font-family: var(--font-heading);
+  }
+}
+
+@layer components {
+  .header-gradient {
+    background: var(--gradient-hero);
+    border-bottom: 1px solid hsla(0, 0%, 100%, 0.1);
+  }
+
+  .brand-mark {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--gradient-hero);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 20px var(--color-brand-accent-tint);
+  }
+
+  /* Official SymbiosoAi button styles */
+  .button-primary {
+    @apply inline-flex items-center justify-center px-5 py-3 rounded-md transition-all;
+    background: var(--color-brand-accent-500);
+    color: var(--color-neutral-white);
+  }
+
+  .button-primary:hover {
+    background: var(--color-brand-accent-shade);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 153, 255, 0.3);
+  }
+
+  .button-secondary {
+    @apply inline-flex items-center justify-center px-5 py-3 rounded-md border transition-all;
+    border-color: var(--color-brand-teal-500);
+    color: var(--color-brand-teal-500);
+    background: transparent;
+  }
+
+  .button-secondary:hover {
+    background: var(--color-brand-teal-500);
+    color: var(--color-neutral-white);
+  }
+
+  /* Official SymbiosoAi card style */
+  .card {
+    @apply p-6 rounded-lg border;
+    background: var(--surface-panel);
+    border-color: var(--border-muted);
+  }
+
+  .card-elevated {
+    @apply bg-card border border-border shadow-lg hover:shadow-xl transition-all duration-200 relative overflow-hidden;
+    border-radius: var(--radius-lg);
+  }
+
+  .card-elevated:hover {
+    transform: translateY(-1px);
+  }
+
+  .card-elevated::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--color-brand-accent-500), transparent);
+    opacity: 0.5;
+  }
+
+  .gradient-bg {
+    background: var(--gradient-alt);
+  }
+
+  /* Legacy button compatibility */
+  .btn-primary {
+    @apply button-primary;
+  }
+
+  .btn-secondary {
+    @apply button-secondary;
+  }
+
+  .processing-state {
+    background: linear-gradient(135deg, 
+      hsla(200, 100%, 50%, 0.1), 
+      hsla(174, 100%, 37%, 0.1));
+    border-left: 4px solid var(--primary);
+  }
+
+  .status-indicator {
+    @apply w-2 h-2 rounded-full inline-block mr-2;
+  }
+
+  .status-idle { @apply bg-muted; }
+  .status-processing { 
+    @apply bg-primary;
+    animation: pulse 2s infinite;
+  }
+  .status-complete { @apply bg-secondary; }
+  .status-error { @apply bg-destructive; }
+
+  .mode-pill {
+    @apply px-4 py-2 rounded-full border border-white/20 text-white no-underline transition-all duration-200 font-medium;
+  }
+
+  .mode-pill.active {
+    @apply bg-gradient-to-r from-primary to-secondary border-none;
+    box-shadow: 0 0 20px hsla(200, 100%, 50%, 0.3);
+  }
+
+  .mode-pill:not(.active):hover {
+    @apply bg-white/10 border-white/30;
+  }
+  
+  /* Compact mobile version for header controls */
+  .mode-pill-compact {
+    @apply px-2 py-1 rounded text-xs font-medium transition-all duration-200 text-white no-underline;
+    @apply bg-white/10 backdrop-blur-sm border border-white/20;
+  }
+  
+  .mode-pill-compact.active {
+    @apply bg-gradient-to-r from-primary to-secondary border-none font-semibold;
+    box-shadow: 0 0 10px hsla(200, 100%, 50%, 0.2);
+  }
+  
+  .mode-pill-compact:not(.active):hover {
+    @apply bg-white/20 border-white/30;
+  }
+
+  .telemetry-widget {
+    background: linear-gradient(135deg, 
+      var(--card), 
+      hsla(200, 100%, 50%, 0.02));
+  }
+
+  .metric-value {
+    @apply text-2xl font-bold text-primary;
+  }
+
+  .fade-in {
+    animation: fadeIn 0.3s ease-in;
+  }
+}
+
+@layer utilities {
+  .fade-in {
+    animation: fadeIn 0.3s ease-in;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--muted);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--secondary);
+}
+
+/* Live streaming styles */
+.livebox {
+  @apply min-h-16 border border-dashed border-border rounded-lg p-3 bg-muted font-mono text-xs leading-relaxed;
+  background-color: hsla(240, 5%, 84%, 0.3);
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.processing-state {
+  @apply border-l-4 border-primary;
+  background-color: hsla(200, 100%, 50%, 0.05);
+}
+
+/* Enhanced animations */
+@keyframes pulse-glow {
+  0%, 100% { 
+    box-shadow: 0 0 5px hsl(200, 100%, 50%), 0 0 10px hsl(200, 100%, 50%); 
+  }
+  50% { 
+    box-shadow: 0 0 10px hsl(200, 100%, 50%), 0 0 20px hsl(200, 100%, 50%); 
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.cite-list {
+  @apply pl-5;
+}
+
+.cite-list li {
+  @apply mb-1 text-sm;
+}
+
+.cite-list a {
+  @apply text-primary hover:underline;
+}
+
+/* Status indicators */
+.ok {
+  @apply text-green-600 font-semibold;
+}
+
+.bad {
+  @apply text-red-600 font-semibold;
+}
+
+.muted {
+  @apply text-muted-foreground;
+}
