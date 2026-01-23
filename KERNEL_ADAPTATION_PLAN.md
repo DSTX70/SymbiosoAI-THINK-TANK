@@ -6,12 +6,42 @@
 
 ---
 
+## ⚠️ IMPORTANT: Pod-Driven Architecture
+
+**IP-specific features are NOT built into the core platform.**
+
+The kernel and IP-related capabilities (prior art search, claim generation, differentiation drafting) are **optional/on-demand features** that are only activated when requested by a Pod. This ensures:
+
+1. **Core platform remains lightweight** - No IP bloat in the base product
+2. **Modular activation** - IP features loaded only when needed
+3. **Cost efficiency** - Users only pay for IP capabilities when they use them
+4. **Separation of concerns** - Core debate/brainstorming vs specialized IP workflows
+
+### What IS Core (Always Available)
+- Multi-Agent Debate Orchestration
+- Brainstorming & Solutions
+- Report Generation
+- Fact Checking
+- Cross-Mode Transfer
+- Workspace Collaboration
+- Evidence Generation (Ex_A/B/C)
+
+### What IS Pod-Driven (On-Demand Only)
+- Prior Art Search
+- Patent Claim Generation
+- Differentiation Drafting
+- IP-Focused Analysis Modes
+- Filing-Ready Evidence Packs
+- USPTO/Lens/Google Patents Integration
+
+---
+
 ## 1. Adaptation Overview
 
-The Agent Kernel will wrap ThinkTank's existing AI capabilities as versioned tools with receipt logging, creating an execution core specifically designed for IP workflows.
+The Agent Kernel provides an **optional execution layer** that can be activated via Pod when users need IP-specific workflows. It wraps ThinkTank's existing AI capabilities as versioned tools with receipt logging.
 
 ### Core Principle
-**Adapter-First**: Each existing platform capability becomes a tool adapter in the kernel registry.
+**Pod-Activated, Adapter-First**: The kernel and IP tools are only loaded when a Pod activates them. Core platform capabilities can be wrapped as tools when needed.
 
 ---
 

@@ -219,7 +219,7 @@ SymbiosoAi ThinkTank transforms complex questions and challenges into structured
 
 ### 10. Evidence Generation System
 
-**Description**: Generates deterministic artifacts demonstrating platform innovations for patent claims and legal review.
+**Description**: Generates deterministic artifacts demonstrating platform innovations for documentation and review.
 
 **Evidence Artifacts**:
 
@@ -239,10 +239,11 @@ SymbiosoAi ThinkTank transforms complex questions and challenges into structured
 - Documents quality-based performance management
 
 **Use Cases**:
-- Patent application technical evidence
-- Legal review and IP documentation
+- Technical documentation and review
 - Regulatory compliance demonstration
 - System capability validation
+
+**Note**: Advanced IP-specific features (prior art search, claim generation, filing bundles) are **Pod-driven** and activated on-demand, not built into the core platform.
 
 ---
 
