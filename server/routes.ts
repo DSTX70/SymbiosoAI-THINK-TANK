@@ -76,6 +76,8 @@ import sprint12Routes from "./routes/sprint12";
 import { startDunningWorker } from "./workers/dunningWorker";
 // Workspace Synchronization imports
 import { registerWorkspaceSyncRoutes } from "./routes/workspace-sync";
+// Agent Kernel imports
+import { initializeKernel, kernelRouter } from "./kernel";
 
 // Using shared systemUserRoleSchema from @shared/schema to prevent duplication and schema drift
 
@@ -3684,6 +3686,17 @@ Provide additional insights, explore deeper implications, or address related asp
   app.use('/api/sprint12', sprint12Routes);
   app.use('/api', sprint12Routes); // Also mount directly under /api for easier access
   console.log('✅ Sprint 12 GA Launch routes mounted: /api/sprint12/*, /api/docs/*, /api/marketplace/*, /api/pricing/*, /api/changelog/*, /api/playbooks/*');
+
+  // ============================================
+  // AGENT KERNEL - INITIALIZE AND MOUNT ROUTES
+  // ============================================
+  
+  // Initialize the Agent Kernel (registers tools and capabilities)
+  initializeKernel();
+  
+  // Mount Kernel routes under /api/kernel
+  app.use('/api/kernel', kernelRouter);
+  console.log('✅ Agent Kernel routes mounted: /api/kernel/health, /api/kernel/tools, /api/kernel/run, /api/kernel/receipts');
 
   // ============================================
   // SPRINT 6 - INITIALIZE WORKERS
