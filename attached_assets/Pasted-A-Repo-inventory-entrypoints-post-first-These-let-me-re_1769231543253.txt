@@ -1,0 +1,47 @@
+A) Repo inventory + entrypoints (post first)
+These let me reconstruct how the whole app boots, routes, and compiles:
+* package.json (root + any client/package.json / server/package.json if split)
+* tsconfig.json / tsconfig.*.json
+* vite.config.ts (or next.config.js, etc.)
+* README.md (root)
+* .env.example (only the template — no secrets)
+* Any monorepo config: turbo.json, pnpm-workspace.yaml, nx.json, etc.
+
+B) Shared contracts + schema (this is the “source of truth” for the platform)
+* shared/ (especially: shared/contracts/**, shared/schema.ts, shared/types/**)
+* Anything that defines: capability types, receipts, artifacts, runs, packs, governance/trust tiers
+
+C) Server routes + controllers + services (how kernel/proxy + governance actually works)
+Post:
+* server/routes/**
+* server/controllers/**
+* server/services/**
+* Any kernel proxy modules (*KernelProxy.ts, dthKernel*, ipstudioKernel*, etc.)
+* Middleware that enforces policy / auth / logging (often in server/middleware/**)
+* Any audit/selftest routes (/api/_audit/*)
+
+D) Kernel / sidecar / capability pack structure (if present)
+If you have any of these, they’re critical:
+* server/dth-kernel/** (or wherever kernel lives)
+* kernel/** (stubs, receipts.jsonl writer, pack zip builder, artifact store)
+* capabilities/** and/or any pack.json, *.capability.json, schemas, plans
+* “Receipt builder” and “artifact store” modules
+
+E) Client UI surfaces that wire to kernel + runs + downloads
+Post:
+* client/src/App.tsx
+* client/src/pages/** (or routes/**)
+* Any “Runs” UI components (RunsList, RunDetail, DownloadPack, etc.)
+* API client utilities/hooks:
+    * client/src/lib/api/**
+    * client/src/hooks/** (especially anything like useDthRuns, useRuns, etc.)
+* Auth/session wiring if it gates routes
+F) The determinism / rendering pipeline (because it intersects your patent + evidence story)
+Given your recent work, these are highly relevant:
+* Receipt builder(s): anything like buildReceiptForPngExport, receipt renderers, export flows
+* The render/materializer layer:
+    * client/src/lib/** where mediums/lenses/renderer live
+    * medium registry + lens registry
+* The WebGPU watercolor folder (if present):
+    * client/src/lib/webgpu-watercolor/** (types/gpu/util/sim/adapter + shaders/*.wgsl)
+* Any deterministic RNG utilities and “determinismTier” definitions
