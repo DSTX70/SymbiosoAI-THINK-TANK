@@ -1,0 +1,447 @@
+{
+  "timestamp": "2025-09-24T05:48:45.423Z",
+  "sessionId": "telemetry_session_1758692925423",
+  "hysteresisConfig": {
+    "qualityThresholds": {
+      "degradation": 0.6,
+      "recovery": 0.75,
+      "hysteresisBandWidth": 0.1
+    },
+    "dwellTimeMs": 150000,
+    "samplingIntervalMs": 30000
+  },
+  "seq": [
+    {
+      "t": 1758692925423,
+      "avgLatencyMs": 127,
+      "tps": 17,
+      "quality": 0.9,
+      "activeAgents": 4,
+      "accuracy": 0.88
+    },
+    {
+      "t": 1758692955423,
+      "avgLatencyMs": 135,
+      "tps": 23,
+      "quality": 0.89,
+      "activeAgents": 5,
+      "accuracy": 0.86
+    },
+    {
+      "t": 1758692985423,
+      "avgLatencyMs": 144,
+      "tps": 21,
+      "quality": 0.9,
+      "activeAgents": 4,
+      "accuracy": 0.88
+    },
+    {
+      "t": 1758693015423,
+      "avgLatencyMs": 136,
+      "tps": 16,
+      "quality": 0.86,
+      "activeAgents": 4,
+      "accuracy": 0.81
+    },
+    {
+      "t": 1758693045423,
+      "avgLatencyMs": 142,
+      "tps": 22,
+      "quality": 0.91,
+      "activeAgents": 4,
+      "accuracy": 0.82
+    },
+    {
+      "t": 1758693075423,
+      "avgLatencyMs": 140,
+      "tps": 17,
+      "quality": 0.9,
+      "activeAgents": 4,
+      "accuracy": 0.87
+    },
+    {
+      "t": 1758693105423,
+      "avgLatencyMs": 141,
+      "tps": 25,
+      "quality": 0.88,
+      "activeAgents": 4,
+      "accuracy": 0.87
+    },
+    {
+      "t": 1758693135423,
+      "avgLatencyMs": 155,
+      "tps": 23,
+      "quality": 0.91,
+      "activeAgents": 5,
+      "accuracy": 0.89
+    },
+    {
+      "t": 1758693165423,
+      "avgLatencyMs": 142,
+      "tps": 20,
+      "quality": 0.95,
+      "activeAgents": 4,
+      "accuracy": 0.89
+    },
+    {
+      "t": 1758693195423,
+      "avgLatencyMs": 121,
+      "tps": 21,
+      "quality": 0.89,
+      "activeAgents": 5,
+      "accuracy": 0.8
+    },
+    {
+      "t": 1758693225423,
+      "avgLatencyMs": 134,
+      "tps": 16,
+      "quality": 0.87,
+      "activeAgents": 3,
+      "accuracy": 0.83
+    },
+    {
+      "t": 1758693255423,
+      "avgLatencyMs": 151,
+      "tps": 19,
+      "quality": 0.91,
+      "activeAgents": 4,
+      "accuracy": 0.86
+    },
+    {
+      "t": 1758693285423,
+      "avgLatencyMs": 120,
+      "tps": 21,
+      "quality": 0.91,
+      "activeAgents": 3,
+      "accuracy": 0.86
+    },
+    {
+      "t": 1758693315423,
+      "avgLatencyMs": 146,
+      "tps": 22,
+      "quality": 0.93,
+      "activeAgents": 5,
+      "accuracy": 0.86
+    },
+    {
+      "t": 1758693345423,
+      "avgLatencyMs": 136,
+      "tps": 18,
+      "quality": 0.9,
+      "activeAgents": 3,
+      "accuracy": 0.85
+    },
+    {
+      "t": 1758693375423,
+      "avgLatencyMs": 230,
+      "tps": 17,
+      "quality": 0.71,
+      "activeAgents": 5,
+      "accuracy": 0.64
+    },
+    {
+      "t": 1758693405423,
+      "avgLatencyMs": 225,
+      "tps": 18,
+      "quality": 0.74,
+      "activeAgents": 4,
+      "accuracy": 0.68
+    },
+    {
+      "t": 1758693435423,
+      "avgLatencyMs": 237,
+      "tps": 24,
+      "quality": 0.67,
+      "activeAgents": 5,
+      "accuracy": 0.7
+    },
+    {
+      "t": 1758693465423,
+      "avgLatencyMs": 199,
+      "tps": 16,
+      "quality": 0.7,
+      "activeAgents": 3,
+      "accuracy": 0.72
+    },
+    {
+      "t": 1758693495423,
+      "avgLatencyMs": 180,
+      "tps": 17,
+      "quality": 0.69,
+      "activeAgents": 5,
+      "accuracy": 0.67
+    },
+    {
+      "t": 1758693525423,
+      "avgLatencyMs": 228,
+      "tps": 25,
+      "quality": 0.77,
+      "activeAgents": 4,
+      "accuracy": 0.71
+    },
+    {
+      "t": 1758693555423,
+      "avgLatencyMs": 239,
+      "tps": 22,
+      "quality": 0.68,
+      "activeAgents": 3,
+      "accuracy": 0.66
+    },
+    {
+      "t": 1758693585423,
+      "avgLatencyMs": 185,
+      "tps": 21,
+      "quality": 0.72,
+      "activeAgents": 4,
+      "accuracy": 0.7
+    },
+    {
+      "t": 1758693615423,
+      "avgLatencyMs": 211,
+      "tps": 23,
+      "quality": 0.79,
+      "activeAgents": 3,
+      "accuracy": 0.8
+    },
+    {
+      "t": 1758693645423,
+      "avgLatencyMs": 212,
+      "tps": 23,
+      "quality": 0.7,
+      "activeAgents": 4,
+      "accuracy": 0.69
+    },
+    {
+      "t": 1758693675423,
+      "avgLatencyMs": 337,
+      "tps": 22,
+      "quality": 0.57,
+      "activeAgents": 4,
+      "accuracy": 0.58
+    },
+    {
+      "t": 1758693705423,
+      "avgLatencyMs": 339,
+      "tps": 21,
+      "quality": 0.47,
+      "activeAgents": 3,
+      "accuracy": 0.46
+    },
+    {
+      "t": 1758693735423,
+      "avgLatencyMs": 289,
+      "tps": 15,
+      "quality": 0.5,
+      "activeAgents": 5,
+      "accuracy": 0.49
+    },
+    {
+      "t": 1758693765423,
+      "avgLatencyMs": 329,
+      "tps": 23,
+      "quality": 0.56,
+      "activeAgents": 4,
+      "accuracy": 0.57
+    },
+    {
+      "t": 1758693795423,
+      "avgLatencyMs": 254,
+      "tps": 21,
+      "quality": 0.54,
+      "activeAgents": 5,
+      "accuracy": 0.51
+    },
+    {
+      "t": 1758693825423,
+      "avgLatencyMs": 261,
+      "tps": 16,
+      "quality": 0.55,
+      "activeAgents": 3,
+      "accuracy": 0.6
+    },
+    {
+      "t": 1758693855423,
+      "avgLatencyMs": 331,
+      "tps": 23,
+      "quality": 0.57,
+      "activeAgents": 4,
+      "accuracy": 0.55
+    },
+    {
+      "t": 1758693885423,
+      "avgLatencyMs": 277,
+      "tps": 20,
+      "quality": 0.56,
+      "activeAgents": 5,
+      "accuracy": 0.59
+    },
+    {
+      "t": 1758693915423,
+      "avgLatencyMs": 324,
+      "tps": 17,
+      "quality": 0.6,
+      "activeAgents": 5,
+      "accuracy": 0.56
+    },
+    {
+      "t": 1758693945423,
+      "avgLatencyMs": 310,
+      "tps": 20,
+      "quality": 0.62,
+      "activeAgents": 4,
+      "accuracy": 0.63
+    },
+    {
+      "t": 1758693975423,
+      "avgLatencyMs": 168,
+      "tps": 23,
+      "quality": 0.77,
+      "activeAgents": 4,
+      "accuracy": 0.79
+    },
+    {
+      "t": 1758694005423,
+      "avgLatencyMs": 186,
+      "tps": 17,
+      "quality": 0.81,
+      "activeAgents": 4,
+      "accuracy": 0.8
+    },
+    {
+      "t": 1758694035423,
+      "avgLatencyMs": 183,
+      "tps": 18,
+      "quality": 0.83,
+      "activeAgents": 4,
+      "accuracy": 0.83
+    },
+    {
+      "t": 1758694065423,
+      "avgLatencyMs": 147,
+      "tps": 21,
+      "quality": 0.78,
+      "activeAgents": 4,
+      "accuracy": 0.8
+    },
+    {
+      "t": 1758694095423,
+      "avgLatencyMs": 174,
+      "tps": 24,
+      "quality": 0.86,
+      "activeAgents": 5,
+      "accuracy": 0.8
+    },
+    {
+      "t": 1758694125423,
+      "avgLatencyMs": 163,
+      "tps": 21,
+      "quality": 0.88,
+      "activeAgents": 5,
+      "accuracy": 0.82
+    },
+    {
+      "t": 1758694155423,
+      "avgLatencyMs": 177,
+      "tps": 23,
+      "quality": 0.84,
+      "activeAgents": 4,
+      "accuracy": 0.76
+    },
+    {
+      "t": 1758694185423,
+      "avgLatencyMs": 167,
+      "tps": 16,
+      "quality": 0.76,
+      "activeAgents": 4,
+      "accuracy": 0.7
+    },
+    {
+      "t": 1758694215423,
+      "avgLatencyMs": 174,
+      "tps": 19,
+      "quality": 0.86,
+      "activeAgents": 5,
+      "accuracy": 0.83
+    },
+    {
+      "t": 1758694245423,
+      "avgLatencyMs": 151,
+      "tps": 17,
+      "quality": 0.86,
+      "activeAgents": 4,
+      "accuracy": 0.85
+    },
+    {
+      "t": 1758694275423,
+      "avgLatencyMs": 183,
+      "tps": 23,
+      "quality": 0.81,
+      "activeAgents": 3,
+      "accuracy": 0.76
+    },
+    {
+      "t": 1758694305423,
+      "avgLatencyMs": 163,
+      "tps": 23,
+      "quality": 0.8,
+      "activeAgents": 4,
+      "accuracy": 0.8
+    },
+    {
+      "t": 1758694335423,
+      "avgLatencyMs": 157,
+      "tps": 24,
+      "quality": 0.86,
+      "activeAgents": 5,
+      "accuracy": 0.78
+    },
+    {
+      "t": 1758694365423,
+      "avgLatencyMs": 170,
+      "tps": 16,
+      "quality": 0.84,
+      "activeAgents": 5,
+      "accuracy": 0.77
+    },
+    {
+      "t": 1758694395423,
+      "avgLatencyMs": 189,
+      "tps": 24,
+      "quality": 0.89,
+      "activeAgents": 5,
+      "accuracy": 0.87
+    }
+  ],
+  "states": [
+    {
+      "timestamp": 1758692925423,
+      "policyLevel": "standard",
+      "trigger": "system_init",
+      "dwellTimeMs": 0,
+      "inHysteresisBand": false
+    },
+    {
+      "timestamp": 1758694125423,
+      "policyLevel": "enhanced",
+      "trigger": "quality_recovery_detected",
+      "dwellTimeMs": 0,
+      "inHysteresisBand": true
+    },
+    {
+      "timestamp": 1758694275423,
+      "policyLevel": "standard",
+      "trigger": "quality_recovery_with_dwell",
+      "dwellTimeMs": 150000,
+      "inHysteresisBand": false
+    }
+  ],
+  "analysis": {
+    "totalSamples": 50,
+    "policyChanges": 1,
+    "averageQuality": 0.77,
+    "hysteresisPrevention": {
+      "eventsInBand": 1,
+      "prematureChangesAvoided": 2
+    }
+  }
+}

@@ -1,0 +1,20 @@
+d62cd0c Add script to generate evidence artifacts for validator pipeline
+d0e94bb Add comprehensive documentation for patent review
+fd5b895 Update user documentation to reflect current platform features
+42bc988 Add ability to upload and analyze documents in all analysis modes
+d62739c Improve webhook delivery reliability with enhanced error handling
+001864a Add ability to upload and attach documents for AI analysis
+aff354c Improve webhook delivery system for enhanced reliability and security
+4f7e329 Improve webhook delivery reliability and security
+84d618d Finalize admin creation by verifying all three paths and security
+78fb111 Add administrative tools for managing users and roles
+96f4f90 Add secure bootstrap process for initial system administrator creation
+f5b8780 Add elevated user roles based on allowlist configurations
+410933f Enhance system to manage user roles and permissions for administrators
+638f991 Temporarily disable onboarding trigger on guided page to avoid database errors
+edcdaaf Update header to display navigation links next to the logo
+979ff51 Adjust layout for better display on smaller screens
+103e432 Improve layout for continuing previous debate discussions
+297596b Move navigation links to the bottom of the header section
+ef4a64c Rearrange workspace menu items into two distinct rows
+f23b1d0 Arrange discussion tabs into two rows for better organization

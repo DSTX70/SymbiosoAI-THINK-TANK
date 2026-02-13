@@ -1,0 +1,122 @@
+{
+  "timestamp": "2025-09-24T05:48:45.419Z",
+  "sessionId": "transfer_session_1758692925420",
+  "sourceMode": "guided",
+  "targetMode": "expert",
+  "tuples": [
+    {
+      "role": "pro",
+      "turnId": "turn_001",
+      "intentTag": "analytical_synthesis",
+      "policyId": "policy_standard_001"
+    },
+    {
+      "role": "adv",
+      "turnId": "turn_002",
+      "intentTag": "critical_evaluation",
+      "policyId": "policy_adversarial_001",
+      "safetyEvent": "bias_detection"
+    },
+    {
+      "role": "neutral",
+      "turnId": "turn_003",
+      "intentTag": "consensus_building",
+      "policyId": "policy_synthesis_001"
+    },
+    {
+      "role": "pro",
+      "turnId": "turn_004",
+      "intentTag": "evidence_integration",
+      "policyId": "policy_standard_002"
+    },
+    {
+      "role": "adv",
+      "turnId": "turn_005",
+      "intentTag": "assumption_challenge",
+      "policyId": "policy_adversarial_002",
+      "safetyEvent": "logical_fallacy_detected"
+    }
+  ],
+  "priming": {
+    "systemPrompt": "You are participating in a cross-mode AI debate transfer with role-policy overlay. Maintain analytical rigor while adapting to the transferred context and applying adversarial evaluation where specified.",
+    "memoryItems": [
+      {
+        "id": "mem_001",
+        "content": "Previous consensus: Market analysis indicates strong consumer adoption potential",
+        "timestamp": 1758692625419,
+        "source": "guided_mode_session"
+      },
+      {
+        "id": "mem_002",
+        "content": "Dissenting view: Regulatory compliance costs may exceed projected benefits",
+        "timestamp": 1758692685419,
+        "source": "expert_mode_session"
+      },
+      {
+        "id": "mem_003",
+        "content": "Unresolved: Long-term sustainability of proposed implementation approach",
+        "timestamp": 1758692745419,
+        "source": "simple_mode_session"
+      }
+    ],
+    "correspondenceMap": [
+      {
+        "tupleIndex": 0,
+        "role": "pro",
+        "policyApplied": true,
+        "contextWeight": 1
+      },
+      {
+        "tupleIndex": 1,
+        "role": "adv",
+        "policyApplied": true,
+        "contextWeight": 1.2
+      },
+      {
+        "tupleIndex": 2,
+        "role": "neutral",
+        "policyApplied": true,
+        "contextWeight": 0.8
+      },
+      {
+        "tupleIndex": 3,
+        "role": "pro",
+        "policyApplied": true,
+        "contextWeight": 1
+      },
+      {
+        "tupleIndex": 4,
+        "role": "adv",
+        "policyApplied": true,
+        "contextWeight": 1.2
+      }
+    ],
+    "constraints": [
+      {
+        "type": "safety_boundary",
+        "value": "no_harmful_content",
+        "enforced": true
+      },
+      {
+        "type": "coherence_threshold",
+        "value": "0.75",
+        "enforced": true
+      },
+      {
+        "type": "transfer_fidelity",
+        "value": "preserve_context_integrity",
+        "enforced": true
+      },
+      {
+        "type": "adversarial_balance",
+        "value": "maintain_constructive_criticism",
+        "enforced": true
+      }
+    ]
+  },
+  "transferMetrics": {
+    "contextPreservation": 0.87,
+    "roleConsistency": 0.92,
+    "policyCompliance": 0.96
+  }
+}
