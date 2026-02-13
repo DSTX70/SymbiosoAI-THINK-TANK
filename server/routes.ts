@@ -3089,7 +3089,7 @@ Provide additional insights, explore deeper implications, or address related asp
   );
 
   // ----------------------
-  // SCIM v1 API (Mock Provisioning)
+  // SCIM v1 API
   // ----------------------
 
   // SCIM Bearer Token validation middleware
@@ -3156,14 +3156,14 @@ Provide additional insights, explore deeper implications, or address related asp
         const scimUserData = insertScimUserSchema.parse({
           userName: req.body.userName,
           displayName: req.body.displayName || req.body.name?.formatted,
-          givenName: req.body.name?.givenName,
-          familyName: req.body.name?.familyName,
+          firstName: req.body.name?.givenName,
+          lastName: req.body.name?.familyName,
           email: req.body.emails?.[0]?.value,
           active: req.body.active !== undefined ? req.body.active : true,
           externalId: req.body.externalId || req.body.userName,
           organizationId: 'default-org',
           scimId: `scim-${Date.now()}`,
-          attributes: req.body
+          customAttributes: req.body?.customAttributes || req.body
         });
         
         const scimUser = await storage.createScimUser(scimUserData);
@@ -3173,8 +3173,8 @@ Provide additional insights, explore deeper implications, or address related asp
           schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
           name: {
             formatted: scimUser.displayName,
-            givenName: scimUser.givenName,
-            familyName: scimUser.familyName
+            givenName: scimUser.firstName,
+            familyName: scimUser.lastName
           },
           emails: scimUser.email ? [{
             value: scimUser.email,
@@ -3224,6 +3224,12 @@ Provide additional insights, explore deeper implications, or address related asp
                 updates.active = operation.value;
               } else if (operation.path === 'displayName') {
                 updates.displayName = operation.value;
+              } else if (operation.path === 'userName') {
+                updates.userName = operation.value;
+              } else if (operation.path === 'name.givenName') {
+                updates.firstName = operation.value;
+              } else if (operation.path === 'name.familyName') {
+                updates.lastName = operation.value;
               }
               // Add more PATCH operation handling as needed
             }
@@ -3233,6 +3239,8 @@ Provide additional insights, explore deeper implications, or address related asp
           if (req.body.active !== undefined) updates.active = req.body.active;
           if (req.body.displayName) updates.displayName = req.body.displayName;
           if (req.body.userName) updates.userName = req.body.userName;
+          if (req.body.name?.givenName) updates.firstName = req.body.name.givenName;
+          if (req.body.name?.familyName) updates.lastName = req.body.name.familyName;
           if (req.body.emails?.[0]?.value) updates.email = req.body.emails[0].value;
         }
         
@@ -3243,8 +3251,8 @@ Provide additional insights, explore deeper implications, or address related asp
           schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
           name: {
             formatted: updatedUser.displayName,
-            givenName: updatedUser.givenName,
-            familyName: updatedUser.familyName
+            givenName: updatedUser.firstName,
+            familyName: updatedUser.lastName
           },
           emails: updatedUser.email ? [{
             value: updatedUser.email,
@@ -3261,6 +3269,253 @@ Provide additional insights, explore deeper implications, or address related asp
         console.error("Update SCIM user error:", error);
         res.status(500).json({ 
           error: "Failed to update SCIM user",
+          schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"]
+        });
+      }
+    }
+  );
+
+  // DELETE /scim/Users/:id - Deprovision SCIM user
+  app.delete("/scim/Users/:id",
+    validateScimToken,
+    async (req: any, res) => {
+      try {
+        const userId = req.params.id;
+        const existingUser = await storage.getScimUser(userId);
+        if (!existingUser) {
+          return res.status(404).json({ 
+            error: "User not found",
+            schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"]
+          });
+        }
+
+        const updatedUser = await storage.deprovisionScimUser(userId);
+        res.status(200).json({
+          ...updatedUser,
+          schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"]
+        });
+      } catch (error: any) {
+        console.error("Delete SCIM user error:", error);
+        res.status(500).json({ 
+          error: "Failed to deprovision SCIM user",
+          schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"]
+        });
+      }
+    }
+  );
+
+  // GET /scim/Groups - List SCIM groups
+  app.get("/scim/Groups",
+    validateScimToken,
+    async (req: any, res) => {
+      try {
+        const scimGroups = await storage.getScimGroups('default-org');
+        res.status(200).json({
+          schemas: ["urn:ietf:params:scim:api:messages:2.0:ListResponse"],
+          totalResults: scimGroups.length,
+          startIndex: 1,
+          itemsPerPage: scimGroups.length,
+          Resources: scimGroups.map(group => ({
+            ...group,
+            schemas: ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+            meta: {
+              resourceType: "Group",
+              created: group.createdAt,
+              lastModified: group.updatedAt,
+              location: `/scim/Groups/${group.id}`
+            }
+          }))
+        });
+      } catch (error: any) {
+        console.error("Get SCIM groups error:", error);
+        res.status(500).json({ 
+          error: "Failed to fetch SCIM groups",
+          schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"]
+        });
+      }
+    }
+  );
+
+  // POST /scim/Groups - Create SCIM group
+  app.post("/scim/Groups",
+    validateScimToken,
+    express.json(),
+    async (req: any, res) => {
+      try {
+        const scimGroupData = insertScimGroupSchema.parse({
+          displayName: req.body.displayName,
+          description: req.body.description,
+          externalId: req.body.externalId,
+          organizationId: 'default-org',
+          scimId: `scim-group-${Date.now()}`,
+          groupType: req.body.groupType || 'custom',
+          mappedRole: req.body.mappedRole,
+          mappedTeamId: req.body.mappedTeamId,
+          permissions: req.body.permissions || [],
+          customAttributes: req.body?.customAttributes || req.body,
+          syncStatus: 'active'
+        });
+
+        const scimGroup = await storage.createScimGroup(scimGroupData);
+
+        // Create memberships if provided
+        if (Array.isArray(req.body.members)) {
+          for (const member of req.body.members) {
+            if (member?.value) {
+              await storage.createScimGroupMembership({
+                groupId: scimGroup.id,
+                userId: member.value,
+                membershipType: member.type || "direct",
+                source: "scim",
+              });
+            }
+          }
+        }
+
+        res.status(201).json({
+          ...scimGroup,
+          schemas: ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+          meta: {
+            resourceType: "Group",
+            created: scimGroup.createdAt,
+            lastModified: scimGroup.updatedAt,
+            location: `/scim/Groups/${scimGroup.id}`
+          }
+        });
+      } catch (error: any) {
+        console.error("Create SCIM group error:", error);
+        res.status(400).json({ 
+          error: error.message,
+          schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"]
+        });
+      }
+    }
+  );
+
+  // PATCH /scim/Groups/:id - Update SCIM group
+  app.patch("/scim/Groups/:id",
+    validateScimToken,
+    express.json(),
+    async (req: any, res) => {
+      try {
+        const groupId = req.params.id;
+        const existingGroup = await storage.getScimGroup(groupId);
+        if (!existingGroup) {
+          return res.status(404).json({ 
+            error: "Group not found",
+            schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"]
+          });
+        }
+
+        const updates: any = {};
+        if (req.body.Operations) {
+          for (const operation of req.body.Operations) {
+            if (operation.op === 'replace') {
+              if (operation.path === 'displayName') updates.displayName = operation.value;
+              if (operation.path === 'description') updates.description = operation.value;
+            }
+            if (operation.op === 'add' && operation.path === 'members' && Array.isArray(operation.value)) {
+              for (const member of operation.value) {
+                if (member?.value) {
+                  await storage.addUserToScimGroup(existingGroup.id, member.value, member.type || "direct");
+                }
+              }
+            }
+            if (operation.op === 'remove' && operation.path === 'members' && Array.isArray(operation.value)) {
+              for (const member of operation.value) {
+                if (member?.value) {
+                  await storage.removeUserFromScimGroup(existingGroup.id, member.value);
+                }
+              }
+            }
+          }
+        } else {
+          if (req.body.displayName) updates.displayName = req.body.displayName;
+          if (req.body.description) updates.description = req.body.description;
+        }
+
+        const updatedGroup = await storage.updateScimGroup(groupId, updates);
+        res.status(200).json({
+          ...updatedGroup,
+          schemas: ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+          meta: {
+            resourceType: "Group",
+            created: updatedGroup.createdAt,
+            lastModified: updatedGroup.updatedAt,
+            location: `/scim/Groups/${updatedGroup.id}`
+          }
+        });
+      } catch (error: any) {
+        console.error("Update SCIM group error:", error);
+        res.status(500).json({ 
+          error: "Failed to update SCIM group",
+          schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"]
+        });
+      }
+    }
+  );
+
+  // GET /scim/Groups/:id - Get SCIM group
+  app.get("/scim/Groups/:id",
+    validateScimToken,
+    async (req: any, res) => {
+      try {
+        const groupId = req.params.id;
+        const group = await storage.getScimGroup(groupId);
+        if (!group) {
+          return res.status(404).json({ 
+            error: "Group not found",
+            schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"]
+          });
+        }
+
+        const memberships = await storage.getScimGroupMemberships(groupId);
+        const members = memberships.map(m => ({
+          value: m.userId,
+          type: "User"
+        }));
+
+        res.status(200).json({
+          ...group,
+          members,
+          schemas: ["urn:ietf:params:scim:schemas:core:2.0:Group"],
+          meta: {
+            resourceType: "Group",
+            created: group.createdAt,
+            lastModified: group.updatedAt,
+            location: `/scim/Groups/${group.id}`
+          }
+        });
+      } catch (error: any) {
+        console.error("Get SCIM group error:", error);
+        res.status(500).json({ 
+          error: "Failed to fetch SCIM group",
+          schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"]
+        });
+      }
+    }
+  );
+
+  // DELETE /scim/Groups/:id - Delete SCIM group
+  app.delete("/scim/Groups/:id",
+    validateScimToken,
+    async (req: any, res) => {
+      try {
+        const groupId = req.params.id;
+        const existingGroup = await storage.getScimGroup(groupId);
+        if (!existingGroup) {
+          return res.status(404).json({ 
+            error: "Group not found",
+            schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"]
+          });
+        }
+
+        await storage.deleteScimGroup(groupId);
+        res.status(204).send();
+      } catch (error: any) {
+        console.error("Delete SCIM group error:", error);
+        res.status(500).json({ 
+          error: "Failed to delete SCIM group",
           schemas: ["urn:ietf:params:scim:api:messages:2.0:Error"]
         });
       }

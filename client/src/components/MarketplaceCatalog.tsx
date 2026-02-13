@@ -25,18 +25,30 @@ interface MarketplaceItem {
   description: string;
   category: string;
   tags: string[];
-  price: number;
-  currency: string;
+  price: string;
+  currency: string | null;
   publisher: string;
-  publisherId: string;
-  status: 'draft' | 'published' | 'featured';
+  publisherId: string | null;
+  status: 'draft' | 'under_review' | 'published' | 'archived';
   featured: boolean;
-  views: number;
-  downloads: number;
-  rating: number;
-  publishedAt: string;
+  viewCount: number;
+  downloadCount: number;
+  rating: string;
+  ratingCount?: number;
+  publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface MarketplaceResponse {
+  success: boolean;
+  data: MarketplaceItem[];
+  meta?: {
+    total: number;
+    categories: string[];
+    publishers: string[];
+    query?: string;
+  };
 }
 
 export default function MarketplaceCatalog() {
@@ -48,14 +60,18 @@ export default function MarketplaceCatalog() {
   const { toast } = useToast();
 
   // Fetch marketplace catalog
-  const { data: catalogData, isLoading: catalogLoading } = useQuery({
+  const { data: catalogData, isLoading: catalogLoading } = useQuery<MarketplaceResponse>({
     queryKey: ['/api/marketplace/catalog'],
     enabled: true
   });
 
   // Fetch search results when query changes
-  const { data: searchData, isLoading: searchLoading } = useQuery({
+  const { data: searchData, isLoading: searchLoading } = useQuery<MarketplaceResponse>({
     queryKey: ['/api/marketplace/search', searchQuery],
+    queryFn: async () => {
+      const res = await fetch(`/api/marketplace/search?q=${encodeURIComponent(searchQuery)}`, { credentials: "include" });
+      return res.json();
+    },
     enabled: searchQuery.length > 2
   });
 
@@ -69,17 +85,23 @@ export default function MarketplaceCatalog() {
 
   // Sort items
   const sortedItems = [...filteredItems].sort((a: MarketplaceItem, b: MarketplaceItem) => {
+    const aPrice = Number(a.price || 0);
+    const bPrice = Number(b.price || 0);
+    const aRating = Number(a.rating || 0);
+    const bRating = Number(b.rating || 0);
+    const aPublished = new Date(a.publishedAt || a.createdAt).getTime();
+    const bPublished = new Date(b.publishedAt || b.createdAt).getTime();
     switch (sortBy) {
       case 'newest':
-        return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+        return bPublished - aPublished;
       case 'popular':
-        return b.views - a.views;
+        return b.viewCount - a.viewCount;
       case 'rating':
-        return b.rating - a.rating;
+        return bRating - aRating;
       case 'price-low':
-        return a.price - b.price;
+        return aPrice - bPrice;
       case 'price-high':
-        return b.price - a.price;
+        return bPrice - aPrice;
       default:
         return 0;
     }
@@ -88,10 +110,7 @@ export default function MarketplaceCatalog() {
   // Publish item mutation
   const publishItemMutation = useMutation({
     mutationFn: async (data: Partial<MarketplaceItem>) => {
-      return apiRequest('/api/marketplace/publish', {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
+      return apiRequest('POST', '/api/marketplace/publish', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/marketplace/catalog'] });
@@ -262,12 +281,12 @@ export default function MarketplaceCatalog() {
                       <div className="flex items-center gap-2">
                         <DollarSign className="h-4 w-4 text-green-500" />
                         <span className="font-semibold">
-                          {item.price === 0 ? 'Free' : `$${item.price}`}
+                          {Number(item.price || 0) === 0 ? 'Free' : `$${item.price}`}
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Star className="h-4 w-4 text-yellow-500 fill-current" />
-                        <span className="text-sm">{item.rating.toFixed(1)}</span>
+                        <span className="text-sm">{Number(item.rating || 0).toFixed(1)}</span>
                       </div>
                     </div>
                     
@@ -279,7 +298,7 @@ export default function MarketplaceCatalog() {
                         </span>
                         <span className="flex items-center gap-1">
                           <Eye className="h-3 w-3" />
-                          {item.views}
+                          {item.viewCount}
                         </span>
                         <span className="flex items-center gap-1">
                           <User className="h-3 w-3" />
@@ -291,9 +310,9 @@ export default function MarketplaceCatalog() {
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        {new Date(item.publishedAt).toLocaleDateString()}
+                        {new Date(item.publishedAt || item.createdAt).toLocaleDateString()}
                       </span>
-                      <span>{item.downloads} downloads</span>
+                      <span>{item.downloadCount} downloads</span>
                     </div>
                     
                     {item.tags && item.tags.length > 0 && (
@@ -334,7 +353,7 @@ export default function MarketplaceCatalog() {
                     <p className="text-sm text-muted-foreground mb-4">{item.description}</p>
                     <div className="flex items-center justify-between">
                       <span className="font-semibold">
-                        {item.price === 0 ? 'Free' : `$${item.price}`}
+                        {Number(item.price || 0) === 0 ? 'Free' : `$${item.price}`}
                       </span>
                       <Button size="sm" onClick={() => handleViewItem(item.id)}>
                         View Details
@@ -394,7 +413,7 @@ export default function MarketplaceCatalog() {
                   <div>
                     <p className="text-sm text-muted-foreground">Total Views</p>
                     <p className="text-2xl font-bold">
-                      {sortedItems.reduce((sum: number, item: MarketplaceItem) => sum + item.views, 0)}
+                      {sortedItems.reduce((sum: number, item: MarketplaceItem) => sum + item.viewCount, 0)}
                     </p>
                   </div>
                 </div>
@@ -420,7 +439,7 @@ function PublishItemForm({
     description: "",
     category: "",
     tags: "",
-    price: 0,
+    price: "0",
     currency: "USD"
   });
 
@@ -489,7 +508,7 @@ function PublishItemForm({
           min="0"
           step="0.01"
           value={formData.price}
-          onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+          onChange={(e) => setFormData({ ...formData, price: e.target.value || "0" })}
           placeholder="0.00"
           data-testid="input-publish-price"
         />

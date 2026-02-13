@@ -25,6 +25,12 @@ export interface AIAgent {
   systemPrompt: string;
 }
 
+function requireOpenAIKey() {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY not configured. Set it in .env to run debates.");
+  }
+}
+
 export const AI_AGENTS: AIAgent[] = [
   {
     role: "Analyst",
@@ -117,6 +123,7 @@ export async function runBrainstormingSession(
     active_agents?: number;
   };
 }> {
+  requireOpenAIKey();
   const agents = BRAINSTORM_AGENTS;
   const rounds = Math.min(settings.turns || 2, 3); // Limit brainstorming rounds
   
@@ -287,6 +294,7 @@ export async function runMultiAgentDebate(
   fact_check?: { findings: FactCheckFinding[] };
   debateHistory?: Array<{ agent: string; response: string }>;
 }> {
+  requireOpenAIKey();
   const agents = settings.mode === "guided" ? AI_AGENTS : AI_AGENTS.slice(0, 3);
   const rounds = settings.turns || 1;
   
@@ -672,6 +680,7 @@ export async function runReportGeneration(
     word_count?: number;
   };
 }> {
+  requireOpenAIKey();
   const startTime = Date.now();
   
   try {

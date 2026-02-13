@@ -20,11 +20,21 @@ interface Doc {
   category: string;
   tags: string[];
   slug: string;
-  published: boolean;
-  views: number;
-  author: string;
-  created_at: string;
-  updated_at: string;
+  isPublished: boolean;
+  viewCount: number;
+  author: string | null;
+  createdAt: string;
+  lastUpdated: string;
+}
+
+interface DocsResponse {
+  success: boolean;
+  data: Doc[];
+  meta?: {
+    total: number;
+    categories: string[];
+    query?: string;
+  };
 }
 
 export default function DocsViewer() {
@@ -33,14 +43,18 @@ export default function DocsViewer() {
   const [selectedDoc, setSelectedDoc] = useState<Doc | null>(null);
 
   // Fetch docs index
-  const { data: docsData, isLoading: docsLoading } = useQuery({
+  const { data: docsData, isLoading: docsLoading } = useQuery<DocsResponse>({
     queryKey: ['/api/docs/index'],
     enabled: true
   });
 
   // Fetch search results when query changes
-  const { data: searchData, isLoading: searchLoading } = useQuery({
+  const { data: searchData, isLoading: searchLoading } = useQuery<DocsResponse>({
     queryKey: ['/api/docs/search', searchQuery],
+    queryFn: async () => {
+      const res = await fetch(`/api/docs/search?q=${encodeURIComponent(searchQuery)}`, { credentials: "include" });
+      return res.json();
+    },
     enabled: searchQuery.length > 2
   });
 
@@ -141,8 +155,8 @@ export default function DocsViewer() {
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <CardTitle className="text-lg line-clamp-2">{doc.title}</CardTitle>
-                      <Badge variant={doc.published ? "default" : "secondary"}>
-                        {doc.published ? "Published" : "Draft"}
+                      <Badge variant={doc.isPublished ? "default" : "secondary"}>
+                        {doc.isPublished ? "Published" : "Draft"}
                       </Badge>
                     </div>
                   </CardHeader>
@@ -159,16 +173,16 @@ export default function DocsViewer() {
                         </span>
                         <span className="flex items-center gap-1">
                           <Eye className="h-3 w-3" />
-                          {doc.views} views
+                          {doc.viewCount} views
                         </span>
                         <span className="flex items-center gap-1">
                           <User className="h-3 w-3" />
-                          {doc.author}
+                          {doc.author || "Unknown"}
                         </span>
                       </div>
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        {new Date(doc.created_at).toLocaleDateString()}
+                        {new Date(doc.createdAt).toLocaleDateString()}
                       </span>
                     </div>
                     
@@ -208,20 +222,20 @@ export default function DocsViewer() {
                       </span>
                       <span className="flex items-center gap-1">
                         <User className="h-4 w-4" />
-                        {selectedDoc.author}
+                        {selectedDoc.author || "Unknown"}
                       </span>
                       <span className="flex items-center gap-1">
                         <Calendar className="h-4 w-4" />
-                        {new Date(selectedDoc.created_at).toLocaleDateString()}
+                        {new Date(selectedDoc.createdAt).toLocaleDateString()}
                       </span>
                       <span className="flex items-center gap-1">
                         <Eye className="h-4 w-4" />
-                        {selectedDoc.views} views
+                        {selectedDoc.viewCount} views
                       </span>
                     </div>
                   </div>
-                  <Badge variant={selectedDoc.published ? "default" : "secondary"}>
-                    {selectedDoc.published ? "Published" : "Draft"}
+                  <Badge variant={selectedDoc.isPublished ? "default" : "secondary"}>
+                    {selectedDoc.isPublished ? "Published" : "Draft"}
                   </Badge>
                 </div>
               </CardHeader>
@@ -294,7 +308,7 @@ export default function DocsViewer() {
               <div>
                 <p className="text-sm text-muted-foreground">Published</p>
                 <p className="text-2xl font-bold">
-                  {filteredDocs.filter((doc: Doc) => doc.published).length}
+                  {filteredDocs.filter((doc: Doc) => doc.isPublished).length}
                 </p>
               </div>
             </div>
@@ -308,7 +322,7 @@ export default function DocsViewer() {
               <div>
                 <p className="text-sm text-muted-foreground">Total Views</p>
                 <p className="text-2xl font-bold">
-                  {filteredDocs.reduce((sum: number, doc: Doc) => sum + doc.views, 0)}
+                  {filteredDocs.reduce((sum: number, doc: Doc) => sum + doc.viewCount, 0)}
                 </p>
               </div>
             </div>

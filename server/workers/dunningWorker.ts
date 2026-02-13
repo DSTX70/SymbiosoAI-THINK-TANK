@@ -8,7 +8,6 @@ if (process.env.REDIS_URL) {
   try {
     connection = new IORedis(process.env.REDIS_URL, {
       maxRetriesPerRequest: null, // Required for BullMQ
-      retryDelayOnFailover: 100,
       enableReadyCheck: false,
       lazyConnect: true
     });
@@ -25,8 +24,8 @@ if (process.env.REDIS_URL) {
 export const dunningQueue = connection ? new Queue('billing-dunning', { 
   connection,
   defaultJobOptions: {
-    removeOnComplete: 50,
-    removeOnFail: 20,
+    removeOnComplete: { count: 50 },
+    removeOnFail: { count: 20 },
     attempts: 3,
     backoff: {
       type: 'exponential',
@@ -56,8 +55,7 @@ export function startDunningWorker() {
       await storage.createDunningEvent({
         invoiceId,
         orgId,
-        event: `automated_dunning_${daysPastDue}d`,
-        createdAt: new Date()
+        event: `automated_dunning_${daysPastDue}d`
       });
       
       // Determine action based on days past due
@@ -91,8 +89,8 @@ export function startDunningWorker() {
   }, { 
     connection,
     concurrency: 5,
-    removeOnComplete: 50,
-    removeOnFail: 20
+    removeOnComplete: { count: 50 },
+    removeOnFail: { count: 20 }
   });
   
   // Set up worker event handlers
@@ -117,6 +115,9 @@ export function startDunningWorker() {
  */
 export async function scheduleDunningJob(orgId: string, invoiceId: string, daysPastDue: number, delay?: number) {
   try {
+    if (!dunningQueue) {
+      throw new Error('Dunning queue not available (REDIS_URL not configured)');
+    }
     const job = await dunningQueue.add('process-dunning', {
       orgId,
       invoiceId,
@@ -140,6 +141,9 @@ export async function scheduleDunningJob(orgId: string, invoiceId: string, daysP
  */
 export async function getDunningQueueStats() {
   try {
+    if (!dunningQueue) {
+      return { waiting: 0, active: 0, completed: 0, failed: 0, total: 0 };
+    }
     const waiting = await dunningQueue.getWaiting();
     const active = await dunningQueue.getActive();
     const completed = await dunningQueue.getCompleted();

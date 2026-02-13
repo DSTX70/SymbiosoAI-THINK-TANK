@@ -219,13 +219,18 @@ export class InsightsWorker {
         console.log(`📈 Created new analytics entry for ${sampleOrganizationId}`);
       } else {
         // Update existing analytics
+        const metadata = analytics.metadata && typeof analytics.metadata === "object" ? analytics.metadata : {};
+        const activeUsers = analytics.activeUsers ?? 0;
+        const totalSessions = analytics.totalSessions ?? 0;
+        const templatesUsed = analytics.templatesUsed ?? 0;
+        const apiCalls = analytics.apiCalls ?? 0;
         const updates = {
-          activeUsers: analytics.activeUsers + this.generateRandomMetric(-2, 5),
-          totalSessions: analytics.totalSessions + this.generateRandomMetric(0, 10),
-          templatesUsed: analytics.templatesUsed + this.generateRandomMetric(0, 3),
-          apiCalls: analytics.apiCalls + this.generateRandomMetric(10, 50),
+          activeUsers: activeUsers + this.generateRandomMetric(-2, 5),
+          totalSessions: totalSessions + this.generateRandomMetric(0, 10),
+          templatesUsed: templatesUsed + this.generateRandomMetric(0, 3),
+          apiCalls: apiCalls + this.generateRandomMetric(10, 50),
           metadata: {
-            ...analytics.metadata,
+            ...metadata,
             lastUpdated: new Date().toISOString()
           }
         };
@@ -252,7 +257,7 @@ export class InsightsWorker {
         resourceType: "template" as const,
         action: "execute" as const,
         metricType: "usage" as const,
-        value: this.generateRandomMetric(1, 5),
+        value: String(this.generateRandomMetric(1, 5)),
         unit: "count",
         tags: ["automated"],
         dimensions: { source: "worker", type: "template_execution" }
@@ -262,7 +267,7 @@ export class InsightsWorker {
         resourceType: "workflow" as const,
         action: "execute" as const,
         metricType: "usage" as const,
-        value: this.generateRandomMetric(0, 2),
+        value: String(this.generateRandomMetric(0, 2)),
         unit: "count",
         tags: ["automated"],
         dimensions: { source: "worker", type: "workflow_execution" }
@@ -272,7 +277,7 @@ export class InsightsWorker {
         resourceType: "api" as const,
         action: "read" as const,
         metricType: "performance" as const,
-        value: this.generateRandomMetric(100, 300),
+        value: String(this.generateRandomMetric(100, 300)),
         unit: "milliseconds",
         tags: ["performance"],
         dimensions: { source: "worker", endpoint: "insights" }
@@ -297,22 +302,29 @@ export class InsightsWorker {
     const insights = [];
 
     // Usage trends
-    if (analytics.activeUsers > 0) {
+    const activeUsers = analytics.activeUsers ?? 0;
+    const totalSessions = analytics.totalSessions ?? 0;
+    const templatesUsed = analytics.templatesUsed ?? 0;
+    const workflowsExecuted = analytics.workflowsExecuted ?? 0;
+    const storageUsed = analytics.storageUsed ?? 0;
+    const averageSessionDuration = analytics.averageSessionDuration ?? 0;
+
+    if (activeUsers > 0) {
       insights.push({
         type: "usage_trend",
         title: "User Engagement",
-        description: `${analytics.activeUsers} active users with ${analytics.totalSessions} total sessions`,
+        description: `${activeUsers} active users with ${totalSessions} total sessions`,
         impact: "positive",
         confidence: 0.8
       });
     }
 
     // Template popularity
-    if (analytics.templatesUsed > 10) {
+    if (templatesUsed > 10) {
       insights.push({
         type: "template_adoption",
         title: "High Template Usage",
-        description: `Templates are being actively used with ${analytics.templatesUsed} executions`,
+        description: `Templates are being actively used with ${templatesUsed} executions`,
         impact: "positive",
         confidence: 0.9
       });
@@ -339,10 +351,13 @@ export class InsightsWorker {
   private generateRecommendations(analytics: OrganizationAnalytics | undefined): any[] {
     if (!analytics) return [];
 
+    const workflowsExecuted = analytics.workflowsExecuted ?? 0;
+    const storageUsed = analytics.storageUsed ?? 0;
+    const averageSessionDuration = analytics.averageSessionDuration ?? 0;
     const recommendations = [];
 
     // Low workflow usage
-    if (analytics.workflowsExecuted < 5) {
+    if (workflowsExecuted < 5) {
       recommendations.push({
         type: "feature_adoption",
         title: "Increase Workflow Usage",
@@ -353,7 +368,7 @@ export class InsightsWorker {
     }
 
     // Storage optimization
-    if (analytics.storageUsed > 5000000) { // > 5MB
+    if (storageUsed > 5000000) { // > 5MB
       recommendations.push({
         type: "optimization",
         title: "Storage Optimization",
@@ -364,7 +379,7 @@ export class InsightsWorker {
     }
 
     // User engagement
-    if (analytics.averageSessionDuration < 300) { // < 5 minutes
+    if (averageSessionDuration < 300) { // < 5 minutes
       recommendations.push({
         type: "engagement",
         title: "Improve User Engagement",
@@ -383,6 +398,7 @@ export class InsightsWorker {
   private generateAlerts(analytics: OrganizationAnalytics | undefined): any[] {
     if (!analytics) return [];
 
+    const activeUsers = analytics.activeUsers ?? 0;
     const alerts = [];
 
     // High error rate alert
@@ -398,7 +414,7 @@ export class InsightsWorker {
     }
 
     // Low activity alert
-    if (analytics.activeUsers === 0) {
+    if (activeUsers === 0) {
       alerts.push({
         type: "activity",
         severity: "medium",
@@ -419,7 +435,12 @@ export class InsightsWorker {
       return "No analytics data available for this date.";
     }
 
-    return `Daily Summary: ${analytics.activeUsers} active users completed ${analytics.totalSessions} analysis sessions, utilizing ${analytics.templatesUsed} templates. System performance maintained ${((1 - parseFloat(analytics.errorRate || "0")) * 100).toFixed(1)}% success rate with average session duration of ${Math.round(analytics.averageSessionDuration / 60)} minutes.`;
+    const activeUsers = analytics.activeUsers ?? 0;
+    const totalSessions = analytics.totalSessions ?? 0;
+    const templatesUsed = analytics.templatesUsed ?? 0;
+    const averageSessionDuration = analytics.averageSessionDuration ?? 0;
+
+    return `Daily Summary: ${activeUsers} active users completed ${totalSessions} analysis sessions, utilizing ${templatesUsed} templates. System performance maintained ${((1 - parseFloat(analytics.errorRate || "0")) * 100).toFixed(1)}% success rate with average session duration of ${Math.round(averageSessionDuration / 60)} minutes.`;
   }
 
   /**
@@ -428,15 +449,19 @@ export class InsightsWorker {
   private generateChartData(analytics: OrganizationAnalytics | undefined): any {
     if (!analytics) return {};
 
+    const activeUsers = analytics.activeUsers ?? 0;
+    const performance = analytics.performance && typeof analytics.performance === "object" ? (analytics.performance as Record<string, unknown>) : {};
+    const avgResponseTime = typeof performance.avgResponseTime === "number" ? performance.avgResponseTime : 200;
+
     return {
       userActivity: {
         type: "line",
         data: [
-          { time: "00:00", users: Math.floor(analytics.activeUsers * 0.1) },
-          { time: "06:00", users: Math.floor(analytics.activeUsers * 0.3) },
-          { time: "12:00", users: Math.floor(analytics.activeUsers * 0.8) },
-          { time: "18:00", users: Math.floor(analytics.activeUsers * 0.6) },
-          { time: "23:59", users: Math.floor(analytics.activeUsers * 0.2) }
+          { time: "00:00", users: Math.floor(activeUsers * 0.1) },
+          { time: "06:00", users: Math.floor(activeUsers * 0.3) },
+          { time: "12:00", users: Math.floor(activeUsers * 0.8) },
+          { time: "18:00", users: Math.floor(activeUsers * 0.6) },
+          { time: "23:59", users: Math.floor(activeUsers * 0.2) }
         ]
       },
       templateUsage: {
@@ -447,7 +472,7 @@ export class InsightsWorker {
         type: "gauge",
         data: {
           successRate: (1 - parseFloat(analytics.errorRate || "0")) * 100,
-          avgResponseTime: analytics.performance?.avgResponseTime || 200
+          avgResponseTime
         }
       }
     };

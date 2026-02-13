@@ -4,7 +4,7 @@ import IORedis from 'ioredis';
 const redisUrl = process.env.REDIS_URL;
 
 // Create Redis connection only if REDIS_URL is provided
-let connection = null;
+let connection: IORedis | null = null;
 if (redisUrl) {
   try {
     connection = new IORedis(redisUrl, {

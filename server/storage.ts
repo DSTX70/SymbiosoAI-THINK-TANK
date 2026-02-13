@@ -72,17 +72,18 @@ import {
 import { randomUUID } from "crypto";
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
-import { eq, sql, and, or, not } from 'drizzle-orm';
+import { eq, sql, and, or, not, desc } from 'drizzle-orm';
 import ws from "ws";
 
 neonConfig.webSocketConstructor = ws;
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL must be set. Did you forget to provision a database?");
-}
+const databaseUrl = process.env.DATABASE_URL;
+const useMemoryStorage = process.env.USE_MEMORY_STORAGE === "true" || !databaseUrl;
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const db = drizzle(pool);
+const pool = databaseUrl ? new Pool({ connectionString: databaseUrl }) : null;
+const db = databaseUrl
+  ? drizzle(pool)
+  : (null as unknown as ReturnType<typeof drizzle>);
 
 export interface IStorage {
   // User management (Replit OpenID Connect compatible)
@@ -347,6 +348,10 @@ export interface IStorage {
   getEntitlements(workspaceId: string): Promise<Entitlement[]>;
   revokeEntitlements(workspaceId: string, feature?: BillingFeature): Promise<boolean>;
   checkEntitlement(workspaceId: string, feature: BillingFeature): Promise<boolean>;
+
+  // Workspace billing context helpers
+  getWorkspaceSubscription(workspaceId: string): Promise<Subscription | undefined>;
+  getWorkspaceEntitlements(workspaceId: string): Promise<Entitlement[]>;
 
   // Stripe integration operations
   getStripeCustomerByUserId(userId: string): Promise<{ stripeCustomerId: string } | undefined>;
@@ -685,6 +690,22 @@ export class MemStorage implements IStorage {
   private sessionParticipants: Map<string, SessionParticipant>;
   private chatMessages: Map<string, ChatMessage>;
   private pushSubscriptions: Map<string, PushSubscription>;
+  private subscriptions: Map<string, Subscription>;
+  private entitlements: Map<string, Entitlement[]>;
+  private reviews: Map<string, Review>;
+  private reviewSteps: Map<string, ReviewStep>;
+  private reviewAssignments: Map<string, ReviewAssignment>;
+  private reviewComments: Map<string, ReviewComment>;
+  private scimUsers: Map<string, ScimUser>;
+  private scimGroups: Map<string, ScimGroup>;
+  private scimGroupMemberships: Map<string, ScimGroupMembership>;
+  private provisioningLogs: Map<string, ProvisioningLog>;
+  private dunningEvents: Map<string, DunningEvent>;
+  private docs: Map<string, Docs>;
+  private adminSettings: Map<string, AdminSettings>;
+  private marketplaceItems: Map<string, MarketplaceItems>;
+  private changelogEntries: Map<string, ChangelogEntries>;
+  private playbooks: Map<string, Playbooks>;
   
   // Workspace Synchronization Maps
   private workspaceEvents: Map<string, WorkspaceEvent>;
@@ -702,6 +723,22 @@ export class MemStorage implements IStorage {
     this.sessionParticipants = new Map();
     this.chatMessages = new Map();
     this.pushSubscriptions = new Map();
+    this.subscriptions = new Map();
+    this.entitlements = new Map();
+    this.reviews = new Map();
+    this.reviewSteps = new Map();
+    this.reviewAssignments = new Map();
+    this.reviewComments = new Map();
+    this.scimUsers = new Map();
+    this.scimGroups = new Map();
+    this.scimGroupMemberships = new Map();
+    this.provisioningLogs = new Map();
+    this.dunningEvents = new Map();
+    this.docs = new Map();
+    this.adminSettings = new Map();
+    this.marketplaceItems = new Map();
+    this.changelogEntries = new Map();
+    this.playbooks = new Map();
     
     // Initialize Workspace Synchronization Maps
     this.workspaceEvents = new Map();
@@ -1238,38 +1275,181 @@ export class MemStorage implements IStorage {
   async incrementTemplateUsage(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
   
   // Billing methods
-  async getSubscriptionPlans(): Promise<{ id: string; name: string; priceMonthly: number; priceYearly: number; features: string[]; limits: Record<string, number> }[]> { throw new Error('Not implemented in MemStorage'); }
-  async createOrUpdateSubscription(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getSubscription(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getSubscriptionByWorkspace(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async updateSubscriptionStatus(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async cancelSubscription(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async createEntitlement(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getEntitlements(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async revokeEntitlements(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async checkEntitlement(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getSubscriptionPlans(): Promise<{ id: string; name: string; priceMonthly: number; priceYearly: number; features: string[]; limits: Record<string, number> }[]> {
+    return [
+      { id: "free", name: "Free", priceMonthly: 0, priceYearly: 0, features: [], limits: {} },
+      { id: "demo", name: "Demo", priceMonthly: 0, priceYearly: 0, features: ["advanced_ai"], limits: {} }
+    ];
+  }
 
-  // Marketplace methods  
-  async getMarketplaceTemplates(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getTemplateProduct(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async createTemplateProduct(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async createTemplatePurchase(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getTemplatePurchase(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async checkExistingPurchase(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getUserPurchases(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getWorkspacePurchases(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createOrUpdateSubscription(subscription: InsertSubscription): Promise<Subscription> {
+    const now = new Date();
+    const existing = subscription.workspaceId ? await this.getSubscriptionByWorkspace(subscription.workspaceId) : undefined;
+    if (existing) {
+      const updated: Subscription = { ...existing, ...subscription, updatedAt: now };
+      this.subscriptions.set(updated.id, updated);
+      return updated;
+    }
+    const created: Subscription = {
+      id: randomUUID(),
+      workspaceId: subscription.workspaceId || null,
+      plan: subscription.plan,
+      status: subscription.status,
+      currentPeriodEnd: subscription.currentPeriodEnd || null,
+      seats: subscription.seats || 1,
+      createdAt: now,
+      updatedAt: now,
+      stripeSubscriptionId: subscription.stripeSubscriptionId || null,
+    } as any;
+    this.subscriptions.set(created.id, created);
+    return created;
+  }
+
+  async getSubscription(id: string): Promise<Subscription | undefined> {
+    return this.subscriptions.get(id);
+  }
+
+  async getSubscriptionByWorkspace(workspaceId: string): Promise<Subscription | undefined> {
+    return Array.from(this.subscriptions.values()).find(s => s.workspaceId === workspaceId);
+  }
+
+  async updateSubscriptionStatus(id: string, status: SubscriptionStatus): Promise<Subscription | undefined> {
+    const existing = await this.getSubscription(id);
+    if (!existing) return undefined;
+    const updated: Subscription = { ...existing, status, updatedAt: new Date() };
+    this.subscriptions.set(updated.id, updated);
+    return updated;
+  }
+
+  async cancelSubscription(id: string): Promise<Subscription | undefined> {
+    return this.updateSubscriptionStatus(id, "canceled" as SubscriptionStatus);
+  }
+
+  async createEntitlement(entitlement: InsertEntitlement): Promise<Entitlement> {
+    const created: Entitlement = {
+      id: randomUUID(),
+      workspaceId: entitlement.workspaceId,
+      feature: entitlement.feature,
+      expiresAt: entitlement.expiresAt || null,
+      createdAt: new Date(),
+    } as any;
+    const list = this.entitlements.get(entitlement.workspaceId) || [];
+    list.push(created);
+    this.entitlements.set(entitlement.workspaceId, list);
+    return created;
+  }
+
+  async getEntitlements(workspaceId: string): Promise<Entitlement[]> {
+    return this.entitlements.get(workspaceId) || [];
+  }
+
+  async revokeEntitlements(workspaceId: string, feature?: BillingFeature): Promise<boolean> {
+    if (!feature) {
+      this.entitlements.delete(workspaceId);
+      return true;
+    }
+    const list = this.entitlements.get(workspaceId) || [];
+    const filtered = list.filter(e => e.feature !== feature);
+    this.entitlements.set(workspaceId, filtered);
+    return true;
+  }
+
+  async checkEntitlement(workspaceId: string, feature: BillingFeature): Promise<boolean> {
+    const list = await this.getEntitlements(workspaceId);
+    return list.some(e => e.feature === feature && (!e.expiresAt || new Date(e.expiresAt) > new Date()));
+  }
+
+  async getWorkspaceSubscription(workspaceId: string): Promise<Subscription | undefined> {
+    return this.getSubscriptionByWorkspace(workspaceId);
+  }
+
+  async getWorkspaceEntitlements(workspaceId: string): Promise<Entitlement[]> {
+    return this.getEntitlements(workspaceId);
+  }
 
   // Documentation methods (Sprint 12)
-  async createDoc(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getDoc(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getDocBySlug(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getAllDocs(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getDocsByCategory(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getPublishedDocs(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async updateDoc(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async deleteDoc(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async incrementDocViewCount(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async searchDocs(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createDoc(doc: InsertDocs): Promise<Docs> {
+    const existing = Array.from(this.docs.values()).find(d => d.slug === doc.slug);
+    if (existing) {
+      throw new Error("Doc with this slug already exists");
+    }
+
+    const now = new Date();
+    const created: Docs = {
+      id: randomUUID(),
+      title: doc.title,
+      content: doc.content,
+      category: doc.category,
+      tags: doc.tags || [],
+      slug: doc.slug,
+      author: doc.author || null,
+      isPublished: doc.isPublished ?? true,
+      viewCount: 0,
+      lastUpdated: now,
+      metadata: doc.metadata || {},
+      createdAt: now,
+    };
+    this.docs.set(created.id, created);
+    return created;
+  }
+
+  async getDoc(id: string): Promise<Docs | undefined> {
+    return this.docs.get(id);
+  }
+
+  async getDocBySlug(slug: string): Promise<Docs | undefined> {
+    return Array.from(this.docs.values()).find(d => d.slug === slug);
+  }
+
+  async getAllDocs(): Promise<Docs[]> {
+    return Array.from(this.docs.values());
+  }
+
+  async getDocsByCategory(category: string): Promise<Docs[]> {
+    return Array.from(this.docs.values()).filter(d => d.category === category);
+  }
+
+  async getPublishedDocs(): Promise<Docs[]> {
+    return Array.from(this.docs.values()).filter(d => d.isPublished);
+  }
+
+  async updateDoc(id: string, updates: Partial<Docs>): Promise<Docs | undefined> {
+    const existing = this.docs.get(id);
+    if (!existing) return undefined;
+    const updated: Docs = {
+      ...existing,
+      ...updates,
+      lastUpdated: new Date(),
+    };
+    this.docs.set(id, updated);
+    return updated;
+  }
+
+  async deleteDoc(id: string): Promise<boolean> {
+    return this.docs.delete(id);
+  }
+
+  async incrementDocViewCount(id: string): Promise<Docs | undefined> {
+    const existing = this.docs.get(id);
+    if (!existing) return undefined;
+    const updated: Docs = {
+      ...existing,
+      viewCount: (existing.viewCount || 0) + 1,
+      lastUpdated: new Date(),
+    };
+    this.docs.set(id, updated);
+    return updated;
+  }
+
+  async searchDocs(query: string): Promise<Docs[]> {
+    const q = query.toLowerCase();
+    return Array.from(this.docs.values()).filter(d =>
+      d.title.toLowerCase().includes(q) ||
+      d.content.toLowerCase().includes(q) ||
+      d.slug.toLowerCase().includes(q) ||
+      (d.tags || []).some(tag => tag.toLowerCase().includes(q))
+    );
+  }
 
   // Workspace Synchronization methods - Production-Ready Implementation
   async createWorkspaceEvent(event: InsertWorkspaceEvent): Promise<WorkspaceEvent> {
@@ -1336,7 +1516,8 @@ export class MemStorage implements IStorage {
     
     let cleanedCount = 0;
     Array.from(this.workspaceEvents.entries()).forEach(([id, event]) => {
-      if (event.workspaceId === workspaceId && event.createdAt < cutoffDate) {
+      const createdAt = event.createdAt || new Date(0);
+      if (event.workspaceId === workspaceId && createdAt < cutoffDate) {
         this.workspaceEvents.delete(id);
         cleanedCount++;
       }
@@ -1363,8 +1544,8 @@ export class MemStorage implements IStorage {
       metadata: connection.metadata || {},
       isActive: true,
       lastPing: now,
-      createdAt: now,
-      updatedAt: now
+      connectedAt: now,
+      disconnectedAt: null
     };
     
     this.workspaceConnections.set(id, workspaceConnection);
@@ -1378,7 +1559,7 @@ export class MemStorage implements IStorage {
   async getActiveWorkspaceConnections(workspaceId: string): Promise<WorkspaceConnection[]> {
     return Array.from(this.workspaceConnections.values())
       .filter(conn => conn.workspaceId === workspaceId && conn.isActive)
-      .sort((a, b) => (b.updatedAt?.getTime() || 0) - (a.updatedAt?.getTime() || 0));
+      .sort((a, b) => (b.lastPing?.getTime() || 0) - (a.lastPing?.getTime() || 0));
   }
 
   async getUserWorkspaceConnections(workspaceId: string, userId: string): Promise<WorkspaceConnection[]> {
@@ -1388,7 +1569,7 @@ export class MemStorage implements IStorage {
         conn.userId === userId && 
         conn.isActive
       )
-      .sort((a, b) => (b.updatedAt?.getTime() || 0) - (a.updatedAt?.getTime() || 0));
+      .sort((a, b) => (b.lastPing?.getTime() || 0) - (a.lastPing?.getTime() || 0));
   }
 
   async updateConnectionPing(connectionId: string): Promise<WorkspaceConnection | undefined> {
@@ -1397,8 +1578,7 @@ export class MemStorage implements IStorage {
       if (conn.connectionId === connectionId) {
         const updated = {
           ...conn,
-          lastPing: new Date(),
-          updatedAt: new Date()
+          lastPing: new Date()
         };
         this.workspaceConnections.set(id, updated);
         return updated;
@@ -1414,7 +1594,7 @@ export class MemStorage implements IStorage {
         const updated = {
           ...conn,
           isActive: false,
-          updatedAt: new Date()
+          disconnectedAt: new Date()
         };
         this.workspaceConnections.set(id, updated);
         return true;
@@ -1430,7 +1610,7 @@ export class MemStorage implements IStorage {
         const updated = {
           ...conn,
           isActive: false,
-          updatedAt: new Date()
+          disconnectedAt: new Date()
         };
         this.workspaceConnections.set(id, updated);
         deactivatedCount++;
@@ -1449,7 +1629,7 @@ export class MemStorage implements IStorage {
         const updated = {
           ...conn,
           isActive: false,
-          updatedAt: new Date()
+          disconnectedAt: new Date()
         };
         this.workspaceConnections.set(id, updated);
         cleanedCount++;
@@ -1465,7 +1645,7 @@ export class MemStorage implements IStorage {
     // Group connections by user
     for (const conn of activeConnections) {
       const existing = userConnectionsMap.get(conn.userId);
-      const lastActivity = conn.lastPing || conn.updatedAt || conn.createdAt;
+      const lastActivity = conn.lastPing || conn.connectedAt || new Date(0);
       
       if (!existing || lastActivity > existing.lastActivity) {
         userConnectionsMap.set(conn.userId, {
@@ -1524,39 +1704,295 @@ export class MemStorage implements IStorage {
   async isWorkspaceAdmin(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
 
   // Sprint 5 - Reviews/Approvals system methods
-  async createReview(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getReview(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getReviews(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getReviewsByResource(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getReviewsByInitiator(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getReviewsByStatus(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async updateReview(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async deleteReview(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async approveReview(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async rejectReview(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async createReviewStep(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getReviewStep(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getReviewSteps(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async updateReviewStep(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async deleteReviewStep(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async completeReviewStep(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async skipReviewStep(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async createReviewAssignment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getReviewAssignment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getReviewAssignments(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getAssignmentsByAssignee(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async updateReviewAssignment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async deleteReviewAssignment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async respondToAssignment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async delegateAssignment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async createReviewComment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getReviewComment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getReviewComments(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getCommentsByStep(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getCommentsByAssignment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async updateReviewComment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async deleteReviewComment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async resolveComment(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createReview(review: InsertReview): Promise<Review> {
+    const now = new Date();
+    const created: Review = {
+      id: randomUUID(),
+      organizationId: review.organizationId || null,
+      workspaceId: review.workspaceId || null,
+      initiatorId: review.initiatorId,
+      resourceType: review.resourceType,
+      resourceId: review.resourceId,
+      reviewType: review.reviewType,
+      title: review.title,
+      description: review.description || null,
+      status: review.status || "pending",
+      priority: review.priority || "medium",
+      dueDate: review.dueDate || null,
+      approvedAt: null,
+      rejectedAt: null,
+      completedAt: null,
+      completedBy: null,
+      metadata: review.metadata || {},
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.reviews.set(created.id, created);
+    return created;
+  }
+
+  async getReview(id: string): Promise<Review | undefined> {
+    return this.reviews.get(id);
+  }
+
+  async getReviews(organizationId?: string, workspaceId?: string): Promise<Review[]> {
+    return Array.from(this.reviews.values()).filter(r =>
+      (organizationId ? r.organizationId === organizationId : true) &&
+      (workspaceId ? r.workspaceId === workspaceId : true)
+    );
+  }
+
+  async getReviewsByResource(resourceType: string, resourceId: string): Promise<Review[]> {
+    return Array.from(this.reviews.values()).filter(r => r.resourceType === resourceType && r.resourceId === resourceId);
+  }
+
+  async getReviewsByInitiator(initiatorId: string): Promise<Review[]> {
+    return Array.from(this.reviews.values()).filter(r => r.initiatorId === initiatorId);
+  }
+
+  async getReviewsByStatus(status: string, organizationId?: string): Promise<Review[]> {
+    return Array.from(this.reviews.values()).filter(r =>
+      r.status === status && (organizationId ? r.organizationId === organizationId : true)
+    );
+  }
+
+  async updateReview(id: string, updates: Partial<Review>): Promise<Review | undefined> {
+    const existing = this.reviews.get(id);
+    if (!existing) return undefined;
+    const updated: Review = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    this.reviews.set(id, updated);
+    return updated;
+  }
+
+  async deleteReview(id: string): Promise<boolean> {
+    return this.reviews.delete(id);
+  }
+
+  async approveReview(id: string, userId: string): Promise<Review | undefined> {
+    return this.updateReview(id, {
+      status: "approved",
+      approvedAt: new Date(),
+      completedBy: userId,
+      completedAt: new Date(),
+    });
+  }
+
+  async rejectReview(id: string, userId: string, reason?: string): Promise<Review | undefined> {
+    const existing = await this.getReview(id);
+    if (!existing) return undefined;
+    return this.updateReview(id, {
+      status: "rejected",
+      rejectedAt: new Date(),
+      completedBy: userId,
+      completedAt: new Date(),
+      metadata: {
+        ...(existing.metadata || {}),
+        rejection_reason: reason || "No reason provided",
+      },
+    });
+  }
+
+  async createReviewStep(step: InsertReviewStep): Promise<ReviewStep> {
+    const now = new Date();
+    const created: ReviewStep = {
+      id: randomUUID(),
+      reviewId: step.reviewId,
+      stepNumber: step.stepNumber,
+      stepType: step.stepType,
+      title: step.title,
+      description: step.description || null,
+      status: step.status || "pending",
+      isRequired: step.isRequired ?? true,
+      canSkip: step.canSkip ?? false,
+      autoComplete: step.autoComplete ?? false,
+      conditions: step.conditions || {},
+      completedAt: step.completedAt || null,
+      completedBy: step.completedBy || null,
+      skipReason: step.skipReason || null,
+      metadata: step.metadata || {},
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.reviewSteps.set(created.id, created);
+    return created;
+  }
+
+  async getReviewStep(id: string): Promise<ReviewStep | undefined> {
+    return this.reviewSteps.get(id);
+  }
+
+  async getReviewSteps(reviewId: string): Promise<ReviewStep[]> {
+    return Array.from(this.reviewSteps.values())
+      .filter(s => s.reviewId === reviewId)
+      .sort((a, b) => a.stepNumber - b.stepNumber);
+  }
+
+  async updateReviewStep(id: string, updates: Partial<ReviewStep>): Promise<ReviewStep | undefined> {
+    const existing = this.reviewSteps.get(id);
+    if (!existing) return undefined;
+    const updated: ReviewStep = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    this.reviewSteps.set(id, updated);
+    return updated;
+  }
+
+  async deleteReviewStep(id: string): Promise<boolean> {
+    return this.reviewSteps.delete(id);
+  }
+
+  async completeReviewStep(id: string, userId: string): Promise<ReviewStep | undefined> {
+    return this.updateReviewStep(id, {
+      status: "completed",
+      completedAt: new Date(),
+      completedBy: userId,
+    });
+  }
+
+  async skipReviewStep(id: string, userId: string, reason: string): Promise<ReviewStep | undefined> {
+    return this.updateReviewStep(id, {
+      status: "skipped",
+      completedAt: new Date(),
+      completedBy: userId,
+      skipReason: reason,
+    });
+  }
+
+  async createReviewAssignment(assignment: InsertReviewAssignment): Promise<ReviewAssignment> {
+    const created: ReviewAssignment = {
+      id: randomUUID(),
+      reviewId: assignment.reviewId,
+      stepId: assignment.stepId || null,
+      assigneeId: assignment.assigneeId,
+      assigneeType: assignment.assigneeType || "user",
+      assignerRole: assignment.assignerRole,
+      isRequired: assignment.isRequired ?? true,
+      canDelegate: assignment.canDelegate ?? false,
+      delegatedTo: assignment.delegatedTo || null,
+      status: assignment.status || "assigned",
+      response: assignment.response || null,
+      responseReason: assignment.responseReason || null,
+      respondedAt: assignment.respondedAt || null,
+      assignedAt: assignment.assignedAt || new Date(),
+      notifiedAt: assignment.notifiedAt || null,
+      metadata: assignment.metadata || {},
+    };
+    this.reviewAssignments.set(created.id, created);
+    return created;
+  }
+
+  async getReviewAssignment(id: string): Promise<ReviewAssignment | undefined> {
+    return this.reviewAssignments.get(id);
+  }
+
+  async getReviewAssignments(reviewId: string): Promise<ReviewAssignment[]> {
+    return Array.from(this.reviewAssignments.values()).filter(a => a.reviewId === reviewId);
+  }
+
+  async getAssignmentsByAssignee(assigneeId: string): Promise<ReviewAssignment[]> {
+    return Array.from(this.reviewAssignments.values()).filter(a => a.assigneeId === assigneeId);
+  }
+
+  async updateReviewAssignment(id: string, updates: Partial<ReviewAssignment>): Promise<ReviewAssignment | undefined> {
+    const existing = this.reviewAssignments.get(id);
+    if (!existing) return undefined;
+    const updated: ReviewAssignment = {
+      ...existing,
+      ...updates,
+    };
+    this.reviewAssignments.set(id, updated);
+    return updated;
+  }
+
+  async deleteReviewAssignment(id: string): Promise<boolean> {
+    return this.reviewAssignments.delete(id);
+  }
+
+  async respondToAssignment(id: string, response: string, reason?: string): Promise<ReviewAssignment | undefined> {
+    return this.updateReviewAssignment(id, {
+      response,
+      responseReason: reason || null,
+      respondedAt: new Date(),
+      status: "completed",
+    });
+  }
+
+  async delegateAssignment(id: string, delegatedTo: string): Promise<ReviewAssignment | undefined> {
+    return this.updateReviewAssignment(id, {
+      delegatedTo,
+      status: "delegated",
+    });
+  }
+
+  async createReviewComment(comment: InsertReviewComment): Promise<ReviewComment> {
+    const now = new Date();
+    const created: ReviewComment = {
+      id: randomUUID(),
+      reviewId: comment.reviewId,
+      stepId: comment.stepId || null,
+      assignmentId: comment.assignmentId || null,
+      authorId: comment.authorId,
+      commentType: comment.commentType || "comment",
+      content: comment.content,
+      isInternal: comment.isInternal ?? false,
+      isResolved: comment.isResolved ?? false,
+      resolvedBy: comment.resolvedBy || null,
+      resolvedAt: comment.resolvedAt || null,
+      parentCommentId: comment.parentCommentId || null,
+      attachments: comment.attachments || [],
+      metadata: comment.metadata || {},
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.reviewComments.set(created.id, created);
+    return created;
+  }
+
+  async getReviewComment(id: string): Promise<ReviewComment | undefined> {
+    return this.reviewComments.get(id);
+  }
+
+  async getReviewComments(reviewId: string): Promise<ReviewComment[]> {
+    return Array.from(this.reviewComments.values()).filter(c => c.reviewId === reviewId);
+  }
+
+  async getCommentsByStep(stepId: string): Promise<ReviewComment[]> {
+    return Array.from(this.reviewComments.values()).filter(c => c.stepId === stepId);
+  }
+
+  async getCommentsByAssignment(assignmentId: string): Promise<ReviewComment[]> {
+    return Array.from(this.reviewComments.values()).filter(c => c.assignmentId === assignmentId);
+  }
+
+  async updateReviewComment(id: string, updates: Partial<ReviewComment>): Promise<ReviewComment | undefined> {
+    const existing = this.reviewComments.get(id);
+    if (!existing) return undefined;
+    const updated: ReviewComment = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    this.reviewComments.set(id, updated);
+    return updated;
+  }
+
+  async deleteReviewComment(id: string): Promise<boolean> {
+    return this.reviewComments.delete(id);
+  }
+
+  async resolveComment(id: string, userId: string): Promise<ReviewComment | undefined> {
+    return this.updateReviewComment(id, {
+      isResolved: true,
+      resolvedBy: userId,
+      resolvedAt: new Date(),
+    });
+  }
 
   // Sprint 5 - Retention/Legal Hold system methods
   async createRetentionPolicy(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
@@ -1600,46 +2036,301 @@ export class MemStorage implements IStorage {
   async reviewDataClassification(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
 
   // Sprint 5 - SCIM provisioning system methods
-  async createScimUser(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getScimUser(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getScimUsers(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getScimUserByExternalId(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getScimUserByEmail(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getScimUsersByOrganization(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getScimUsersBySyncStatus(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async updateScimUser(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async deleteScimUser(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async activateScimUser(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async deactivateScimUser(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async createScimGroup(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getScimGroup(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getScimGroups(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getScimGroupByExternalId(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getScimGroupsByOrganization(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getScimGroupsBySyncStatus(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async updateScimGroup(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async deleteScimGroup(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async createScimGroupMembership(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getScimGroupMembership(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getScimGroupMemberships(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getScimUserMemberships(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getScimGroupMembershipByIds(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getScimGroupMembershipsBySyncStatus(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async updateScimGroupMembership(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async deleteScimGroupMembership(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async addUserToScimGroup(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async removeUserFromScimGroup(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async createProvisioningLog(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getProvisioningLog(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getProvisioningLogs(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getProvisioningLogsByOperation(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getProvisioningLogsByResourceType(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getProvisioningLogsByStatus(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getProvisioningLogsByRequestId(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getProvisioningLogsByBatch(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getProvisioningLogsByDateRange(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async updateProvisioningLog(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async deleteProvisioningLog(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createScimUser(user: InsertScimUser): Promise<ScimUser> {
+    const now = new Date();
+    const created: ScimUser = {
+      id: randomUUID(),
+      organizationId: user.organizationId,
+      externalId: user.externalId || user.scimId,
+      scimId: user.scimId,
+      userName: user.userName,
+      email: user.email || user.userName,
+      firstName: user.firstName || null,
+      lastName: user.lastName || null,
+      displayName: user.displayName || null,
+      active: user.active ?? true,
+      localUserId: user.localUserId || null,
+      department: user.department || null,
+      title: user.title || null,
+      manager: user.manager || null,
+      employeeNumber: user.employeeNumber || null,
+      costCenter: user.costCenter || null,
+      division: user.division || null,
+      customAttributes: user.customAttributes || {},
+      syncStatus: user.syncStatus || "active",
+      syncError: null,
+      lastSyncAt: now,
+      provisionedAt: now,
+      deprovisionedAt: null,
+      metadata: user.metadata || {},
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.scimUsers.set(created.id, created);
+    return created;
+  }
+
+  async getScimUser(id: string): Promise<ScimUser | undefined> {
+    return this.scimUsers.get(id);
+  }
+
+  async getScimUsers(organizationId: string): Promise<ScimUser[]> {
+    return Array.from(this.scimUsers.values()).filter(u => u.organizationId === organizationId);
+  }
+
+  async getScimUserByExternalId(externalId: string, organizationId: string): Promise<ScimUser | undefined> {
+    return Array.from(this.scimUsers.values()).find(u => u.externalId === externalId && u.organizationId === organizationId);
+  }
+
+  async getScimUserByEmail(email: string, organizationId: string): Promise<ScimUser | undefined> {
+    return Array.from(this.scimUsers.values()).find(u => u.email === email && u.organizationId === organizationId);
+  }
+
+  async getScimUsersByOrganization(organizationId: string): Promise<ScimUser[]> {
+    return this.getScimUsers(organizationId);
+  }
+
+  async getScimUsersBySyncStatus(syncStatus: string, organizationId: string): Promise<ScimUser[]> {
+    return Array.from(this.scimUsers.values()).filter(u => u.organizationId === organizationId && u.syncStatus === syncStatus);
+  }
+
+  async updateScimUser(id: string, updates: Partial<ScimUser>): Promise<ScimUser | undefined> {
+    const existing = this.scimUsers.get(id);
+    if (!existing) return undefined;
+    const updated: ScimUser = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    this.scimUsers.set(id, updated);
+    return updated;
+  }
+
+  async deleteScimUser(id: string): Promise<boolean> {
+    return this.scimUsers.delete(id);
+  }
+
+  async activateScimUser(id: string): Promise<ScimUser | undefined> {
+    return this.updateScimUser(id, { active: true, syncStatus: "active" });
+  }
+
+  async deactivateScimUser(id: string): Promise<ScimUser | undefined> {
+    return this.updateScimUser(id, { active: false, syncStatus: "deprovisioned", deprovisionedAt: new Date() });
+  }
+
+  async createScimGroup(group: InsertScimGroup): Promise<ScimGroup> {
+    const now = new Date();
+    const created: ScimGroup = {
+      id: randomUUID(),
+      organizationId: group.organizationId,
+      externalId: group.externalId || group.scimId,
+      scimId: group.scimId,
+      displayName: group.displayName,
+      description: group.description || null,
+      groupType: group.groupType || "custom",
+      mappedRole: group.mappedRole || null,
+      mappedTeamId: group.mappedTeamId || null,
+      permissions: group.permissions || [],
+      customAttributes: group.customAttributes || {},
+      syncStatus: group.syncStatus || "active",
+      syncError: null,
+      memberCount: 0,
+      lastSyncAt: now,
+      provisionedAt: now,
+      deprovisionedAt: null,
+      metadata: group.metadata || {},
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.scimGroups.set(created.id, created);
+    return created;
+  }
+
+  async getScimGroup(id: string): Promise<ScimGroup | undefined> {
+    return this.scimGroups.get(id);
+  }
+
+  async getScimGroups(organizationId: string): Promise<ScimGroup[]> {
+    return Array.from(this.scimGroups.values()).filter(g => g.organizationId === organizationId);
+  }
+
+  async getScimGroupByExternalId(externalId: string, organizationId: string): Promise<ScimGroup | undefined> {
+    return Array.from(this.scimGroups.values()).find(g => g.externalId === externalId && g.organizationId === organizationId);
+  }
+
+  async getScimGroupsByOrganization(organizationId: string): Promise<ScimGroup[]> {
+    return this.getScimGroups(organizationId);
+  }
+
+  async getScimGroupsBySyncStatus(syncStatus: string, organizationId: string): Promise<ScimGroup[]> {
+    return Array.from(this.scimGroups.values()).filter(g => g.organizationId === organizationId && g.syncStatus === syncStatus);
+  }
+
+  async updateScimGroup(id: string, updates: Partial<ScimGroup>): Promise<ScimGroup | undefined> {
+    const existing = this.scimGroups.get(id);
+    if (!existing) return undefined;
+    const updated: ScimGroup = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    this.scimGroups.set(id, updated);
+    return updated;
+  }
+
+  async deleteScimGroup(id: string): Promise<boolean> {
+    return this.scimGroups.delete(id);
+  }
+
+  async createScimGroupMembership(membership: InsertScimGroupMembership): Promise<ScimGroupMembership> {
+    const now = new Date();
+    const created: ScimGroupMembership = {
+      id: randomUUID(),
+      groupId: membership.groupId,
+      userId: membership.userId,
+      membershipType: membership.membershipType || "direct",
+      source: membership.source || "scim",
+      syncStatus: "active",
+      syncError: null,
+      lastSyncAt: now,
+      metadata: membership.metadata || {},
+      addedAt: now,
+      removedAt: null,
+    };
+    this.scimGroupMemberships.set(created.id, created);
+    return created;
+  }
+
+  async getScimGroupMembership(id: string): Promise<ScimGroupMembership | undefined> {
+    return this.scimGroupMemberships.get(id);
+  }
+
+  async getScimGroupMemberships(groupId: string): Promise<ScimGroupMembership[]> {
+    return Array.from(this.scimGroupMemberships.values()).filter(m => m.groupId === groupId);
+  }
+
+  async getScimUserMemberships(userId: string): Promise<ScimGroupMembership[]> {
+    return Array.from(this.scimGroupMemberships.values()).filter(m => m.userId === userId);
+  }
+
+  async getScimGroupMembershipByIds(groupId: string, userId: string): Promise<ScimGroupMembership | undefined> {
+    return Array.from(this.scimGroupMemberships.values()).find(m => m.groupId === groupId && m.userId === userId);
+  }
+
+  async getScimGroupMembershipsBySyncStatus(syncStatus: string): Promise<ScimGroupMembership[]> {
+    return Array.from(this.scimGroupMemberships.values()).filter(m => m.syncStatus === syncStatus);
+  }
+
+  async updateScimGroupMembership(id: string, updates: Partial<ScimGroupMembership>): Promise<ScimGroupMembership | undefined> {
+    const existing = this.scimGroupMemberships.get(id);
+    if (!existing) return undefined;
+    const updated: ScimGroupMembership = {
+      ...existing,
+      ...updates,
+      lastSyncAt: new Date(),
+    };
+    this.scimGroupMemberships.set(id, updated);
+    return updated;
+  }
+
+  async deleteScimGroupMembership(id: string): Promise<boolean> {
+    return this.scimGroupMemberships.delete(id);
+  }
+
+  async addUserToScimGroup(groupId: string, userId: string, membershipType?: string): Promise<ScimGroupMembership> {
+    return this.createScimGroupMembership({
+      groupId,
+      userId,
+      membershipType: membershipType || "direct",
+      source: "scim",
+    });
+  }
+
+  async removeUserFromScimGroup(groupId: string, userId: string): Promise<boolean> {
+    const existing = await this.getScimGroupMembershipByIds(groupId, userId);
+    if (!existing) return false;
+    return this.deleteScimGroupMembership(existing.id);
+  }
+
+  async createProvisioningLog(log: InsertProvisioningLog): Promise<ProvisioningLog> {
+    const now = new Date();
+    const created: ProvisioningLog = {
+      id: randomUUID(),
+      organizationId: log.organizationId,
+      operation: log.operation,
+      resourceType: log.resourceType,
+      resourceId: log.resourceId || null,
+      externalId: log.externalId || null,
+      status: log.status,
+      httpStatus: log.httpStatus || null,
+      requestId: log.requestId || null,
+      endpoint: log.endpoint || null,
+      method: log.method || null,
+      requestBody: log.requestBody || null,
+      responseBody: log.responseBody || null,
+      errorCode: log.errorCode || null,
+      errorMessage: log.errorMessage || null,
+      processingTimeMs: log.processingTimeMs || null,
+      userAgent: log.userAgent || null,
+      ipAddress: log.ipAddress || null,
+      batchId: log.batchId || null,
+      retryCount: log.retryCount || 0,
+      metadata: log.metadata || {},
+      timestamp: now,
+    };
+    this.provisioningLogs.set(created.id, created);
+    return created;
+  }
+
+  async getProvisioningLog(id: string): Promise<ProvisioningLog | undefined> {
+    return this.provisioningLogs.get(id);
+  }
+
+  async getProvisioningLogs(organizationId: string): Promise<ProvisioningLog[]> {
+    return Array.from(this.provisioningLogs.values()).filter(l => l.organizationId === organizationId);
+  }
+
+  async getProvisioningLogsByOperation(operation: string, organizationId: string): Promise<ProvisioningLog[]> {
+    return Array.from(this.provisioningLogs.values()).filter(l => l.organizationId === organizationId && l.operation === operation);
+  }
+
+  async getProvisioningLogsByResourceType(resourceType: string, organizationId: string): Promise<ProvisioningLog[]> {
+    return Array.from(this.provisioningLogs.values()).filter(l => l.organizationId === organizationId && l.resourceType === resourceType);
+  }
+
+  async getProvisioningLogsByStatus(status: string, organizationId: string): Promise<ProvisioningLog[]> {
+    return Array.from(this.provisioningLogs.values()).filter(l => l.organizationId === organizationId && l.status === status);
+  }
+
+  async getProvisioningLogsByRequestId(requestId: string): Promise<ProvisioningLog[]> {
+    return Array.from(this.provisioningLogs.values()).filter(l => l.requestId === requestId);
+  }
+
+  async getProvisioningLogsByBatch(batchId: string): Promise<ProvisioningLog[]> {
+    return Array.from(this.provisioningLogs.values()).filter(l => l.batchId === batchId);
+  }
+
+  async getProvisioningLogsByDateRange(startDate: Date, endDate: Date, organizationId: string): Promise<ProvisioningLog[]> {
+    return Array.from(this.provisioningLogs.values()).filter(l =>
+      l.organizationId === organizationId &&
+      (l.timestamp || new Date(0)) >= startDate &&
+      (l.timestamp || new Date(0)) <= endDate
+    );
+  }
+
+  async updateProvisioningLog(id: string, updates: Partial<ProvisioningLog>): Promise<ProvisioningLog | undefined> {
+    const existing = this.provisioningLogs.get(id);
+    if (!existing) return undefined;
+    const updated: ProvisioningLog = {
+      ...existing,
+      ...updates,
+    };
+    this.provisioningLogs.set(id, updated);
+    return updated;
+  }
+  async deleteProvisioningLog(id: string): Promise<boolean> {
+    return this.provisioningLogs.delete(id);
+  }
 
   // Sprint 6 - Template builder methods
   async publishTemplate(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
@@ -1683,72 +2374,403 @@ export class MemStorage implements IStorage {
   async getInvoice(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
   async getInvoicesByOrg(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
   async updateInvoice(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async createDunningEvent(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getDunningEvent(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getDunningEventsByInvoice(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getDunningEventsByOrg(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createDunningEvent(event: InsertDunningEvent): Promise<DunningEvent> {
+    const created: DunningEvent = {
+      id: randomUUID(),
+      invoiceId: event.invoiceId,
+      orgId: event.orgId,
+      event: event.event,
+      createdAt: new Date()
+    };
+    this.dunningEvents.set(created.id, created);
+    return created;
+  }
+  async getDunningEvent(id: string): Promise<DunningEvent | undefined> {
+    return this.dunningEvents.get(id);
+  }
+  async getDunningEventsByInvoice(invoiceId: string): Promise<DunningEvent[]> {
+    return Array.from(this.dunningEvents.values()).filter(e => e.invoiceId === invoiceId);
+  }
+  async getDunningEventsByOrg(orgId: string): Promise<DunningEvent[]> {
+    return Array.from(this.dunningEvents.values()).filter(e => e.orgId === orgId);
+  }
   async createSeats(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
   async getSeats(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
   async updateSeats(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
 
   // Sprint 12 - Admin settings methods
-  async createAdminSetting(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getAdminSetting(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getAllAdminSettings(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getAdminSettingsByCategory(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async updateAdminSetting(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async deleteAdminSetting(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createAdminSetting(setting: InsertAdminSettings): Promise<AdminSettings> {
+    const existing = Array.from(this.adminSettings.values()).find(s => s.key === setting.key);
+    if (existing) {
+      throw new Error("Admin setting with this key already exists");
+    }
+
+    const now = new Date();
+    const created: AdminSettings = {
+      id: randomUUID(),
+      key: setting.key,
+      value: setting.value,
+      description: setting.description || null,
+      category: setting.category,
+      dataType: setting.dataType || "string",
+      isEditable: setting.isEditable ?? true,
+      isRequired: setting.isRequired ?? false,
+      validationRules: setting.validationRules || {},
+      lastModifiedBy: setting.lastModifiedBy || null,
+      updatedAt: now,
+      createdAt: now,
+    };
+    this.adminSettings.set(created.id, created);
+    return created;
+  }
+
+  async getAdminSetting(key: string): Promise<AdminSettings | undefined> {
+    return Array.from(this.adminSettings.values()).find(s => s.key === key);
+  }
+
+  async getAllAdminSettings(): Promise<AdminSettings[]> {
+    return Array.from(this.adminSettings.values());
+  }
+
+  async getAdminSettingsByCategory(category: string): Promise<AdminSettings[]> {
+    return Array.from(this.adminSettings.values()).filter(s => s.category === category);
+  }
+
+  async updateAdminSetting(key: string, value: string, lastModifiedBy?: string): Promise<AdminSettings | undefined> {
+    const existing = await this.getAdminSetting(key);
+    if (!existing) return undefined;
+    const updated: AdminSettings = {
+      ...existing,
+      value,
+      lastModifiedBy: lastModifiedBy || existing.lastModifiedBy,
+      updatedAt: new Date(),
+    };
+    this.adminSettings.set(updated.id, updated);
+    return updated;
+  }
+
+  async deleteAdminSetting(key: string): Promise<boolean> {
+    const existing = await this.getAdminSetting(key);
+    if (!existing) return false;
+    return this.adminSettings.delete(existing.id);
+  }
 
   // Sprint 12 - Marketplace methods
-  async createMarketplaceItem(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getMarketplaceItem(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getAllMarketplaceItems(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getMarketplaceItemsByCategory(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getPublishedMarketplaceItems(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getFeaturedMarketplaceItems(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getMarketplaceItemsByPublisher(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async updateMarketplaceItem(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async deleteMarketplaceItem(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async incrementMarketplaceItemViews(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async incrementMarketplaceItemDownloads(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async searchMarketplaceItems(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createMarketplaceItem(item: InsertMarketplaceItems): Promise<MarketplaceItems> {
+    const now = new Date();
+    const created: MarketplaceItems = {
+      id: randomUUID(),
+      title: item.title,
+      description: item.description,
+      category: item.category,
+      subcategory: item.subcategory || null,
+      price: item.price || "0",
+      currency: item.currency || "USD",
+      publisher: item.publisher,
+      publisherId: item.publisherId || null,
+      status: item.status || "draft",
+      tags: item.tags || [],
+      images: item.images || [],
+      downloadUrl: item.downloadUrl || null,
+      demoUrl: item.demoUrl || null,
+      githubUrl: item.githubUrl || null,
+      rating: item.rating || "0",
+      ratingCount: item.ratingCount || 0,
+      downloadCount: item.downloadCount || 0,
+      viewCount: item.viewCount || 0,
+      featured: item.featured ?? false,
+      metadata: item.metadata || {},
+      publishedAt: item.publishedAt || null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.marketplaceItems.set(created.id, created);
+    return created;
+  }
+
+  async getMarketplaceItem(id: string): Promise<MarketplaceItems | undefined> {
+    return this.marketplaceItems.get(id);
+  }
+
+  async getAllMarketplaceItems(): Promise<MarketplaceItems[]> {
+    return Array.from(this.marketplaceItems.values());
+  }
+
+  async getMarketplaceItemsByCategory(category: string): Promise<MarketplaceItems[]> {
+    return Array.from(this.marketplaceItems.values()).filter(i => i.category === category);
+  }
+
+  async getPublishedMarketplaceItems(): Promise<MarketplaceItems[]> {
+    return Array.from(this.marketplaceItems.values()).filter(i => i.status === "published");
+  }
+
+  async getFeaturedMarketplaceItems(): Promise<MarketplaceItems[]> {
+    return Array.from(this.marketplaceItems.values()).filter(i => i.featured);
+  }
+
+  async getMarketplaceItemsByPublisher(publisherId: string): Promise<MarketplaceItems[]> {
+    return Array.from(this.marketplaceItems.values()).filter(i => i.publisherId === publisherId);
+  }
+
+  async updateMarketplaceItem(id: string, updates: Partial<MarketplaceItems>): Promise<MarketplaceItems | undefined> {
+    const existing = this.marketplaceItems.get(id);
+    if (!existing) return undefined;
+    const updated: MarketplaceItems = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    this.marketplaceItems.set(id, updated);
+    return updated;
+  }
+
+  async deleteMarketplaceItem(id: string): Promise<boolean> {
+    return this.marketplaceItems.delete(id);
+  }
+
+  async incrementMarketplaceItemViews(id: string): Promise<MarketplaceItems | undefined> {
+    const existing = this.marketplaceItems.get(id);
+    if (!existing) return undefined;
+    const updated: MarketplaceItems = {
+      ...existing,
+      viewCount: (existing.viewCount || 0) + 1,
+      updatedAt: new Date(),
+    };
+    this.marketplaceItems.set(id, updated);
+    return updated;
+  }
+
+  async incrementMarketplaceItemDownloads(id: string): Promise<MarketplaceItems | undefined> {
+    const existing = this.marketplaceItems.get(id);
+    if (!existing) return undefined;
+    const updated: MarketplaceItems = {
+      ...existing,
+      downloadCount: (existing.downloadCount || 0) + 1,
+      updatedAt: new Date(),
+    };
+    this.marketplaceItems.set(id, updated);
+    return updated;
+  }
+
+  async searchMarketplaceItems(query: string): Promise<MarketplaceItems[]> {
+    const q = query.toLowerCase();
+    return Array.from(this.marketplaceItems.values()).filter(i =>
+      i.title.toLowerCase().includes(q) ||
+      i.description.toLowerCase().includes(q) ||
+      (i.tags || []).some(tag => tag.toLowerCase().includes(q))
+    );
+  }
 
   // Sprint 12 - Changelog methods
-  async createChangelogEntry(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getChangelogEntry(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getChangelogEntryByVersion(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getAllChangelogEntries(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getPublishedChangelogEntries(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getPinnedChangelogEntries(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getChangelogEntriesByType(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async updateChangelogEntry(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async deleteChangelogEntry(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async publishChangelogEntry(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createChangelogEntry(entry: InsertChangelogEntries): Promise<ChangelogEntries> {
+    const existing = Array.from(this.changelogEntries.values()).find(e => e.version === entry.version);
+    if (existing) {
+      throw new Error("Changelog entry with this version already exists");
+    }
+    const now = new Date();
+    const created: ChangelogEntries = {
+      id: randomUUID(),
+      version: entry.version,
+      title: entry.title,
+      content: entry.content,
+      type: entry.type,
+      category: entry.category || "general",
+      isPublished: entry.isPublished ?? false,
+      isPinned: entry.isPinned ?? false,
+      tags: entry.tags || [],
+      author: entry.author,
+      releaseDate: entry.releaseDate || null,
+      announcementChannels: entry.announcementChannels || [],
+      metadata: entry.metadata || {},
+      publishedAt: entry.publishedAt || null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.changelogEntries.set(created.id, created);
+    return created;
+  }
+
+  async getChangelogEntry(id: string): Promise<ChangelogEntries | undefined> {
+    return this.changelogEntries.get(id);
+  }
+
+  async getChangelogEntryByVersion(version: string): Promise<ChangelogEntries | undefined> {
+    return Array.from(this.changelogEntries.values()).find(e => e.version === version);
+  }
+  async getAllChangelogEntries(): Promise<ChangelogEntries[]> {
+    return Array.from(this.changelogEntries.values());
+  }
+
+  async getPublishedChangelogEntries(): Promise<ChangelogEntries[]> {
+    return Array.from(this.changelogEntries.values()).filter(e => e.isPublished);
+  }
+
+  async getPinnedChangelogEntries(): Promise<ChangelogEntries[]> {
+    return Array.from(this.changelogEntries.values()).filter(e => e.isPinned);
+  }
+
+  async getChangelogEntriesByType(type: string): Promise<ChangelogEntries[]> {
+    return Array.from(this.changelogEntries.values()).filter(e => e.type === type);
+  }
+
+  async updateChangelogEntry(id: string, updates: Partial<ChangelogEntries>): Promise<ChangelogEntries | undefined> {
+    const existing = this.changelogEntries.get(id);
+    if (!existing) return undefined;
+    const updated: ChangelogEntries = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    this.changelogEntries.set(id, updated);
+    return updated;
+  }
+
+  async deleteChangelogEntry(id: string): Promise<boolean> {
+    return this.changelogEntries.delete(id);
+  }
+
+  async publishChangelogEntry(id: string, author: string): Promise<ChangelogEntries | undefined> {
+    const existing = this.changelogEntries.get(id);
+    if (!existing) return undefined;
+    const updated: ChangelogEntries = {
+      ...existing,
+      isPublished: true,
+      author: author || existing.author,
+      publishedAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.changelogEntries.set(id, updated);
+    return updated;
+  }
 
   // Sprint 12 - Playbooks methods
-  async createPlaybook(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getPlaybook(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getAllPlaybooks(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getPlaybooksByType(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getPlaybooksByRole(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getPlaybooksByCategory(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getActivePlaybooks(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async updatePlaybook(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async deletePlaybook(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async incrementPlaybookUsage(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async searchPlaybooks(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async createPlaybook(playbook: InsertPlaybooks): Promise<Playbooks> {
+    const now = new Date();
+    const created: Playbooks = {
+      id: randomUUID(),
+      title: playbook.title,
+      description: playbook.description || null,
+      content: playbook.content,
+      type: playbook.type,
+      role: playbook.role,
+      category: playbook.category,
+      steps: playbook.steps || [],
+      estimatedDuration: playbook.estimatedDuration || null,
+      prerequisites: playbook.prerequisites || [],
+      goals: playbook.goals || [],
+      resources: playbook.resources || [],
+      tags: playbook.tags || [],
+      isActive: playbook.isActive ?? true,
+      usageCount: playbook.usageCount || 0,
+      rating: playbook.rating || "0",
+      ratingCount: playbook.ratingCount || 0,
+      author: playbook.author || null,
+      lastReviewed: playbook.lastReviewed || null,
+      metadata: playbook.metadata || {},
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.playbooks.set(created.id, created);
+    return created;
+  }
+
+  async getPlaybook(id: string): Promise<Playbooks | undefined> {
+    return this.playbooks.get(id);
+  }
+
+  async getAllPlaybooks(): Promise<Playbooks[]> {
+    return Array.from(this.playbooks.values());
+  }
+
+  async getPlaybooksByType(type: string): Promise<Playbooks[]> {
+    return Array.from(this.playbooks.values()).filter(p => p.type === type);
+  }
+
+  async getPlaybooksByRole(role: string): Promise<Playbooks[]> {
+    return Array.from(this.playbooks.values()).filter(p => p.role === role);
+  }
+
+  async getPlaybooksByCategory(category: string): Promise<Playbooks[]> {
+    return Array.from(this.playbooks.values()).filter(p => p.category === category);
+  }
+
+  async getActivePlaybooks(): Promise<Playbooks[]> {
+    return Array.from(this.playbooks.values()).filter(p => p.isActive);
+  }
+
+  async updatePlaybook(id: string, updates: Partial<Playbooks>): Promise<Playbooks | undefined> {
+    const existing = this.playbooks.get(id);
+    if (!existing) return undefined;
+    const updated: Playbooks = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date(),
+    };
+    this.playbooks.set(id, updated);
+    return updated;
+  }
+
+  async deletePlaybook(id: string): Promise<boolean> {
+    return this.playbooks.delete(id);
+  }
+
+  async incrementPlaybookUsage(id: string): Promise<Playbooks | undefined> {
+    const existing = this.playbooks.get(id);
+    if (!existing) return undefined;
+    const updated: Playbooks = {
+      ...existing,
+      usageCount: (existing.usageCount || 0) + 1,
+      updatedAt: new Date(),
+    };
+    this.playbooks.set(id, updated);
+    return updated;
+  }
+
+  async searchPlaybooks(query: string): Promise<Playbooks[]> {
+    const q = query.toLowerCase();
+    return Array.from(this.playbooks.values()).filter(p =>
+      p.title.toLowerCase().includes(q) ||
+      p.content.toLowerCase().includes(q) ||
+      (p.tags || []).some(tag => tag.toLowerCase().includes(q))
+    );
+  }
 
   // Additional SCIM methods that were missing
-  async getScimUserByScimId(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getActiveScimUsers(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async linkScimUserToLocal(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async syncScimUser(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async bulkSyncScimUsers(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async deprovisionScimUser(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getScimGroupByScimId(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async getScimGroupsByType(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async syncScimGroup(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
-  async deprovisionScimGroup(): Promise<any> { throw new Error('Not implemented in MemStorage'); }
+  async getScimUserByScimId(scimId: string): Promise<ScimUser | undefined> {
+    return Array.from(this.scimUsers.values()).find(u => u.scimId === scimId);
+  }
+  async getActiveScimUsers(organizationId: string): Promise<ScimUser[]> {
+    return Array.from(this.scimUsers.values()).filter(u => u.organizationId === organizationId && u.active);
+  }
+  async linkScimUserToLocal(scimUserId: string, localUserId: string): Promise<ScimUser | undefined> {
+    return this.updateScimUser(scimUserId, { localUserId });
+  }
+  async syncScimUser(id: string, syncData: any): Promise<ScimUser | undefined> {
+    return this.updateScimUser(id, { lastSyncAt: new Date(), syncStatus: "active", syncError: null, metadata: syncData });
+  }
+  async bulkSyncScimUsers(organizationId: string): Promise<ScimUser[]> {
+    const users = await this.getScimUsers(organizationId);
+    return users.map(user => {
+      const updated = { ...user, lastSyncAt: new Date(), syncStatus: "active" };
+      this.scimUsers.set(user.id, updated);
+      return updated;
+    });
+  }
+  async deprovisionScimUser(id: string): Promise<ScimUser | undefined> {
+    return this.updateScimUser(id, { active: false, syncStatus: "deprovisioned", deprovisionedAt: new Date() });
+  }
+  async getScimGroupByScimId(scimId: string): Promise<ScimGroup | undefined> {
+    return Array.from(this.scimGroups.values()).find(g => g.scimId === scimId);
+  }
+  async getScimGroupsByType(groupType: string, organizationId: string): Promise<ScimGroup[]> {
+    return Array.from(this.scimGroups.values()).filter(g => g.organizationId === organizationId && g.groupType === groupType);
+  }
+  async syncScimGroup(id: string, syncData: any): Promise<ScimGroup | undefined> {
+    return this.updateScimGroup(id, { lastSyncAt: new Date(), syncStatus: "active", syncError: null, metadata: syncData });
+  }
+  async deprovisionScimGroup(id: string): Promise<ScimGroup | undefined> {
+    return this.updateScimGroup(id, { syncStatus: "deprovisioned", deprovisionedAt: new Date() });
+  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1892,8 +2914,7 @@ export class DatabaseStorage implements IStorage {
               userEmail: existing.email,
               operation: 'setUserRole',
               transactional: true
-            },
-            createdAt: new Date()
+            }
           });
         } catch (auditError) {
           console.error('Failed to log role change audit:', auditError);
@@ -2409,7 +3430,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAuditLogs(organizationId?: string, userId?: string, limit?: number): Promise<AuditLog[]> {
-    let query = db.select().from(auditLogs);
+    let query = db.select().from(auditLogs).$dynamic();
     
     const conditions = [];
     if (organizationId) {
@@ -2420,7 +3441,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     if (conditions.length > 0) {
-      query = query.where(sql`${conditions.join(' AND ')}`);
+      query = query.where(and(...conditions));
     }
     
     if (limit) {
@@ -2431,14 +3452,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAuditLogsByAction(action: string, organizationId?: string): Promise<AuditLog[]> {
-    let query = db.select().from(auditLogs);
+    let query = db.select().from(auditLogs).$dynamic();
     
     const conditions = [eq(auditLogs.action, action)];
     if (organizationId) {
       conditions.push(eq(auditLogs.organizationId, organizationId));
     }
     
-    query = query.where(sql`${conditions.join(' AND ')}`);
+    query = query.where(and(...conditions));
     
     return await query.orderBy(auditLogs.timestamp);
   }
@@ -2449,7 +3470,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSecurityEvents(organizationId?: string, severity?: string): Promise<SecurityEvent[]> {
-    let query = db.select().from(securityEvents);
+    let query = db.select().from(securityEvents).$dynamic();
     
     const conditions = [];
     if (organizationId) {
@@ -2460,7 +3481,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     if (conditions.length > 0) {
-      query = query.where(sql`${conditions.join(' AND ')}`);
+      query = query.where(and(...conditions));
     }
     
     return await query.orderBy(securityEvents.timestamp);
@@ -2481,7 +3502,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUsageMetrics(organizationId?: string, userId?: string, period?: string): Promise<UsageMetric[]> {
-    let query = db.select().from(usageMetrics);
+    let query = db.select().from(usageMetrics).$dynamic();
     
     const conditions = [];
     if (organizationId) {
@@ -2495,21 +3516,21 @@ export class DatabaseStorage implements IStorage {
     }
     
     if (conditions.length > 0) {
-      query = query.where(sql`${conditions.join(' AND ')}`);
+      query = query.where(and(...conditions));
     }
     
     return await query.orderBy(usageMetrics.createdAt);
   }
 
   async getUsageByType(metricType: string, organizationId?: string): Promise<UsageMetric[]> {
-    let query = db.select().from(usageMetrics);
+    let query = db.select().from(usageMetrics).$dynamic();
     
     const conditions = [eq(usageMetrics.metricType, metricType)];
     if (organizationId) {
       conditions.push(eq(usageMetrics.organizationId, organizationId));
     }
     
-    query = query.where(sql`${conditions.join(' AND ')}`);
+    query = query.where(and(...conditions));
     
     return await query.orderBy(usageMetrics.createdAt);
   }
@@ -2520,7 +3541,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getRateLimitRules(organizationId?: string): Promise<RateLimitRule[]> {
-    let query = db.select().from(rateLimitRules);
+    let query = db.select().from(rateLimitRules).$dynamic();
     
     if (organizationId) {
       query = query.where(eq(rateLimitRules.organizationId, organizationId));
@@ -2548,7 +3569,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPerformanceMetrics(organizationId?: string, metricName?: string): Promise<PerformanceMetric[]> {
-    let query = db.select().from(performanceMetrics);
+    let query = db.select().from(performanceMetrics).$dynamic();
     
     const conditions = [];
     if (organizationId) {
@@ -2559,7 +3580,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     if (conditions.length > 0) {
-      query = query.where(sql`${conditions.join(' AND ')}`);
+      query = query.where(and(...conditions));
     }
     
     return await query.orderBy(performanceMetrics.timestamp);
@@ -2571,7 +3592,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getErrorLogs(organizationId?: string, severity?: string): Promise<ErrorLog[]> {
-    let query = db.select().from(errorLogs);
+    let query = db.select().from(errorLogs).$dynamic();
     
     const conditions = [];
     if (organizationId) {
@@ -2582,7 +3603,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     if (conditions.length > 0) {
-      query = query.where(sql`${conditions.join(' AND ')}`);
+      query = query.where(and(...conditions));
     }
     
     return await query.orderBy(errorLogs.timestamp);
@@ -2602,7 +3623,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getHealthChecks(serviceName?: string): Promise<HealthCheck[]> {
-    let query = db.select().from(healthChecks);
+    let query = db.select().from(healthChecks).$dynamic();
     
     if (serviceName) {
       query = query.where(eq(healthChecks.serviceName, serviceName));
@@ -2657,7 +3678,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getExportLogs(userId?: string, workspaceId?: string): Promise<ExportLog[]> {
-    let query = db.select().from(exportLogs);
+    let query = db.select().from(exportLogs).$dynamic();
     
     const conditions = [];
     if (userId) {
@@ -2668,7 +3689,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     if (conditions.length > 0) {
-      query = query.where(sql`${conditions.join(' AND ')}`);
+      query = query.where(and(...conditions));
     }
     
     return await query.orderBy(exportLogs.createdAt);
@@ -2677,10 +3698,7 @@ export class DatabaseStorage implements IStorage {
   // Export provenance tracking implementation
   async createExportProvenance(provenance: any): Promise<string> {
     // Since we don't have a dedicated provenance table, store as enhanced export log
-    const provenanceId = `prov-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
     const exportLog = await this.createExportLog({
-      id: provenanceId,
       userId: provenance.userId,
       workspaceId: provenance.workspaceId,
       filename: provenance.filename,
@@ -2716,7 +3734,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getExportProvenanceHistory(userId?: string, organizationId?: string): Promise<any[]> {
-    let query = db.select().from(exportLogs);
+    let query = db.select().from(exportLogs).$dynamic();
     
     const conditions = [];
     if (userId) {
@@ -3238,6 +4256,14 @@ export class DatabaseStorage implements IStorage {
     return true;
   }
 
+  async getWorkspaceSubscription(workspaceId: string): Promise<Subscription | undefined> {
+    return this.getSubscriptionByWorkspace(workspaceId);
+  }
+
+  async getWorkspaceEntitlements(workspaceId: string): Promise<Entitlement[]> {
+    return this.getEntitlements(workspaceId);
+  }
+
   // ============================================
   // SPRINT 4 - Marketplace Operations
   // ============================================
@@ -3253,21 +4279,29 @@ export class DatabaseStorage implements IStorage {
       isActive: templateProducts.isActive,
       createdAt: templateProducts.createdAt,
       updatedAt: templateProducts.updatedAt,
-      template: {
-        id: templates.id,
-        name: templates.name,
-        description: templates.description,
-        category: templates.category,
-        tags: templates.tags,
-        content: templates.content,
-        isPublic: templates.isPublic,
-        usageCount: templates.usageCount,
-        authorId: templates.authorId,
-        version: templates.version,
-        metadata: templates.metadata,
-        createdAt: templates.createdAt,
-        updatedAt: templates.updatedAt,
-      }
+      template_id: templates.id,
+      template_name: templates.name,
+      template_description: templates.description,
+      template_category: templates.category,
+      template_tags: templates.tags,
+      template_content: templates.content,
+      template_isPublic: templates.isPublic,
+      template_usageCount: templates.usageCount,
+      template_authorId: templates.authorId,
+      template_version: templates.version,
+      template_metadata: templates.metadata,
+      template_organizationId: templates.organizationId,
+      template_status: templates.status,
+      template_publishedAt: templates.publishedAt,
+      template_publishedBy: templates.publishedBy,
+      template_reviewedAt: templates.reviewedAt,
+      template_reviewedBy: templates.reviewedBy,
+      template_approvalComments: templates.approvalComments,
+      template_contentValidation: templates.contentValidation,
+      template_previousVersionId: templates.previousVersionId,
+      template_isTemplate: templates.isTemplate,
+      template_createdAt: templates.createdAt,
+      template_updatedAt: templates.updatedAt,
     })
     .from(templateProducts)
     .innerJoin(templates, eq(templateProducts.templateId, templates.id))
@@ -3283,7 +4317,31 @@ export class DatabaseStorage implements IStorage {
       isActive: row.isActive,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
-      template: row.template
+      template: {
+        id: row.template_id,
+        name: row.template_name,
+        description: row.template_description,
+        category: row.template_category,
+        tags: row.template_tags,
+        content: row.template_content,
+        isPublic: row.template_isPublic,
+        usageCount: row.template_usageCount,
+        authorId: row.template_authorId,
+        version: row.template_version,
+        metadata: row.template_metadata,
+        organizationId: row.template_organizationId,
+        status: row.template_status,
+        publishedAt: row.template_publishedAt,
+        publishedBy: row.template_publishedBy,
+        reviewedAt: row.template_reviewedAt,
+        reviewedBy: row.template_reviewedBy,
+        approvalComments: row.template_approvalComments,
+        contentValidation: row.template_contentValidation,
+        previousVersionId: row.template_previousVersionId,
+        isTemplate: row.template_isTemplate,
+        createdAt: row.template_createdAt,
+        updatedAt: row.template_updatedAt,
+      }
     }));
   }
 
@@ -3347,21 +4405,29 @@ export class DatabaseStorage implements IStorage {
         isActive: templateProducts.isActive,
         createdAt: templateProducts.createdAt,
         updatedAt: templateProducts.updatedAt,
-        template: {
-          id: templates.id,
-          name: templates.name,
-          description: templates.description,
-          category: templates.category,
-          tags: templates.tags,
-          content: templates.content,
-          isPublic: templates.isPublic,
-          usageCount: templates.usageCount,
-          authorId: templates.authorId,
-          version: templates.version,
-          metadata: templates.metadata,
-          createdAt: templates.createdAt,
-          updatedAt: templates.updatedAt,
-        }
+        template_id: templates.id,
+        template_name: templates.name,
+        template_description: templates.description,
+        template_category: templates.category,
+        template_tags: templates.tags,
+        template_content: templates.content,
+        template_isPublic: templates.isPublic,
+        template_usageCount: templates.usageCount,
+        template_authorId: templates.authorId,
+        template_version: templates.version,
+        template_metadata: templates.metadata,
+        template_organizationId: templates.organizationId,
+        template_status: templates.status,
+        template_publishedAt: templates.publishedAt,
+        template_publishedBy: templates.publishedBy,
+        template_reviewedAt: templates.reviewedAt,
+        template_reviewedBy: templates.reviewedBy,
+        template_approvalComments: templates.approvalComments,
+        template_contentValidation: templates.contentValidation,
+        template_previousVersionId: templates.previousVersionId,
+        template_isTemplate: templates.isTemplate,
+        template_createdAt: templates.createdAt,
+        template_updatedAt: templates.updatedAt,
       }
     })
     .from(templatePurchases)
@@ -3388,7 +4454,31 @@ export class DatabaseStorage implements IStorage {
         isActive: row.templateProduct.isActive,
         createdAt: row.templateProduct.createdAt,
         updatedAt: row.templateProduct.updatedAt,
-        template: row.templateProduct.template
+        template: {
+          id: row.templateProduct.template_id,
+          name: row.templateProduct.template_name,
+          description: row.templateProduct.template_description,
+          category: row.templateProduct.template_category,
+          tags: row.templateProduct.template_tags,
+          content: row.templateProduct.template_content,
+          isPublic: row.templateProduct.template_isPublic,
+          usageCount: row.templateProduct.template_usageCount,
+          authorId: row.templateProduct.template_authorId,
+          version: row.templateProduct.template_version,
+          metadata: row.templateProduct.template_metadata,
+          organizationId: row.templateProduct.template_organizationId,
+          status: row.templateProduct.template_status,
+          publishedAt: row.templateProduct.template_publishedAt,
+          publishedBy: row.templateProduct.template_publishedBy,
+          reviewedAt: row.templateProduct.template_reviewedAt,
+          reviewedBy: row.templateProduct.template_reviewedBy,
+          approvalComments: row.templateProduct.template_approvalComments,
+          contentValidation: row.templateProduct.template_contentValidation,
+          previousVersionId: row.templateProduct.template_previousVersionId,
+          isTemplate: row.templateProduct.template_isTemplate,
+          createdAt: row.templateProduct.template_createdAt,
+          updatedAt: row.templateProduct.template_updatedAt,
+        }
       }
     }));
   }
@@ -3413,21 +4503,29 @@ export class DatabaseStorage implements IStorage {
         isActive: templateProducts.isActive,
         createdAt: templateProducts.createdAt,
         updatedAt: templateProducts.updatedAt,
-        template: {
-          id: templates.id,
-          name: templates.name,
-          description: templates.description,
-          category: templates.category,
-          tags: templates.tags,
-          content: templates.content,
-          isPublic: templates.isPublic,
-          usageCount: templates.usageCount,
-          authorId: templates.authorId,
-          version: templates.version,
-          metadata: templates.metadata,
-          createdAt: templates.createdAt,
-          updatedAt: templates.updatedAt,
-        }
+        template_id: templates.id,
+        template_name: templates.name,
+        template_description: templates.description,
+        template_category: templates.category,
+        template_tags: templates.tags,
+        template_content: templates.content,
+        template_isPublic: templates.isPublic,
+        template_usageCount: templates.usageCount,
+        template_authorId: templates.authorId,
+        template_version: templates.version,
+        template_metadata: templates.metadata,
+        template_organizationId: templates.organizationId,
+        template_status: templates.status,
+        template_publishedAt: templates.publishedAt,
+        template_publishedBy: templates.publishedBy,
+        template_reviewedAt: templates.reviewedAt,
+        template_reviewedBy: templates.reviewedBy,
+        template_approvalComments: templates.approvalComments,
+        template_contentValidation: templates.contentValidation,
+        template_previousVersionId: templates.previousVersionId,
+        template_isTemplate: templates.isTemplate,
+        template_createdAt: templates.createdAt,
+        template_updatedAt: templates.updatedAt,
       }
     })
     .from(templatePurchases)
@@ -3454,7 +4552,31 @@ export class DatabaseStorage implements IStorage {
         isActive: row.templateProduct.isActive,
         createdAt: row.templateProduct.createdAt,
         updatedAt: row.templateProduct.updatedAt,
-        template: row.templateProduct.template
+        template: {
+          id: row.templateProduct.template_id,
+          name: row.templateProduct.template_name,
+          description: row.templateProduct.template_description,
+          category: row.templateProduct.template_category,
+          tags: row.templateProduct.template_tags,
+          content: row.templateProduct.template_content,
+          isPublic: row.templateProduct.template_isPublic,
+          usageCount: row.templateProduct.template_usageCount,
+          authorId: row.templateProduct.template_authorId,
+          version: row.templateProduct.template_version,
+          metadata: row.templateProduct.template_metadata,
+          organizationId: row.templateProduct.template_organizationId,
+          status: row.templateProduct.template_status,
+          publishedAt: row.templateProduct.template_publishedAt,
+          publishedBy: row.templateProduct.template_publishedBy,
+          reviewedAt: row.templateProduct.template_reviewedAt,
+          reviewedBy: row.templateProduct.template_reviewedBy,
+          approvalComments: row.templateProduct.template_approvalComments,
+          contentValidation: row.templateProduct.template_contentValidation,
+          previousVersionId: row.templateProduct.template_previousVersionId,
+          isTemplate: row.templateProduct.template_isTemplate,
+          createdAt: row.templateProduct.template_createdAt,
+          updatedAt: row.templateProduct.template_updatedAt,
+        }
       }
     }));
   }
@@ -3474,7 +4596,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getReviews(organizationId?: string, workspaceId?: string): Promise<Review[]> {
-    let query = db.select().from(reviews);
+    let query = db.select().from(reviews).$dynamic();
     
     const conditions = [];
     if (organizationId) {
@@ -3504,13 +4626,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getReviewsByStatus(status: string, organizationId?: string): Promise<Review[]> {
-    let query = db.select().from(reviews).where(eq(reviews.status, status));
-    
+    let query = db.select().from(reviews).$dynamic();
+    const conditions = [eq(reviews.status, status)];
+
     if (organizationId) {
-      query = query.where(and(eq(reviews.status, status), eq(reviews.organizationId, organizationId)));
+      conditions.push(eq(reviews.organizationId, organizationId));
     }
-    
-    return await query.orderBy(reviews.createdAt);
+
+    return await query.where(and(...conditions)).orderBy(reviews.createdAt);
   }
 
   async updateReview(id: string, updates: Partial<Review>): Promise<Review | undefined> {
@@ -3614,68 +4737,112 @@ export class DatabaseStorage implements IStorage {
 
   // Review assignment operations - stub implementations
   async createReviewAssignment(assignment: InsertReviewAssignment): Promise<ReviewAssignment> {
-    throw new Error('ReviewAssignment table not created yet - stub implementation');
+    const [created] = await db.insert(reviewAssignments).values(assignment).returning();
+    return created;
   }
 
   async getReviewAssignment(id: string): Promise<ReviewAssignment | undefined> {
-    throw new Error('ReviewAssignment table not created yet - stub implementation');
+    const [assignment] = await db.select().from(reviewAssignments).where(eq(reviewAssignments.id, id));
+    return assignment || undefined;
   }
 
   async getReviewAssignments(reviewId: string): Promise<ReviewAssignment[]> {
-    throw new Error('ReviewAssignment table not created yet - stub implementation');
+    return await db.select().from(reviewAssignments)
+      .where(eq(reviewAssignments.reviewId, reviewId))
+      .orderBy(reviewAssignments.assignedAt);
   }
 
   async getAssignmentsByAssignee(assigneeId: string): Promise<ReviewAssignment[]> {
-    throw new Error('ReviewAssignment table not created yet - stub implementation');
+    return await db.select().from(reviewAssignments)
+      .where(eq(reviewAssignments.assigneeId, assigneeId))
+      .orderBy(reviewAssignments.assignedAt);
   }
 
   async updateReviewAssignment(id: string, updates: Partial<ReviewAssignment>): Promise<ReviewAssignment | undefined> {
-    throw new Error('ReviewAssignment table not created yet - stub implementation');
+    const [updated] = await db.update(reviewAssignments)
+      .set({ ...updates })
+      .where(eq(reviewAssignments.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   async deleteReviewAssignment(id: string): Promise<boolean> {
-    throw new Error('ReviewAssignment table not created yet - stub implementation');
+    const result = await db.delete(reviewAssignments).where(eq(reviewAssignments.id, id));
+    return (result.rowCount || 0) > 0;
   }
 
   async respondToAssignment(id: string, response: string, reason?: string): Promise<ReviewAssignment | undefined> {
-    throw new Error('ReviewAssignment table not created yet - stub implementation');
+    const [updated] = await db.update(reviewAssignments)
+      .set({
+        response,
+        responseReason: reason || null,
+        respondedAt: new Date(),
+        status: "completed"
+      })
+      .where(eq(reviewAssignments.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   async delegateAssignment(id: string, delegatedTo: string): Promise<ReviewAssignment | undefined> {
-    throw new Error('ReviewAssignment table not created yet - stub implementation');
+    const [updated] = await db.update(reviewAssignments)
+      .set({
+        delegatedTo,
+        status: "delegated"
+      })
+      .where(eq(reviewAssignments.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   // Review comment operations - stub implementations  
   async createReviewComment(comment: InsertReviewComment): Promise<ReviewComment> {
-    throw new Error('ReviewComment table not created yet - stub implementation');
+    const [created] = await db.insert(reviewComments).values(comment).returning();
+    return created;
   }
 
   async getReviewComment(id: string): Promise<ReviewComment | undefined> {
-    throw new Error('ReviewComment table not created yet - stub implementation');
+    const [comment] = await db.select().from(reviewComments).where(eq(reviewComments.id, id));
+    return comment || undefined;
   }
 
   async getReviewComments(reviewId: string): Promise<ReviewComment[]> {
-    throw new Error('ReviewComment table not created yet - stub implementation');
+    return await db.select().from(reviewComments)
+      .where(eq(reviewComments.reviewId, reviewId))
+      .orderBy(reviewComments.createdAt);
   }
 
   async getCommentsByStep(stepId: string): Promise<ReviewComment[]> {
-    throw new Error('ReviewComment table not created yet - stub implementation');
+    return await db.select().from(reviewComments)
+      .where(eq(reviewComments.stepId, stepId))
+      .orderBy(reviewComments.createdAt);
   }
 
   async getCommentsByAssignment(assignmentId: string): Promise<ReviewComment[]> {
-    throw new Error('ReviewComment table not created yet - stub implementation');
+    return await db.select().from(reviewComments)
+      .where(eq(reviewComments.assignmentId, assignmentId))
+      .orderBy(reviewComments.createdAt);
   }
 
   async updateReviewComment(id: string, updates: Partial<ReviewComment>): Promise<ReviewComment | undefined> {
-    throw new Error('ReviewComment table not created yet - stub implementation');
+    const [updated] = await db.update(reviewComments)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(reviewComments.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   async deleteReviewComment(id: string): Promise<boolean> {
-    throw new Error('ReviewComment table not created yet - stub implementation');
+    const result = await db.delete(reviewComments).where(eq(reviewComments.id, id));
+    return (result.rowCount || 0) > 0;
   }
 
   async resolveComment(id: string, userId: string): Promise<ReviewComment | undefined> {
-    throw new Error('ReviewComment table not created yet - stub implementation');
+    const [updated] = await db.update(reviewComments)
+      .set({ isResolved: true, resolvedBy: userId, resolvedAt: new Date(), updatedAt: new Date() })
+      .where(eq(reviewComments.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   // ============================================
@@ -4071,88 +5238,144 @@ export class DatabaseStorage implements IStorage {
 
   // SCIM group membership operations - stub implementations (table not created yet)
   async createScimGroupMembership(membership: InsertScimGroupMembership): Promise<ScimGroupMembership> {
-    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+    const [created] = await db.insert(scimGroupMemberships).values({
+      ...membership,
+      id: randomUUID(),
+      syncStatus: 'active',
+      lastSyncAt: new Date(),
+      metadata: membership.metadata || {}
+    }).returning();
+    return created;
   }
 
   async getScimGroupMembership(id: string): Promise<ScimGroupMembership | undefined> {
-    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+    const [membership] = await db.select().from(scimGroupMemberships).where(eq(scimGroupMemberships.id, id));
+    return membership || undefined;
   }
 
   async getScimGroupMemberships(groupId: string): Promise<ScimGroupMembership[]> {
-    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+    return await db.select().from(scimGroupMemberships)
+      .where(eq(scimGroupMemberships.groupId, groupId))
+      .orderBy(scimGroupMemberships.addedAt);
   }
 
   async getScimUserMemberships(userId: string): Promise<ScimGroupMembership[]> {
-    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+    return await db.select().from(scimGroupMemberships)
+      .where(eq(scimGroupMemberships.userId, userId))
+      .orderBy(scimGroupMemberships.addedAt);
   }
 
   async getScimGroupMembershipByIds(groupId: string, userId: string): Promise<ScimGroupMembership | undefined> {
-    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+    const [membership] = await db.select().from(scimGroupMemberships)
+      .where(and(eq(scimGroupMemberships.groupId, groupId), eq(scimGroupMemberships.userId, userId)));
+    return membership || undefined;
   }
 
   async getScimGroupMembershipsBySyncStatus(syncStatus: string): Promise<ScimGroupMembership[]> {
-    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+    return await db.select().from(scimGroupMemberships)
+      .where(eq(scimGroupMemberships.syncStatus, syncStatus))
+      .orderBy(scimGroupMemberships.lastSyncAt);
   }
 
   async updateScimGroupMembership(id: string, updates: Partial<ScimGroupMembership>): Promise<ScimGroupMembership | undefined> {
-    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+    const [updated] = await db.update(scimGroupMemberships)
+      .set({ ...updates, lastSyncAt: new Date() })
+      .where(eq(scimGroupMemberships.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   async deleteScimGroupMembership(id: string): Promise<boolean> {
-    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+    const result = await db.delete(scimGroupMemberships).where(eq(scimGroupMemberships.id, id));
+    return (result.rowCount || 0) > 0;
   }
 
   async addUserToScimGroup(groupId: string, userId: string, membershipType?: string): Promise<ScimGroupMembership> {
-    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+    return this.createScimGroupMembership({
+      groupId,
+      userId,
+      membershipType: membershipType || "direct",
+      source: "scim",
+    });
   }
 
   async removeUserFromScimGroup(groupId: string, userId: string): Promise<boolean> {
-    throw new Error('ScimGroupMembership table not created yet - stub implementation');
+    const membership = await this.getScimGroupMembershipByIds(groupId, userId);
+    if (!membership) return false;
+    return this.deleteScimGroupMembership(membership.id);
   }
 
   // Provisioning log operations - stub implementations (table not created yet)
   async createProvisioningLog(log: InsertProvisioningLog): Promise<ProvisioningLog> {
-    throw new Error('ProvisioningLog table not created yet - stub implementation');
+    const [created] = await db.insert(provisioningLogs).values({
+      ...log,
+      metadata: log.metadata || {}
+    }).returning();
+    return created;
   }
 
   async getProvisioningLog(id: string): Promise<ProvisioningLog | undefined> {
-    throw new Error('ProvisioningLog table not created yet - stub implementation');
+    const [log] = await db.select().from(provisioningLogs).where(eq(provisioningLogs.id, id));
+    return log || undefined;
   }
 
   async getProvisioningLogs(organizationId: string): Promise<ProvisioningLog[]> {
-    throw new Error('ProvisioningLog table not created yet - stub implementation');
+    return await db.select().from(provisioningLogs)
+      .where(eq(provisioningLogs.organizationId, organizationId))
+      .orderBy(provisioningLogs.timestamp);
   }
 
   async getProvisioningLogsByOperation(operation: string, organizationId: string): Promise<ProvisioningLog[]> {
-    throw new Error('ProvisioningLog table not created yet - stub implementation');
+    return await db.select().from(provisioningLogs)
+      .where(and(eq(provisioningLogs.organizationId, organizationId), eq(provisioningLogs.operation, operation)))
+      .orderBy(provisioningLogs.timestamp);
   }
 
   async getProvisioningLogsByResourceType(resourceType: string, organizationId: string): Promise<ProvisioningLog[]> {
-    throw new Error('ProvisioningLog table not created yet - stub implementation');
+    return await db.select().from(provisioningLogs)
+      .where(and(eq(provisioningLogs.organizationId, organizationId), eq(provisioningLogs.resourceType, resourceType)))
+      .orderBy(provisioningLogs.timestamp);
   }
 
   async getProvisioningLogsByStatus(status: string, organizationId: string): Promise<ProvisioningLog[]> {
-    throw new Error('ProvisioningLog table not created yet - stub implementation');
+    return await db.select().from(provisioningLogs)
+      .where(and(eq(provisioningLogs.organizationId, organizationId), eq(provisioningLogs.status, status)))
+      .orderBy(provisioningLogs.timestamp);
   }
 
   async getProvisioningLogsByRequestId(requestId: string): Promise<ProvisioningLog[]> {
-    throw new Error('ProvisioningLog table not created yet - stub implementation');
+    return await db.select().from(provisioningLogs)
+      .where(eq(provisioningLogs.requestId, requestId))
+      .orderBy(provisioningLogs.timestamp);
   }
 
   async getProvisioningLogsByBatch(batchId: string): Promise<ProvisioningLog[]> {
-    throw new Error('ProvisioningLog table not created yet - stub implementation');
+    return await db.select().from(provisioningLogs)
+      .where(eq(provisioningLogs.batchId, batchId))
+      .orderBy(provisioningLogs.timestamp);
   }
 
   async getProvisioningLogsByDateRange(startDate: Date, endDate: Date, organizationId: string): Promise<ProvisioningLog[]> {
-    throw new Error('ProvisioningLog table not created yet - stub implementation');
+    return await db.select().from(provisioningLogs)
+      .where(and(
+        eq(provisioningLogs.organizationId, organizationId),
+        sql`${provisioningLogs.timestamp} >= ${startDate}`,
+        sql`${provisioningLogs.timestamp} <= ${endDate}`
+      ))
+      .orderBy(provisioningLogs.timestamp);
   }
 
   async updateProvisioningLog(id: string, updates: Partial<ProvisioningLog>): Promise<ProvisioningLog | undefined> {
-    throw new Error('ProvisioningLog table not created yet - stub implementation');
+    const [updated] = await db.update(provisioningLogs)
+      .set({ ...updates })
+      .where(eq(provisioningLogs.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   async deleteProvisioningLog(id: string): Promise<boolean> {
-    throw new Error('ProvisioningLog table not created yet - stub implementation');
+    const result = await db.delete(provisioningLogs).where(eq(provisioningLogs.id, id));
+    return (result.rowCount || 0) > 0;
   }
 
   // ============================================
@@ -4195,18 +5418,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTemplatesByStatus(status: string, organizationId?: string): Promise<Template[]> {
-    let query = db.select().from(templates).where(eq(templates.status, status));
-    
+    let query = db.select().from(templates).$dynamic();
+    const conditions = [eq(templates.status, status)];
+
     if (organizationId) {
-      query = query.where(eq(templates.organizationId, organizationId));
+      conditions.push(eq(templates.organizationId, organizationId));
     }
-    
-    return await query.orderBy(templates.createdAt);
+
+    return await query.where(and(...conditions)).orderBy(templates.createdAt);
   }
 
   async getTemplateVersions(templateId: string): Promise<Template[]> {
     return await db.select().from(templates)
-      .where(eq(templates.parentTemplateId, templateId))
+      .where(eq(templates.previousVersionId, templateId))
       .orderBy(templates.version);
   }
 
@@ -4222,7 +5446,7 @@ export class DatabaseStorage implements IStorage {
       ...originalTemplate,
       ...updates,
       id: randomUUID(),
-      parentTemplateId: templateId,
+      previousVersionId: templateId,
       version: (originalTemplate.version || 1) + 1,
       authorId: createdBy,
       status: 'draft',
@@ -4284,14 +5508,14 @@ export class DatabaseStorage implements IStorage {
 
   async updateWorkflowExecution(id: string, updates: Partial<WorkflowExecution>): Promise<WorkflowExecution | undefined> {
     const [execution] = await db.update(workflowExecutions)
-      .set({ ...updates, updatedAt: new Date() })
+      .set({ ...updates })
       .where(eq(workflowExecutions.id, id))
       .returning();
     return execution || undefined;
   }
 
   async getWorkflowExecutions(workflowDefinitionId?: string, organizationId?: string, limit?: number): Promise<WorkflowExecution[]> {
-    let query = db.select().from(workflowExecutions);
+    let query = db.select().from(workflowExecutions).$dynamic();
     
     const conditions = [];
     if (workflowDefinitionId) {
@@ -4302,7 +5526,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     if (conditions.length > 0) {
-      query = query.where(sql`${conditions.join(' AND ')}`);
+      query = query.where(and(...conditions));
     }
     
     if (limit) {
@@ -4327,14 +5551,14 @@ export class DatabaseStorage implements IStorage {
 
   async updateWorkflowEvent(id: string, updates: Partial<WorkflowEvent>): Promise<WorkflowEvent | undefined> {
     const [event] = await db.update(workflowEvents)
-      .set({ ...updates, updatedAt: new Date() })
+      .set({ ...updates })
       .where(eq(workflowEvents.id, id))
       .returning();
     return event || undefined;
   }
 
   async getPendingWorkflowEvents(limit?: number): Promise<WorkflowEvent[]> {
-    let query = db.select().from(workflowEvents)
+    let query = db.select().from(workflowEvents).$dynamic()
       .where(eq(workflowEvents.status, 'pending'));
     
     if (limit) {
@@ -4363,24 +5587,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOrganizationAnalytics(organizationId: string, date?: Date): Promise<OrganizationAnalytics | undefined> {
-    let query = db.select().from(organizationAnalytics)
-      .where(eq(organizationAnalytics.organizationId, organizationId));
+    let query = db.select().from(organizationAnalytics).$dynamic();
+    const conditions = [eq(organizationAnalytics.organizationId, organizationId)];
     
     if (date) {
       const startOfDay = new Date(date);
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(date);
       endOfDay.setHours(23, 59, 59, 999);
-      
-      query = query.where(
-        and(
-          eq(organizationAnalytics.organizationId, organizationId),
-          sql`${organizationAnalytics.date} >= ${startOfDay}`,
-          sql`${organizationAnalytics.date} <= ${endOfDay}`
-        )
-      );
+
+      conditions.push(sql`${organizationAnalytics.date} >= ${startOfDay}`);
+      conditions.push(sql`${organizationAnalytics.date} <= ${endOfDay}`);
     }
-    
+
+    query = query.where(and(...conditions));
     const [analytics] = await query.orderBy(organizationAnalytics.date);
     return analytics || undefined;
   }
@@ -4399,7 +5619,7 @@ export class DatabaseStorage implements IStorage {
 
   async updateOrganizationAnalytics(id: string, updates: Partial<OrganizationAnalytics>): Promise<OrganizationAnalytics | undefined> {
     const [analytics] = await db.update(organizationAnalytics)
-      .set({ ...updates, updatedAt: new Date() })
+      .set({ ...updates })
       .where(eq(organizationAnalytics.id, id))
       .returning();
     return analytics || undefined;
@@ -4414,30 +5634,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getOrganizationDailyReport(organizationId: string, reportDate: Date, reportType?: string): Promise<OrganizationDailyReport | undefined> {
-    let query = db.select().from(organizationDailyReports)
-      .where(
-        and(
-          eq(organizationDailyReports.organizationId, organizationId),
-          eq(organizationDailyReports.reportDate, reportDate)
-        )
-      );
-    
+    let query = db.select().from(organizationDailyReports).$dynamic();
+    const conditions = [
+      eq(organizationDailyReports.organizationId, organizationId),
+      eq(organizationDailyReports.reportDate, reportDate)
+    ];
+
     if (reportType) {
-      query = query.where(
-        and(
-          eq(organizationDailyReports.organizationId, organizationId),
-          eq(organizationDailyReports.reportDate, reportDate),
-          eq(organizationDailyReports.reportType, reportType)
-        )
-      );
+      conditions.push(eq(organizationDailyReports.reportType, reportType));
     }
-    
+
+    query = query.where(and(...conditions));
     const [report] = await query;
     return report || undefined;
   }
 
   async getOrganizationDailyReports(organizationId: string, limit?: number): Promise<OrganizationDailyReport[]> {
-    let query = db.select().from(organizationDailyReports)
+    let query = db.select().from(organizationDailyReports).$dynamic()
       .where(eq(organizationDailyReports.organizationId, organizationId));
     
     if (limit) {
@@ -4496,9 +5709,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getEnhancedUsageMetrics(organizationId: string, resourceType?: string, startDate?: Date, endDate?: Date): Promise<EnhancedUsageMetric[]> {
-    let query = db.select().from(enhancedUsageMetrics)
-      .where(eq(enhancedUsageMetrics.organizationId, organizationId));
-    
+    let query = db.select().from(enhancedUsageMetrics).$dynamic();
     const conditions = [eq(enhancedUsageMetrics.organizationId, organizationId)];
     
     if (resourceType) {
@@ -4511,9 +5722,7 @@ export class DatabaseStorage implements IStorage {
       conditions.push(sql`${enhancedUsageMetrics.timestamp} <= ${endDate}`);
     }
     
-    if (conditions.length > 1) {
-      query = query.where(sql`${conditions.join(' AND ')}`);
-    }
+    query = query.where(and(...conditions));
     
     return await query.orderBy(enhancedUsageMetrics.timestamp);
   }
@@ -4629,7 +5838,7 @@ export class DatabaseStorage implements IStorage {
   async getInvoicesByOrg(orgId: string): Promise<Invoice[]> {
     try {
       return await db.select().from(invoices)
-        .where(eq(invoices.orgId, orgId))
+        .where(eq(invoices.organizationId, orgId))
         .orderBy(invoices.createdAt);
     } catch (error) {
       console.error('Failed to get invoices by org:', error);
@@ -4779,17 +5988,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getSubscription(subscriptionId: string): Promise<Subscription | undefined> {
-    try {
-      const [subscription] = await db.select().from(subscriptions)
-        .where(eq(subscriptions.id, subscriptionId));
-      return subscription;
-    } catch (error) {
-      console.error('Failed to get subscription:', error);
-      return undefined;
-    }
-  }
-
   async getSubscriptionByStripeId(stripeSubscriptionId: string): Promise<Subscription | undefined> {
     try {
       const [subscription] = await db.select().from(subscriptions)
@@ -4892,134 +6090,6 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Failed to check workspace admin status:', error);
       return false;
-    }
-  }
-
-  // ============================================
-  // SPRINT 12 - DOCUMENTATION OPERATIONS
-  // ============================================
-
-  // Documentation CRUD operations
-  async createDoc(doc: InsertDocs): Promise<Docs> {
-    try {
-      const [newDoc] = await db.insert(docs).values({
-        ...doc,
-        id: randomUUID(),
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }).returning();
-      return newDoc;
-    } catch (error) {
-      console.error('Failed to create document:', error);
-      throw error;
-    }
-  }
-
-  async getDoc(id: string): Promise<Docs | undefined> {
-    try {
-      const [doc] = await db.select().from(docs).where(eq(docs.id, id));
-      return doc;
-    } catch (error) {
-      console.error('Failed to get document:', error);
-      return undefined;
-    }
-  }
-
-  async getDocBySlug(slug: string): Promise<Docs | undefined> {
-    try {
-      const [doc] = await db.select().from(docs).where(eq(docs.slug, slug));
-      return doc;
-    } catch (error) {
-      console.error('Failed to get document by slug:', error);
-      return undefined;
-    }
-  }
-
-  async getAllDocs(): Promise<Docs[]> {
-    try {
-      return await db.select().from(docs).orderBy(docs.createdAt);
-    } catch (error) {
-      console.error('Failed to get all documents:', error);
-      return [];
-    }
-  }
-
-  async getDocsByCategory(category: string): Promise<Docs[]> {
-    try {
-      return await db.select().from(docs)
-        .where(eq(docs.category, category))
-        .orderBy(docs.createdAt);
-    } catch (error) {
-      console.error('Failed to get documents by category:', error);
-      return [];
-    }
-  }
-
-  async getPublishedDocs(): Promise<Docs[]> {
-    try {
-      return await db.select().from(docs)
-        .where(eq(docs.status, 'published'))
-        .orderBy(docs.createdAt);
-    } catch (error) {
-      console.error('Failed to get published documents:', error);
-      return [];
-    }
-  }
-
-  async updateDoc(id: string, updates: Partial<Docs>): Promise<Docs | undefined> {
-    try {
-      const [updatedDoc] = await db.update(docs)
-        .set({ ...updates, updatedAt: new Date() })
-        .where(eq(docs.id, id))
-        .returning();
-      return updatedDoc;
-    } catch (error) {
-      console.error('Failed to update document:', error);
-      return undefined;
-    }
-  }
-
-  async deleteDoc(id: string): Promise<boolean> {
-    try {
-      const result = await db.delete(docs).where(eq(docs.id, id));
-      return (result.rowCount || 0) > 0;
-    } catch (error) {
-      console.error('Failed to delete document:', error);
-      return false;
-    }
-  }
-
-  async incrementDocViewCount(id: string): Promise<Docs | undefined> {
-    try {
-      const [updatedDoc] = await db.update(docs)
-        .set({ 
-          viewCount: sql`${docs.viewCount} + 1`,
-          updatedAt: new Date()
-        })
-        .where(eq(docs.id, id))
-        .returning();
-      return updatedDoc;
-    } catch (error) {
-      console.error('Failed to increment document view count:', error);
-      return undefined;
-    }
-  }
-
-  async searchDocs(query: string): Promise<Docs[]> {
-    try {
-      // Search in title, content, and summary fields
-      return await db.select().from(docs)
-        .where(
-          sql`(
-            LOWER(${docs.title}) LIKE LOWER(${`%${query}%`}) OR
-            LOWER(${docs.content}) LIKE LOWER(${`%${query}%`}) OR
-            LOWER(${docs.summary}) LIKE LOWER(${`%${query}%`})
-          )`
-        )
-        .orderBy(docs.updatedAt);
-    } catch (error) {
-      console.error('Failed to search documents:', error);
-      return [];
     }
   }
 
@@ -5341,76 +6411,325 @@ export class DatabaseStorage implements IStorage {
   // ============================================
   // MISSING METHODS - Sprint 12 Admin Settings
   // ============================================
-  async createAdminSetting(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getAdminSetting(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getAllAdminSettings(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getAdminSettingsByCategory(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async updateAdminSetting(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async deleteAdminSetting(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async createAdminSetting(setting: InsertAdminSettings): Promise<AdminSettings> {
+    const [created] = await db.insert(adminSettings).values({
+      ...setting,
+      id: randomUUID(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return created;
+  }
+
+  async getAdminSetting(key: string): Promise<AdminSettings | undefined> {
+    const [setting] = await db.select().from(adminSettings).where(eq(adminSettings.key, key));
+    return setting;
+  }
+
+  async getAllAdminSettings(): Promise<AdminSettings[]> {
+    return await db.select().from(adminSettings).orderBy(adminSettings.category);
+  }
+
+  async getAdminSettingsByCategory(category: string): Promise<AdminSettings[]> {
+    return await db.select().from(adminSettings).where(eq(adminSettings.category, category));
+  }
+
+  async updateAdminSetting(key: string, value: string, lastModifiedBy?: string): Promise<AdminSettings | undefined> {
+    const [updated] = await db.update(adminSettings)
+      .set({ value, lastModifiedBy: lastModifiedBy || null, updatedAt: new Date() })
+      .where(eq(adminSettings.key, key))
+      .returning();
+    return updated;
+  }
+
+  async deleteAdminSetting(key: string): Promise<boolean> {
+    const result = await db.delete(adminSettings).where(eq(adminSettings.key, key));
+    return (result.rowCount || 0) > 0;
+  }
 
   // Sprint 12 Marketplace
-  async createMarketplaceItem(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getMarketplaceItem(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getAllMarketplaceItems(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getMarketplaceItemsByCategory(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getPublishedMarketplaceItems(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getFeaturedMarketplaceItems(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getMarketplaceItemsByPublisher(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async updateMarketplaceItem(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async deleteMarketplaceItem(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async incrementMarketplaceItemViews(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async incrementMarketplaceItemDownloads(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async searchMarketplaceItems(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async createMarketplaceItem(item: InsertMarketplaceItems): Promise<MarketplaceItems> {
+    const [created] = await db.insert(marketplaceItems).values({
+      ...item,
+      id: randomUUID(),
+      tags: item.tags || [],
+      images: item.images || [],
+      metadata: item.metadata || {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return created;
+  }
+
+  async getMarketplaceItem(id: string): Promise<MarketplaceItems | undefined> {
+    const [item] = await db.select().from(marketplaceItems).where(eq(marketplaceItems.id, id));
+    return item;
+  }
+
+  async getAllMarketplaceItems(): Promise<MarketplaceItems[]> {
+    return await db.select().from(marketplaceItems).orderBy(marketplaceItems.createdAt);
+  }
+
+  async getMarketplaceItemsByCategory(category: string): Promise<MarketplaceItems[]> {
+    return await db.select().from(marketplaceItems).where(eq(marketplaceItems.category, category));
+  }
+
+  async getPublishedMarketplaceItems(): Promise<MarketplaceItems[]> {
+    return await db.select().from(marketplaceItems).where(eq(marketplaceItems.status, "published"));
+  }
+
+  async getFeaturedMarketplaceItems(): Promise<MarketplaceItems[]> {
+    return await db.select().from(marketplaceItems).where(eq(marketplaceItems.featured, true));
+  }
+
+  async getMarketplaceItemsByPublisher(publisherId: string): Promise<MarketplaceItems[]> {
+    return await db.select().from(marketplaceItems).where(eq(marketplaceItems.publisherId, publisherId));
+  }
+
+  async updateMarketplaceItem(id: string, updates: Partial<MarketplaceItems>): Promise<MarketplaceItems | undefined> {
+    const [updated] = await db.update(marketplaceItems)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(marketplaceItems.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteMarketplaceItem(id: string): Promise<boolean> {
+    const result = await db.delete(marketplaceItems).where(eq(marketplaceItems.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async incrementMarketplaceItemViews(id: string): Promise<MarketplaceItems | undefined> {
+    const [updated] = await db.update(marketplaceItems)
+      .set({ viewCount: sql`${marketplaceItems.viewCount} + 1`, updatedAt: new Date() })
+      .where(eq(marketplaceItems.id, id))
+      .returning();
+    return updated;
+  }
+
+  async incrementMarketplaceItemDownloads(id: string): Promise<MarketplaceItems | undefined> {
+    const [updated] = await db.update(marketplaceItems)
+      .set({ downloadCount: sql`${marketplaceItems.downloadCount} + 1`, updatedAt: new Date() })
+      .where(eq(marketplaceItems.id, id))
+      .returning();
+    return updated;
+  }
+
+  async searchMarketplaceItems(query: string): Promise<MarketplaceItems[]> {
+    const like = `%${query}%`;
+    return await db.select().from(marketplaceItems)
+      .where(sql`(
+        LOWER(${marketplaceItems.title}) LIKE LOWER(${like}) OR
+        LOWER(${marketplaceItems.description}) LIKE LOWER(${like}) OR
+        (${marketplaceItems.tags}::text ILIKE ${like})
+      )`);
+  }
 
   // Sprint 12 Changelog  
-  async createChangelogEntry(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getChangelogEntry(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getChangelogEntryByVersion(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getAllChangelogEntries(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getPublishedChangelogEntries(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getPinnedChangelogEntries(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getChangelogEntriesByType(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async updateChangelogEntry(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async deleteChangelogEntry(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async publishChangelogEntry(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async createChangelogEntry(entry: InsertChangelogEntries): Promise<ChangelogEntries> {
+    const [created] = await db.insert(changelogEntries).values({
+      ...entry,
+      id: randomUUID(),
+      tags: entry.tags || [],
+      announcementChannels: entry.announcementChannels || [],
+      metadata: entry.metadata || {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return created;
+  }
+
+  async getChangelogEntry(id: string): Promise<ChangelogEntries | undefined> {
+    const [entry] = await db.select().from(changelogEntries).where(eq(changelogEntries.id, id));
+    return entry;
+  }
+
+  async getChangelogEntryByVersion(version: string): Promise<ChangelogEntries | undefined> {
+    const [entry] = await db.select().from(changelogEntries).where(eq(changelogEntries.version, version));
+    return entry;
+  }
+
+  async getAllChangelogEntries(): Promise<ChangelogEntries[]> {
+    return await db.select().from(changelogEntries).orderBy(changelogEntries.createdAt);
+  }
+
+  async getPublishedChangelogEntries(): Promise<ChangelogEntries[]> {
+    return await db.select().from(changelogEntries).where(eq(changelogEntries.isPublished, true));
+  }
+
+  async getPinnedChangelogEntries(): Promise<ChangelogEntries[]> {
+    return await db.select().from(changelogEntries).where(eq(changelogEntries.isPinned, true));
+  }
+
+  async getChangelogEntriesByType(type: string): Promise<ChangelogEntries[]> {
+    return await db.select().from(changelogEntries).where(eq(changelogEntries.type, type));
+  }
+
+  async updateChangelogEntry(id: string, updates: Partial<ChangelogEntries>): Promise<ChangelogEntries | undefined> {
+    const [updated] = await db.update(changelogEntries)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(changelogEntries.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteChangelogEntry(id: string): Promise<boolean> {
+    const result = await db.delete(changelogEntries).where(eq(changelogEntries.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async publishChangelogEntry(id: string, author: string): Promise<ChangelogEntries | undefined> {
+    const [updated] = await db.update(changelogEntries)
+      .set({ isPublished: true, author, publishedAt: new Date(), updatedAt: new Date() })
+      .where(eq(changelogEntries.id, id))
+      .returning();
+    return updated;
+  }
 
   // Sprint 12 Playbooks
-  async createPlaybook(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getPlaybook(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getAllPlaybooks(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getPlaybooksByType(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getPlaybooksByRole(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getPlaybooksByCategory(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getActivePlaybooks(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async updatePlaybook(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async deletePlaybook(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async incrementPlaybookUsage(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async searchPlaybooks(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async createPlaybook(playbook: InsertPlaybooks): Promise<Playbooks> {
+    const [created] = await db.insert(playbooks).values({
+      ...playbook,
+      id: randomUUID(),
+      steps: playbook.steps || [],
+      prerequisites: playbook.prerequisites || [],
+      goals: playbook.goals || [],
+      resources: playbook.resources || [],
+      tags: playbook.tags || [],
+      metadata: playbook.metadata || {},
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+    return created;
+  }
+
+  async getPlaybook(id: string): Promise<Playbooks | undefined> {
+    const [playbook] = await db.select().from(playbooks).where(eq(playbooks.id, id));
+    return playbook;
+  }
+
+  async getAllPlaybooks(): Promise<Playbooks[]> {
+    return await db.select().from(playbooks).orderBy(playbooks.createdAt);
+  }
+
+  async getPlaybooksByType(type: string): Promise<Playbooks[]> {
+    return await db.select().from(playbooks).where(eq(playbooks.type, type));
+  }
+
+  async getPlaybooksByRole(role: string): Promise<Playbooks[]> {
+    return await db.select().from(playbooks).where(eq(playbooks.role, role));
+  }
+
+  async getPlaybooksByCategory(category: string): Promise<Playbooks[]> {
+    return await db.select().from(playbooks).where(eq(playbooks.category, category));
+  }
+
+  async getActivePlaybooks(): Promise<Playbooks[]> {
+    return await db.select().from(playbooks).where(eq(playbooks.isActive, true));
+  }
+
+  async updatePlaybook(id: string, updates: Partial<Playbooks>): Promise<Playbooks | undefined> {
+    const [updated] = await db.update(playbooks)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(playbooks.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deletePlaybook(id: string): Promise<boolean> {
+    const result = await db.delete(playbooks).where(eq(playbooks.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async incrementPlaybookUsage(id: string): Promise<Playbooks | undefined> {
+    const [updated] = await db.update(playbooks)
+      .set({ usageCount: sql`${playbooks.usageCount} + 1`, updatedAt: new Date() })
+      .where(eq(playbooks.id, id))
+      .returning();
+    return updated;
+  }
+
+  async searchPlaybooks(query: string): Promise<Playbooks[]> {
+    const like = `%${query}%`;
+    return await db.select().from(playbooks)
+      .where(sql`(
+        LOWER(${playbooks.title}) LIKE LOWER(${like}) OR
+        LOWER(${playbooks.content}) LIKE LOWER(${like}) OR
+        (${playbooks.tags}::text ILIKE ${like})
+      )`);
+  }
 
   // Sprint 12 Documentation
-  async createDoc(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getDoc(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getDocBySlug(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getAllDocs(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getDocsByCategory(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getPublishedDocs(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async updateDoc(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async deleteDoc(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async incrementDocViewCount(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async searchDocs(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async createDoc(doc: InsertDocs): Promise<Docs> {
+    const [newDoc] = await db.insert(docs).values({
+      ...doc,
+      id: randomUUID(),
+      tags: doc.tags || [],
+      isPublished: doc.isPublished ?? true,
+      viewCount: 0,
+      metadata: doc.metadata || {},
+      createdAt: new Date(),
+      lastUpdated: new Date()
+    }).returning();
+    return newDoc;
+  }
 
-  // Additional SCIM methods that may be missing
-  async getScimUserByScimId(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getActiveScimUsers(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async linkScimUserToLocal(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async syncScimUser(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async bulkSyncScimUsers(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async deprovisionScimUser(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getScimGroupByScimId(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async getScimGroupsByType(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async syncScimGroup(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
-  async deprovisionScimGroup(): Promise<any> { throw new Error('Not implemented in DatabaseStorage'); }
+  async getDoc(id: string): Promise<Docs | undefined> {
+    const [doc] = await db.select().from(docs).where(eq(docs.id, id));
+    return doc;
+  }
+
+  async getDocBySlug(slug: string): Promise<Docs | undefined> {
+    const [doc] = await db.select().from(docs).where(eq(docs.slug, slug));
+    return doc;
+  }
+
+  async getAllDocs(): Promise<Docs[]> {
+    return await db.select().from(docs).orderBy(docs.createdAt);
+  }
+
+  async getDocsByCategory(category: string): Promise<Docs[]> {
+    return await db.select().from(docs).where(eq(docs.category, category));
+  }
+
+  async getPublishedDocs(): Promise<Docs[]> {
+    return await db.select().from(docs).where(eq(docs.isPublished, true));
+  }
+
+  async updateDoc(id: string, updates: Partial<Docs>): Promise<Docs | undefined> {
+    const [updatedDoc] = await db.update(docs)
+      .set({ ...updates, lastUpdated: new Date() })
+      .where(eq(docs.id, id))
+      .returning();
+    return updatedDoc;
+  }
+
+  async deleteDoc(id: string): Promise<boolean> {
+    const result = await db.delete(docs).where(eq(docs.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async incrementDocViewCount(id: string): Promise<Docs | undefined> {
+    const [updatedDoc] = await db.update(docs)
+      .set({ viewCount: sql`${docs.viewCount} + 1`, lastUpdated: new Date() })
+      .where(eq(docs.id, id))
+      .returning();
+    return updatedDoc;
+  }
+
+  async searchDocs(query: string): Promise<Docs[]> {
+    const like = `%${query}%`;
+    return await db.select().from(docs)
+      .where(sql`(
+        LOWER(${docs.title}) LIKE LOWER(${like}) OR
+        LOWER(${docs.content}) LIKE LOWER(${like}) OR
+        LOWER(${docs.slug}) LIKE LOWER(${like}) OR
+        LOWER(${docs.category}) LIKE LOWER(${like}) OR
+        (${docs.tags}::text ILIKE ${like})
+      )`);
+  }
+
 }
 
-// Use database storage instead of memory storage
-export const storage = new DatabaseStorage();
+// Select storage based on environment
+export const storage: IStorage = useMemoryStorage ? new MemStorage() : new DatabaseStorage();

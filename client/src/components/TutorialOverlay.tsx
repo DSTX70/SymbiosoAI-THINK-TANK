@@ -5,11 +5,12 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { X, ChevronRight, ChevronLeft, SkipForward, HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { SelectTutorial, SelectTutorialStep, SelectTutorialProgress } from '@shared/schema';
+import type { TutorialProgress, TutorialStep } from '@shared/schema';
+import type { TutorialWithSteps } from './TutorialProvider';
 
 interface TutorialOverlayProps {
-  tutorial: SelectTutorial;
-  progress?: SelectTutorialProgress;
+  tutorial: TutorialWithSteps;
+  progress?: TutorialProgress;
   isVisible: boolean;
   onComplete: (tutorialId: string, stepNumber?: number) => void;
   onSkip: (tutorialId: string) => void;
@@ -19,9 +20,9 @@ interface TutorialOverlayProps {
 }
 
 interface TutorialTooltipProps {
-  step: SelectTutorialStep;
-  tutorial: SelectTutorial;
-  progress?: SelectTutorialProgress;
+  step: TutorialStep;
+  tutorial: TutorialWithSteps;
+  progress?: TutorialProgress;
   onNext: () => void;
   onPrev: () => void;
   onSkip: () => void;
@@ -113,7 +114,9 @@ const TutorialTooltip: React.FC<TutorialTooltipProps> = ({
     }
   };
 
-  const completedSteps = progress?.completedSteps?.length || 0;
+  const completedSteps = Array.isArray(progress?.completedSteps)
+    ? progress?.completedSteps.length
+    : 0;
   const progressPercentage = (completedSteps / totalSteps) * 100;
 
   return (
@@ -216,7 +219,9 @@ const TutorialModal: React.FC<TutorialTooltipProps> = ({
   canGoNext,
   totalSteps
 }) => {
-  const completedSteps = progress?.completedSteps?.length || 0;
+  const completedSteps = Array.isArray(progress?.completedSteps)
+    ? progress?.completedSteps.length
+    : 0;
   const progressPercentage = (completedSteps / totalSteps) * 100;
 
   return (
@@ -255,7 +260,7 @@ const TutorialModal: React.FC<TutorialTooltipProps> = ({
           <div className="mb-6">
             <Progress value={progressPercentage} className="h-2 mb-4" />
             <div className="prose prose-sm max-w-none text-muted-foreground">
-              {step.content.split('\n').map((paragraph, index) => (
+              {step.content.split('\n').map((paragraph: string, index: number) => (
                 <p key={index} className="mb-2 leading-relaxed">
                   {paragraph}
                 </p>
@@ -317,9 +322,10 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({
   const [stepStartTime, setStepStartTime] = useState(Date.now());
   
   useEffect(() => {
-    if (progress && progress.currentStep > 0) {
-      setCurrentStepIndex(progress.currentStep - 1);
-    }
+  const currentStep = progress?.currentStep ?? 0;
+  if (currentStep > 0) {
+    setCurrentStepIndex(currentStep - 1);
+  }
     setStepStartTime(Date.now());
   }, [progress]);
 
@@ -327,9 +333,8 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({
     setStepStartTime(Date.now());
   }, [currentStepIndex]);
 
-  if (!isVisible || !tutorial.steps.length) return null;
-
   const steps = Array.isArray(tutorial.steps) ? tutorial.steps : [];
+  if (!isVisible || steps.length === 0) return null;
   const currentStep = steps[currentStepIndex];
   const canGoBack = currentStepIndex > 0;
   const canGoNext = currentStepIndex < steps.length - 1;

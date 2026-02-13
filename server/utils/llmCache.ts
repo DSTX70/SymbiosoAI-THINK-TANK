@@ -38,7 +38,7 @@ export function getCacheStats() {
   let totalHits = 0;
   let expiredEntries = 0;
   
-  for (const [key, entry] of cache.entries()) {
+  for (const [, entry] of Array.from(cache.entries())) {
     if (entry.exp > now) {
       validEntries++;
       totalHits += entry.hits;
@@ -58,7 +58,7 @@ export function getCacheStats() {
 
 function cleanExpiredEntries() {
   const now = Date.now();
-  for (const [key, entry] of cache.entries()) {
+  for (const [key, entry] of Array.from(cache.entries())) {
     if (entry.exp <= now) {
       cache.delete(key);
     }

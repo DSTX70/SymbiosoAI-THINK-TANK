@@ -15,13 +15,14 @@ import {
 } from 'lucide-react';
 import { useTutorial } from './TutorialProvider';
 import { cn } from '@/lib/utils';
-import type { SelectTutorial, SelectTutorialProgress } from '@shared/schema';
+import type { TutorialProgress, TutorialSettings } from '@shared/schema';
+import type { TutorialWithSteps } from './TutorialProvider';
 
 interface TutorialCardProps {
-  tutorial: SelectTutorial;
-  progress?: SelectTutorialProgress;
-  onStart: (tutorial: SelectTutorial) => void;
-  onResume: (tutorial: SelectTutorial) => void;
+  tutorial: TutorialWithSteps;
+  progress?: TutorialProgress;
+  onStart: (tutorial: TutorialWithSteps) => void;
+  onResume: (tutorial: TutorialWithSteps) => void;
   className?: string;
 }
 
@@ -50,7 +51,9 @@ const TutorialCard: React.FC<TutorialCardProps> = ({
   };
 
   const statusInfo = getStatusInfo();
-  const completedSteps = progress?.completedSteps?.length || 0;
+  const completedSteps = Array.isArray(progress?.completedSteps)
+    ? progress?.completedSteps.length
+    : 0;
   const steps = Array.isArray(tutorial.steps) ? tutorial.steps : [];
   const totalSteps = steps.length;
   const progressPercentage = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
@@ -161,7 +164,7 @@ const TutorialSettingsDialog: React.FC<TutorialSettingsDialogProps> = ({
   onOpenChange
 }) => {
   const { settings, updateSettings, resetSettings, isLoadingSettings } = useTutorial();
-  const [localSettings, setLocalSettings] = useState(settings);
+  const [localSettings, setLocalSettings] = useState<TutorialSettings | null>(settings);
 
   React.useEffect(() => {
     setLocalSettings(settings);
@@ -197,9 +200,11 @@ const TutorialSettingsDialog: React.FC<TutorialSettingsDialogProps> = ({
               <Label htmlFor="auto-start">Auto-start tutorials</Label>
               <Switch
                 id="auto-start"
-                checked={localSettings.autoStartTutorials}
-                onCheckedChange={(checked) => 
-                  setLocalSettings(prev => prev ? { ...prev, autoStartTutorials: checked } : null)
+                checked={!!localSettings.autoStartTutorials}
+                onCheckedChange={(checked) =>
+                  setLocalSettings((prev: TutorialSettings | null) =>
+                    prev ? { ...prev, autoStartTutorials: checked } : null
+                  )
                 }
                 data-testid="auto-start-switch"
               />
@@ -209,9 +214,11 @@ const TutorialSettingsDialog: React.FC<TutorialSettingsDialogProps> = ({
               <Label htmlFor="show-tooltips">Show contextual tooltips</Label>
               <Switch
                 id="show-tooltips"
-                checked={localSettings.showTooltips}
-                onCheckedChange={(checked) => 
-                  setLocalSettings(prev => prev ? { ...prev, showTooltips: checked } : null)
+                checked={!!localSettings.showTooltips}
+                onCheckedChange={(checked) =>
+                  setLocalSettings((prev: TutorialSettings | null) =>
+                    prev ? { ...prev, showTooltips: checked } : null
+                  )
                 }
                 data-testid="show-tooltips-switch"
               />
@@ -221,9 +228,11 @@ const TutorialSettingsDialog: React.FC<TutorialSettingsDialogProps> = ({
           <div className="space-y-2">
             <Label htmlFor="tutorial-speed">Tutorial speed</Label>
             <Select
-              value={localSettings.tutorialSpeed}
-              onValueChange={(value: 'slow' | 'normal' | 'fast') => 
-                setLocalSettings(prev => prev ? { ...prev, tutorialSpeed: value } : null)
+              value={localSettings.tutorialSpeed ?? "normal"}
+              onValueChange={(value: "slow" | "normal" | "fast") =>
+                setLocalSettings((prev: TutorialSettings | null) =>
+                  prev ? { ...prev, tutorialSpeed: value } : null
+                )
               }
             >
               <SelectTrigger data-testid="tutorial-speed-select">
@@ -240,9 +249,11 @@ const TutorialSettingsDialog: React.FC<TutorialSettingsDialogProps> = ({
           <div className="space-y-2">
             <Label htmlFor="experience-level">Experience level</Label>
             <Select
-              value={localSettings.experienceLevel}
-              onValueChange={(value: 'beginner' | 'intermediate' | 'expert') => 
-                setLocalSettings(prev => prev ? { ...prev, experienceLevel: value } : null)
+              value={localSettings.experienceLevel ?? "beginner"}
+              onValueChange={(value: "beginner" | "intermediate" | "expert") =>
+                setLocalSettings((prev: TutorialSettings | null) =>
+                  prev ? { ...prev, experienceLevel: value } : null
+                )
               }
             >
               <SelectTrigger data-testid="experience-level-select">
@@ -259,9 +270,11 @@ const TutorialSettingsDialog: React.FC<TutorialSettingsDialogProps> = ({
           <div className="space-y-2">
             <Label htmlFor="preferred-position">Tooltip position</Label>
             <Select
-              value={localSettings.preferredPosition}
-              onValueChange={(value: 'top' | 'bottom' | 'left' | 'right' | 'center') => 
-                setLocalSettings(prev => prev ? { ...prev, preferredPosition: value } : null)
+              value={localSettings.preferredPosition ?? "bottom"}
+              onValueChange={(value: "top" | "bottom" | "left" | "right" | "center") =>
+                setLocalSettings((prev: TutorialSettings | null) =>
+                  prev ? { ...prev, preferredPosition: value } : null
+                )
               }
             >
               <SelectTrigger data-testid="preferred-position-select">
@@ -316,11 +329,11 @@ export const TutorialLauncher: React.FC<TutorialLauncherProps> = ({ className })
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const handleStartTutorial = (tutorial: SelectTutorial) => {
+  const handleStartTutorial = (tutorial: TutorialWithSteps) => {
     showTutorial(tutorial);
   };
 
-  const handleResumeTutorial = (tutorial: SelectTutorial) => {
+  const handleResumeTutorial = (tutorial: TutorialWithSteps) => {
     showTutorial(tutorial);
   };
 
@@ -341,7 +354,7 @@ export const TutorialLauncher: React.FC<TutorialLauncherProps> = ({ className })
   });
 
   // Get unique categories for filter
-  const categories = [...new Set(activeTutorials.map(t => t.category))];
+  const categories = Array.from(new Set(activeTutorials.map(t => t.category)));
 
   if (isLoadingTutorials) {
     return (

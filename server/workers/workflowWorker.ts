@@ -153,7 +153,12 @@ export class WorkflowWorker {
    * Handle trigger_workflow event
    */
   private async handleTriggerWorkflow(event: WorkflowEvent): Promise<void> {
-    const { workflowDefinitionId, triggerData, triggeredBy } = event.eventData;
+    const eventData = (event.eventData ?? {}) as {
+      workflowDefinitionId?: string;
+      triggerData?: unknown;
+      triggeredBy?: string;
+    };
+    const { workflowDefinitionId, triggerData, triggeredBy } = eventData;
 
     if (!workflowDefinitionId) {
       throw new Error("Missing workflowDefinitionId in trigger_workflow event");
@@ -218,23 +223,25 @@ export class WorkflowWorker {
       }
 
       // Mark execution as completed
+      const startedAt = execution.startedAt ? new Date(execution.startedAt).getTime() : Date.now();
       await storage.updateWorkflowExecution(execution.id, {
         status: "completed",
         completedAt: new Date(),
         results: results,
-        duration: Date.now() - new Date(execution.startedAt).getTime()
+        duration: Date.now() - startedAt
       });
 
       console.log(`🎉 Workflow execution completed: ${execution.id}`);
     } catch (error) {
       console.error(`❌ Workflow execution failed: ${execution.id}`, error);
       
+      const startedAt = execution.startedAt ? new Date(execution.startedAt).getTime() : Date.now();
       await storage.updateWorkflowExecution(execution.id, {
         status: "failed",
         completedAt: new Date(),
         errorMessage: error instanceof Error ? error.message : "Unknown error",
         results: results,
-        duration: Date.now() - new Date(execution.startedAt).getTime()
+        duration: Date.now() - startedAt
       });
     }
   }

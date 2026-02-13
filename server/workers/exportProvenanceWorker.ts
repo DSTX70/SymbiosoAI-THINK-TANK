@@ -276,8 +276,8 @@ export function startExportProvenanceWorker() {
   }, { 
     connection,
     concurrency: 5,
-    removeOnComplete: 100,
-    removeOnFail: 50
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 50 }
   });
 
   worker.on('completed', (job, result) => {
@@ -308,8 +308,8 @@ export async function enqueueExportProvenance(data: ExportProvenanceJobData) {
       type: 'exponential',
       delay: 2000,
     },
-    removeOnComplete: 100,
-    removeOnFail: 50
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 50 }
   });
 
   console.log(`📋 Enqueued export provenance tracking job ${job.id} for export ${data.exportId}`);

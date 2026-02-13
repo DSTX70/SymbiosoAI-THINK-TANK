@@ -1,16 +1,18 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-import type { SelectTutorial, SelectTutorialProgress, SelectTutorialSettings } from '@shared/schema';
+import type { Tutorial, TutorialProgress, TutorialSettings, TutorialStep } from '@shared/schema';
+
+export type TutorialWithSteps = Tutorial & { steps?: TutorialStep[] };
 
 interface TutorialContextType {
   // Tutorial data
-  tutorials: SelectTutorial[];
-  activeTutorials: SelectTutorial[];
-  recommendations: SelectTutorial[];
-  currentTutorial: SelectTutorial | null;
-  tutorialProgress: SelectTutorialProgress[];
-  settings: SelectTutorialSettings | null;
+  tutorials: TutorialWithSteps[];
+  activeTutorials: TutorialWithSteps[];
+  recommendations: TutorialWithSteps[];
+  currentTutorial: TutorialWithSteps | null;
+  tutorialProgress: TutorialProgress[];
+  settings: TutorialSettings | null;
   
   // Loading states
   isLoadingTutorials: boolean;
@@ -22,16 +24,16 @@ interface TutorialContextType {
   completeTutorial: (tutorialId: string, totalTimeSpent?: number) => Promise<void>;
   completeStep: (tutorialId: string, stepNumber: number, timeSpent?: number) => Promise<void>;
   skipTutorial: (tutorialId: string) => Promise<void>;
-  updateSettings: (updates: Partial<SelectTutorialSettings>) => Promise<void>;
+  updateSettings: (updates: Partial<TutorialSettings>) => Promise<void>;
   resetSettings: () => Promise<void>;
   
   // UI State
-  showTutorial: (tutorial: SelectTutorial) => void;
+  showTutorial: (tutorial: TutorialWithSteps) => void;
   hideTutorial: () => void;
   isTutorialVisible: boolean;
   
   // Utility functions
-  getTutorialProgress: (tutorialId: string) => SelectTutorialProgress | undefined;
+  getTutorialProgress: (tutorialId: string) => TutorialProgress | undefined;
   shouldShowTutorial: (tutorialId: string) => boolean;
 }
 
@@ -50,36 +52,36 @@ interface TutorialProviderProps {
 }
 
 export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) => {
-  const [currentTutorial, setCurrentTutorial] = useState<SelectTutorial | null>(null);
+  const [currentTutorial, setCurrentTutorial] = useState<TutorialWithSteps | null>(null);
   const [isTutorialVisible, setIsTutorialVisible] = useState(false);
   const queryClient = useQueryClient();
   
   // Fetch active tutorials
-  const { data: activeTutorials = [], isLoading: isLoadingTutorials } = useQuery({
+  const { data: activeTutorials = [], isLoading: isLoadingTutorials } = useQuery<TutorialWithSteps[]>({
     queryKey: ['/api/tutorials'],
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Fetch all tutorials (for admin/management)
-  const { data: allTutorials = [] } = useQuery({
+  const { data: allTutorials = [] } = useQuery<TutorialWithSteps[]>({
     queryKey: ['/api/tutorials/all'],
     enabled: false, // Only fetch when explicitly needed
   });
 
   // Fetch tutorial recommendations
-  const { data: recommendations = [] } = useQuery({
+  const { data: recommendations = [] } = useQuery<TutorialWithSteps[]>({
     queryKey: ['/api/tutorials/recommendations'],
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
 
   // Fetch user's tutorial progress
-  const { data: tutorialProgress = [], isLoading: isLoadingProgress } = useQuery({
+  const { data: tutorialProgress = [], isLoading: isLoadingProgress } = useQuery<TutorialProgress[]>({
     queryKey: ['/api/tutorials/progress/my'],
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
   // Fetch user's tutorial settings
-  const { data: settings, isLoading: isLoadingSettings } = useQuery({
+  const { data: settings, isLoading: isLoadingSettings } = useQuery<TutorialSettings>({
     queryKey: ['/api/tutorials/settings/my'],
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
@@ -87,9 +89,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
   // Start tutorial mutation
   const startTutorialMutation = useMutation({
     mutationFn: async (tutorialId: string) => {
-      return apiRequest(`/api/tutorials/${tutorialId}/start`, {
-        method: 'POST',
-      });
+      return apiRequest("POST", `/api/tutorials/${tutorialId}/start`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tutorials/progress/my'] });
@@ -99,10 +99,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
   // Complete tutorial mutation
   const completeTutorialMutation = useMutation({
     mutationFn: async ({ tutorialId, totalTimeSpent }: { tutorialId: string; totalTimeSpent?: number }) => {
-      return apiRequest(`/api/tutorials/${tutorialId}/complete`, {
-        method: 'POST',
-        body: JSON.stringify({ totalTimeSpent }),
-      });
+      return apiRequest("POST", `/api/tutorials/${tutorialId}/complete`, { totalTimeSpent });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tutorials/progress/my'] });
@@ -114,10 +111,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
   // Complete step mutation
   const completeStepMutation = useMutation({
     mutationFn: async ({ tutorialId, stepNumber, timeSpent }: { tutorialId: string; stepNumber: number; timeSpent?: number }) => {
-      return apiRequest(`/api/tutorials/${tutorialId}/complete-step`, {
-        method: 'POST',
-        body: JSON.stringify({ stepNumber, timeSpent }),
-      });
+      return apiRequest("POST", `/api/tutorials/${tutorialId}/complete-step`, { stepNumber, timeSpent });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tutorials/progress/my'] });
@@ -127,9 +121,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
   // Skip tutorial mutation
   const skipTutorialMutation = useMutation({
     mutationFn: async (tutorialId: string) => {
-      return apiRequest(`/api/tutorials/${tutorialId}/skip`, {
-        method: 'POST',
-      });
+      return apiRequest("POST", `/api/tutorials/${tutorialId}/skip`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tutorials/progress/my'] });
@@ -139,11 +131,8 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
 
   // Update settings mutation
   const updateSettingsMutation = useMutation({
-    mutationFn: async (updates: Partial<SelectTutorialSettings>) => {
-      return apiRequest('/api/tutorials/settings/my', {
-        method: 'PUT',
-        body: JSON.stringify(updates),
-      });
+    mutationFn: async (updates: Partial<TutorialSettings>) => {
+      return apiRequest("PUT", "/api/tutorials/settings/my", updates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tutorials/settings/my'] });
@@ -153,9 +142,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
   // Reset settings mutation
   const resetSettingsMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest('/api/tutorials/settings/reset', {
-        method: 'POST',
-      });
+      return apiRequest("POST", "/api/tutorials/settings/reset");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/tutorials/settings/my'] });
@@ -178,7 +165,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
     }
   }, [settings, recommendations, currentTutorial]);
 
-  const getTutorialProgress = (tutorialId: string): SelectTutorialProgress | undefined => {
+  const getTutorialProgress = (tutorialId: string): TutorialProgress | undefined => {
     return tutorialProgress.find(p => p.tutorialId === tutorialId);
   };
 
@@ -192,14 +179,17 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
     
     // Check if category is disabled
     const tutorial = activeTutorials.find(t => t.id === tutorialId);
-    if (tutorial && settings?.disabledCategories?.includes(tutorial.category)) {
+    const disabledCategories = Array.isArray(settings?.disabledCategories)
+      ? settings?.disabledCategories
+      : [];
+    if (tutorial && disabledCategories.includes(tutorial.category)) {
       return false;
     }
     
     return true;
   };
 
-  const showTutorial = (tutorial: SelectTutorial) => {
+  const showTutorial = (tutorial: TutorialWithSteps) => {
     setCurrentTutorial(tutorial);
     setIsTutorialVisible(true);
     if (!getTutorialProgress(tutorial.id)) {
@@ -234,7 +224,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
     hideTutorial();
   };
 
-  const updateSettings = async (updates: Partial<SelectTutorialSettings>) => {
+  const updateSettings = async (updates: Partial<TutorialSettings>) => {
     await updateSettingsMutation.mutateAsync(updates);
   };
 

@@ -171,14 +171,50 @@ export function getWorkspacePermissions(membershipRole: string): WorkspacePermis
 /**
  * Middleware to require authentication
  */
-export function requireAuth(req: Request, res: Response, next: NextFunction) {
-  if (!req.user) {
-    return res.status(401).json({ 
-      error: "Authentication required",
-      code: "AUTH_REQUIRED" 
+export async function requireAuth(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (process.env.BYPASS_AUTH === "true") {
+      const devUserId = process.env.BYPASS_AUTH_USER_ID || "dev-user";
+      let user = await storage.getUser(devUserId);
+      if (!user) {
+        user = await storage.upsertUser({
+          id: devUserId,
+          email: "dev@symbiosoai.local",
+          firstName: "Dev",
+          lastName: "User",
+          profileImageUrl: null,
+        });
+      }
+
+      if (user.role !== "system_admin") {
+        await storage.setUserRole(devUserId, "system_admin");
+        const updated = await storage.getUser(devUserId);
+        if (updated) {
+          user = updated;
+        }
+      }
+
+      req.user = {
+        ...user,
+        isDemo: true,
+        subscription: { plan: "demo" },
+      } as any;
+      return next();
+    }
+
+    if (!req.user) {
+      return res.status(401).json({ 
+        error: "Authentication required",
+        code: "AUTH_REQUIRED" 
+      });
+    }
+    next();
+  } catch (error) {
+    return res.status(500).json({
+      error: "Authentication setup failed",
+      code: "AUTH_SETUP_FAILED",
     });
   }
-  next();
 }
 
 /**

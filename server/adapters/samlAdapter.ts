@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { storage } from '../storage';
 
 // SAML Configuration interface
 interface SAMLConfig {
@@ -64,9 +65,10 @@ export function samlLogin(req: Request, res: Response) {
 }
 
 // Handle SAML callback from IdP
-export function samlCallback(req: Request, res: Response) {
+export async function samlCallback(req: Request, res: Response) {
   try {
     const config = getSAMLConfig();
+    const devMode = process.env.SAML_DEV_MODE === 'true';
     
     // In a real implementation, this would:
     // 1. Validate the SAML response signature
@@ -78,14 +80,22 @@ export function samlCallback(req: Request, res: Response) {
     console.log('🔐 SAML Callback received');
     console.log('📝 SAML Response body:', req.body);
 
-    // Stub user data - would normally be parsed from SAML assertion
+    if (!devMode) {
+      return res.status(501).json({
+        success: false,
+        message: 'SAML response parsing is not implemented. Enable SAML_DEV_MODE for local testing.',
+        redirectUrl: req.body?.RelayState || '/'
+      });
+    }
+
+    // Dev-mode SAML payload
     const mockSamlResponse: SAMLResponse = {
-      nameId: 'user@company.com',
-      email: 'user@company.com',
-      firstName: 'SAML',
-      lastName: 'User',
-      groups: ['Administrators', 'Reviewers'],
-      attributes: {
+      nameId: req.body?.nameId || req.body?.email || 'user@company.com',
+      email: req.body?.email || 'user@company.com',
+      firstName: req.body?.firstName || 'SAML',
+      lastName: req.body?.lastName || 'User',
+      groups: req.body?.groups || ['Administrators'],
+      attributes: req.body?.attributes || {
         department: 'IT',
         role: 'admin',
         organization: 'Example Corp'
@@ -98,6 +108,20 @@ export function samlCallback(req: Request, res: Response) {
     // 1. Create/update user in database
     // 2. Establish session
     // 3. Redirect to intended destination
+
+    // Create/update user for dev-mode SAML
+    const user = await storage.upsertUser({
+      id: mockSamlResponse.nameId,
+      email: mockSamlResponse.email,
+      firstName: mockSamlResponse.firstName || null,
+      lastName: mockSamlResponse.lastName || null,
+      profileImageUrl: null
+    });
+
+    try {
+      (req as any).session = (req as any).session || {};
+      (req as any).session.user = { id: user.id };
+    } catch {}
 
     // For now, return success response
     res.json({
@@ -176,6 +200,9 @@ export function validateSAMLConfig(): { valid: boolean; errors: string[] } {
 
 // Middleware to check SAML configuration
 export function requireSAMLConfig(req: Request, res: Response, next: any) {
+  if (process.env.SAML_DEV_MODE === 'true') {
+    return next();
+  }
   const validation = validateSAMLConfig();
   
   if (!validation.valid) {

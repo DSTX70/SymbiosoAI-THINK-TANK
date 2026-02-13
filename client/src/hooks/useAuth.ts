@@ -2,8 +2,22 @@ import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getQueryFn } from "@/lib/queryClient";
 
+interface AuthUser {
+  id: string;
+  email: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  profileImageUrl?: string | null;
+  role: string;
+  preferences?: any;
+  subscription?: any;
+  createdAt?: string | Date | null;
+  updatedAt?: string | Date | null;
+  permissions?: Record<string, boolean>;
+}
+
 export function useAuth() {
-  const { data: user, isLoading, error } = useQuery({
+  const { data: user, isLoading, error } = useQuery<AuthUser | null>({
     queryKey: ["/api/auth/user"],
     queryFn: getQueryFn({ on401: "returnNull" }), // Don't throw on 401, just return null
     retry: 1, // Only retry once

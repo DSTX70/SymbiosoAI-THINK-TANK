@@ -6,7 +6,6 @@ import {
   getWorkspacePermissions,
   hasSystemRole,
   hasWorkspaceRole,
-  type UserRole,
   type SystemPermission,
   type WorkspacePermission
 } from "../middleware/rbac";
@@ -278,6 +277,7 @@ export class PermissionChecker {
     availableFeatures: BillingFeature[];
     planLimits: any;
     canManageBilling: boolean;
+    workspaceRole: string;
   }> {
     const systemPermissions = this.context.user ? getSystemPermissions(this.context.user.role) : [];
     const workspacePermissions = this.context.workspaceMembership ? getWorkspacePermissions(this.context.workspaceMembership.role) : [];
@@ -298,7 +298,8 @@ export class PermissionChecker {
       workspacePermissions,
       availableFeatures,
       planLimits,
-      canManageBilling: billingPermission.allowed
+      canManageBilling: billingPermission.allowed,
+      workspaceRole: this.context.workspaceMembership?.role || "none"
     };
   }
 }
@@ -416,7 +417,7 @@ export const PermissionUtils = {
       const summary = await checker.getPermissionSummary();
       
       return {
-        role: checker.context.workspaceMembership?.role || 'none',
+        role: summary.workspaceRole,
         permissions: summary.workspacePermissions,
         features: summary.availableFeatures
       };

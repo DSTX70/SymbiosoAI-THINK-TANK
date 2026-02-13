@@ -2272,8 +2272,13 @@ export const insertReviewSchema = createInsertSchema(reviews).pick({
   reviewType: true,
   title: true,
   description: true,
+  status: true,
   priority: true,
   dueDate: true,
+  approvedAt: true,
+  rejectedAt: true,
+  completedAt: true,
+  completedBy: true,
   metadata: true,
 });
 
@@ -2283,10 +2288,14 @@ export const insertReviewStepSchema = createInsertSchema(reviewSteps).pick({
   stepType: true,
   title: true,
   description: true,
+  status: true,
   isRequired: true,
   canSkip: true,
   autoComplete: true,
   conditions: true,
+  completedAt: true,
+  completedBy: true,
+  skipReason: true,
   metadata: true,
 });
 
@@ -2299,6 +2308,12 @@ export const insertReviewAssignmentSchema = createInsertSchema(reviewAssignments
   isRequired: true,
   canDelegate: true,
   delegatedTo: true,
+  status: true,
+  response: true,
+  responseReason: true,
+  respondedAt: true,
+  assignedAt: true,
+  notifiedAt: true,
   metadata: true,
 });
 
@@ -2312,6 +2327,9 @@ export const insertReviewCommentSchema = createInsertSchema(reviewComments).pick
   isInternal: true,
   parentCommentId: true,
   attachments: true,
+  isResolved: true,
+  resolvedBy: true,
+  resolvedAt: true,
   metadata: true,
 });
 
@@ -2737,6 +2755,13 @@ export const insertWorkflowExecutionSchema = createInsertSchema(workflowExecutio
   triggerData: true,
   status: true,
   metadata: true,
+  currentStep: true,
+  totalSteps: true,
+  results: true,
+  errorMessage: true,
+  startedAt: true,
+  completedAt: true,
+  duration: true,
 });
 
 export const insertWorkflowEventSchema = createInsertSchema(workflowEvents).pick({
@@ -3061,6 +3086,11 @@ export const insertMarketplaceItemsSchema = createInsertSchema(marketplaceItems)
   githubUrl: true,
   featured: true,
   metadata: true,
+  rating: true,
+  ratingCount: true,
+  downloadCount: true,
+  viewCount: true,
+  publishedAt: true,
 });
 
 export const insertChangelogEntriesSchema = createInsertSchema(changelogEntries).pick({
@@ -3076,6 +3106,7 @@ export const insertChangelogEntriesSchema = createInsertSchema(changelogEntries)
   releaseDate: true,
   announcementChannels: true,
   metadata: true,
+  publishedAt: true,
 });
 
 export const insertPlaybooksSchema = createInsertSchema(playbooks).pick({
@@ -3094,6 +3125,10 @@ export const insertPlaybooksSchema = createInsertSchema(playbooks).pick({
   isActive: true,
   author: true,
   metadata: true,
+  usageCount: true,
+  rating: true,
+  ratingCount: true,
+  lastReviewed: true,
 });
 
 // Sprint 12 Types
@@ -3195,8 +3230,6 @@ export interface SystemEventData {
 
 // Role types to avoid circular dependencies
 export type SystemUserRole = 'user' | 'premium_user' | 'admin' | 'system_admin';
-export type WorkspaceRole = 'viewer' | 'member' | 'admin' | 'owner';
 
 // Zod schemas for roles to prevent schema drift
 export const systemUserRoleSchema = z.enum(['user', 'premium_user', 'admin', 'system_admin']);
-

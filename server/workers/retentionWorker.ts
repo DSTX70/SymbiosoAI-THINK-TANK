@@ -190,7 +190,7 @@ async function scanDataByPolicy(policy: any, config: RetentionJobConfig) {
 // Check for legal holds that prevent data deletion
 async function checkLegalHolds(organizationId: string, dataType: string) {
   // Stub implementation - would query legal holds from database
-  const mockLegalHolds = [
+  const mockLegalHolds: Array<{ id: string; reason: string }> = [
     // Normally would return active legal holds for this data type
   ];
 

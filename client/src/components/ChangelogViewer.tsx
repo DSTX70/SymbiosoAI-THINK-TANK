@@ -25,13 +25,22 @@ interface ChangelogEntry {
   version: string;
   title: string;
   content: string;
-  type: 'feature' | 'bugfix' | 'improvement' | 'breaking' | 'security';
+  type: "feature" | "bugfix" | "improvement" | "breaking" | "security";
   author: string;
-  published: boolean;
-  pinned: boolean;
+  isPublished: boolean;
+  isPinned: boolean;
   publishedAt: string;
+  releaseDate?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+interface ChangelogListResponse {
+  data: ChangelogEntry[];
+  meta?: {
+    total?: number;
+    types?: string[];
+  };
 }
 
 export default function ChangelogViewer() {
@@ -42,13 +51,13 @@ export default function ChangelogViewer() {
   const { toast } = useToast();
 
   // Fetch changelog entries
-  const { data: changelogData, isLoading: changelogLoading } = useQuery({
+  const { data: changelogData, isLoading: changelogLoading } = useQuery<ChangelogListResponse>({
     queryKey: ['/api/changelog/list'],
     enabled: true
   });
 
-  const entries = changelogData?.data || [];
-  const types = changelogData?.meta?.types || [];
+  const entries = changelogData?.data ?? [];
+  const types = changelogData?.meta?.types ?? [];
 
   const filteredEntries = entries.filter((entry: ChangelogEntry) => 
     !selectedType || entry.type === selectedType
@@ -57,10 +66,7 @@ export default function ChangelogViewer() {
   // Add changelog entry mutation
   const addEntryMutation = useMutation({
     mutationFn: async (data: Partial<ChangelogEntry>) => {
-      return apiRequest('/api/changelog/add', {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
+      return apiRequest("POST", "/api/changelog/add", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/changelog/list'] });
@@ -82,9 +88,7 @@ export default function ChangelogViewer() {
   // Publish entry mutation
   const publishEntryMutation = useMutation({
     mutationFn: async (entryId: string) => {
-      return apiRequest(`/api/changelog/${entryId}/publish`, {
-        method: 'PUT'
-      });
+      return apiRequest("PUT", `/api/changelog/${entryId}/publish`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/changelog/list'] });
@@ -227,7 +231,7 @@ export default function ChangelogViewer() {
                               {getTypeIcon(entry.type)}
                               <span className="ml-1">{entry.type}</span>
                             </Badge>
-                            {entry.pinned && (
+                            {entry.isPinned && (
                               <Badge variant="secondary">
                                 <Star className="h-3 w-3 mr-1" />
                                 Pinned
@@ -236,8 +240,8 @@ export default function ChangelogViewer() {
                           </div>
                         </div>
                       </div>
-                      <Badge variant={entry.published ? "default" : "secondary"}>
-                        {entry.published ? "Published" : "Draft"}
+                      <Badge variant={entry.isPublished ? "default" : "secondary"}>
+                        {entry.isPublished ? "Published" : "Draft"}
                       </Badge>
                     </div>
                   </CardHeader>
@@ -254,14 +258,13 @@ export default function ChangelogViewer() {
                         </span>
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          {entry.published 
+                          {entry.isPublished
                             ? new Date(entry.publishedAt).toLocaleDateString()
-                            : new Date(entry.createdAt).toLocaleDateString()
-                          }
+                            : new Date(entry.createdAt).toLocaleDateString()}
                         </span>
                       </div>
                       
-                      {user && !entry.published && (
+                      {user && !entry.isPublished && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -286,7 +289,7 @@ export default function ChangelogViewer() {
         {/* Version View */}
         <TabsContent value="versions" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[...new Set(filteredEntries.map((entry: ChangelogEntry) => entry.version))]
+            {Array.from(new Set(filteredEntries.map((entry: ChangelogEntry) => entry.version)))
               .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
               .map((version: string) => {
                 const versionEntries = filteredEntries.filter((entry: ChangelogEntry) => entry.version === version);
@@ -331,7 +334,7 @@ export default function ChangelogViewer() {
                         {getTypeIcon(selectedEntry.type)}
                         <span className="ml-1">{selectedEntry.type}</span>
                       </Badge>
-                      {selectedEntry.pinned && (
+                      {selectedEntry.isPinned && (
                         <Badge variant="secondary">
                           <Star className="h-3 w-3 mr-1" />
                           Pinned
@@ -339,8 +342,8 @@ export default function ChangelogViewer() {
                       )}
                     </div>
                   </div>
-                  <Badge variant={selectedEntry.published ? "default" : "secondary"}>
-                    {selectedEntry.published ? "Published" : "Draft"}
+                  <Badge variant={selectedEntry.isPublished ? "default" : "secondary"}>
+                    {selectedEntry.isPublished ? "Published" : "Draft"}
                   </Badge>
                 </div>
               </CardHeader>
@@ -363,14 +366,13 @@ export default function ChangelogViewer() {
                     </span>
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
-                      {selectedEntry.published 
+                      {selectedEntry.isPublished
                         ? `Published ${new Date(selectedEntry.publishedAt).toLocaleDateString()}`
-                        : `Created ${new Date(selectedEntry.createdAt).toLocaleDateString()}`
-                      }
+                        : `Created ${new Date(selectedEntry.createdAt).toLocaleDateString()}`}
                     </span>
                   </div>
                   
-                  {user && !selectedEntry.published && (
+                  {user && !selectedEntry.isPublished && (
                     <Button
                       size="sm"
                       onClick={() => publishEntryMutation.mutate(selectedEntry.id)}
@@ -415,7 +417,7 @@ export default function ChangelogViewer() {
               <div>
                 <p className="text-sm text-muted-foreground">Published</p>
                 <p className="text-2xl font-bold">
-                  {filteredEntries.filter((entry: ChangelogEntry) => entry.published).length}
+                  {filteredEntries.filter((entry: ChangelogEntry) => entry.isPublished).length}
                 </p>
               </div>
             </div>
@@ -443,7 +445,7 @@ export default function ChangelogViewer() {
               <div>
                 <p className="text-sm text-muted-foreground">Pinned</p>
                 <p className="text-2xl font-bold">
-                  {filteredEntries.filter((entry: ChangelogEntry) => entry.pinned).length}
+                  {filteredEntries.filter((entry: ChangelogEntry) => entry.isPinned).length}
                 </p>
               </div>
             </div>

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { storage } from '../storage';
+import { StripeService } from '../services/stripeService';
 import { requireAuth, requireSystemPermission, SYSTEM_PERMISSIONS } from '../middleware/rbac';
 import { loadEntitlementsContext, requireFeature } from '../middleware/entitlements';
 
@@ -85,8 +86,7 @@ router.post('/dunning/simulate',
     await storage.createDunningEvent({
       invoiceId: body.invoiceId,
       orgId: body.orgId,
-      event: `dunning_simulation_${body.daysPastDue}d`,
-      createdAt: new Date()
+      event: `dunning_simulation_${body.daysPastDue}d`
     });
     
     // Determine next action based on days past due
@@ -128,17 +128,29 @@ router.get('/portal',
   requireSystemPermission(SYSTEM_PERMISSIONS.MANAGE_BILLING),
   async (req, res) => {
   try {
-    // In production, this would generate a Stripe billing portal session
-    const orgId = (req as any).orgId || 'demo-org';
+    const userId = (req as any).user?.id;
     const billingPortalUrl = process.env.BILLING_PUBLIC_URL || 'http://localhost:3000';
-    
-    // Mock billing portal URL (would be Stripe portal URL in production)
+    const returnUrl = `${billingPortalUrl}/billing`;
+
+    if (StripeService.isConfigured() && userId) {
+      const existingCustomer = await storage.getStripeCustomerByUserId(userId);
+      if (existingCustomer?.stripeCustomerId) {
+        const session = await StripeService.createBillingPortalSession(existingCustomer.stripeCustomerId, returnUrl);
+        return res.json({
+          success: true,
+          url: session.url,
+          expiresAt: session.expires_at ? new Date(session.expires_at * 1000).toISOString() : undefined
+        });
+      }
+    }
+
+    // Fallback to mock portal URL when Stripe is not configured
+    const orgId = (req as any).orgId || 'demo-org';
     const portalUrl = `${billingPortalUrl}/billing/portal?org=${orgId}&session=${Date.now()}`;
-    
     res.json({
       success: true,
       url: portalUrl,
-      expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString() // 1 hour expiry
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString()
     });
   } catch (error) {
     console.error('Billing portal error:', error);

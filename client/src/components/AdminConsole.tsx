@@ -18,12 +18,27 @@ import {
 } from "lucide-react";
 
 interface AdminSetting {
+  id?: string;
   key: string;
   value: string;
-  description: string;
+  description?: string;
   category: string;
-  lastModifiedBy: string;
-  updatedAt: string;
+  dataType?: string;
+  isEditable?: boolean;
+  isRequired?: boolean;
+  validationRules?: Record<string, any>;
+  lastModifiedBy?: string | null;
+  updatedAt?: string;
+  createdAt?: string;
+}
+
+interface AdminSettingsResponse {
+  success: boolean;
+  data: AdminSetting[];
+  meta?: {
+    total: number;
+    categories: string[];
+  };
 }
 
 export default function AdminConsole() {
@@ -33,7 +48,7 @@ export default function AdminConsole() {
   const { toast } = useToast();
 
   // Fetch admin settings
-  const { data: settingsData, isLoading: settingsLoading } = useQuery({
+  const { data: settingsData, isLoading: settingsLoading } = useQuery<AdminSettingsResponse>({
     queryKey: ['/api/admin/settings'],
     enabled: true
   });
@@ -48,10 +63,7 @@ export default function AdminConsole() {
   // Update setting mutation
   const updateSettingMutation = useMutation({
     mutationFn: async ({ key, value }: { key: string; value: string }) => {
-      return apiRequest(`/api/admin/settings/${key}`, {
-        method: 'PUT',
-        body: JSON.stringify({ value })
-      });
+      return apiRequest('PUT', `/api/admin/settings/${key}`, { value });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/settings'] });
@@ -73,10 +85,7 @@ export default function AdminConsole() {
   // Create setting mutation
   const createSettingMutation = useMutation({
     mutationFn: async (data: Partial<AdminSetting>) => {
-      return apiRequest('/api/admin/settings', {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
+      return apiRequest('POST', '/api/admin/settings', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/settings'] });
@@ -98,9 +107,7 @@ export default function AdminConsole() {
   // Delete setting mutation
   const deleteSettingMutation = useMutation({
     mutationFn: async (key: string) => {
-      return apiRequest(`/api/admin/settings/${key}`, {
-        method: 'DELETE'
-      });
+      return apiRequest('DELETE', `/api/admin/settings/${key}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/settings'] });
@@ -247,7 +254,9 @@ export default function AdminConsole() {
                         
                         <div className="flex items-center justify-between text-xs text-muted-foreground">
                           <span>Modified by: {setting.lastModifiedBy}</span>
-                          <span>{new Date(setting.updatedAt).toLocaleDateString()}</span>
+                        <span>
+                          {setting.updatedAt ? new Date(setting.updatedAt).toLocaleDateString() : "—"}
+                        </span>
                         </div>
                         
                         <div className="flex gap-2">
@@ -314,9 +323,10 @@ export default function AdminConsole() {
                   <div>
                     <p className="text-sm text-muted-foreground">Recent Changes</p>
                     <p className="text-2xl font-bold">
-                      {settings.filter((s: AdminSetting) => 
-                        new Date(s.updatedAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-                      ).length}
+                      {settings.filter((s: AdminSetting) => {
+                        if (!s.updatedAt) return false;
+                        return new Date(s.updatedAt) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                      }).length}
                     </p>
                   </div>
                 </div>

@@ -9,7 +9,8 @@ import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 import type { SystemUserRole } from "@shared/schema";
 
-if (!process.env.REPLIT_DOMAINS) {
+const shouldBypassAuth = process.env.BYPASS_AUTH === "true";
+if (!process.env.REPLIT_DOMAINS && !shouldBypassAuth) {
   throw new Error("Environment variable REPLIT_DOMAINS not provided");
 }
 
@@ -210,6 +211,11 @@ async function maybeElevateRole(userId: string, claims: any): Promise<void> {
 }
 
 export async function setupAuth(app: Express) {
+  if (process.env.BYPASS_AUTH === "true") {
+    console.log("🔓 Auth bypass enabled - skipping OIDC setup");
+    return;
+  }
+
   app.set("trust proxy", 1);
   app.use(getSession());
   app.use(passport.initialize());
