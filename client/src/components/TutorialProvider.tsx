@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
+import { useAuth } from '@/hooks/useAuth';
 import type { Tutorial, TutorialProgress, TutorialSettings, TutorialStep } from '@shared/schema';
 
 export type TutorialWithSteps = Tutorial & { steps?: TutorialStep[] };
@@ -55,6 +56,7 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
   const [currentTutorial, setCurrentTutorial] = useState<TutorialWithSteps | null>(null);
   const [isTutorialVisible, setIsTutorialVisible] = useState(false);
   const queryClient = useQueryClient();
+  const { isAuthenticated } = useAuth();
   
   // Fetch active tutorials
   const { data: activeTutorials = [], isLoading: isLoadingTutorials } = useQuery<TutorialWithSteps[]>({
@@ -72,18 +74,21 @@ export const TutorialProvider: React.FC<TutorialProviderProps> = ({ children }) 
   const { data: recommendations = [] } = useQuery<TutorialWithSteps[]>({
     queryKey: ['/api/tutorials/recommendations'],
     staleTime: 10 * 60 * 1000, // 10 minutes
+    enabled: isAuthenticated,
   });
 
   // Fetch user's tutorial progress
   const { data: tutorialProgress = [], isLoading: isLoadingProgress } = useQuery<TutorialProgress[]>({
     queryKey: ['/api/tutorials/progress/my'],
     staleTime: 2 * 60 * 1000, // 2 minutes
+    enabled: isAuthenticated,
   });
 
   // Fetch user's tutorial settings
   const { data: settings, isLoading: isLoadingSettings } = useQuery<TutorialSettings>({
     queryKey: ['/api/tutorials/settings/my'],
     staleTime: 10 * 60 * 1000, // 10 minutes
+    enabled: isAuthenticated,
   });
 
   // Start tutorial mutation

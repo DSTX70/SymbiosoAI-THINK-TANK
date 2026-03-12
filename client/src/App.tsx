@@ -34,6 +34,8 @@ import TutorialSystem from "@/components/TutorialSystem";
 import { I18nProvider } from "@/components/I18nProvider";
 import { EntitlementsProvider } from "@/components/EntitlementsProvider";
 import { registerServiceWorker } from "@/lib/swRegister";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ApiErrorToaster } from "@/components/ApiErrorToaster";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -98,7 +100,10 @@ function App() {
           <TooltipProvider>
             <TutorialSystem>
               <Toaster />
-              <Router />
+              <ApiErrorToaster />
+              <ErrorBoundary>
+                <Router />
+              </ErrorBoundary>
             </TutorialSystem>
           </TooltipProvider>
         </EntitlementsProvider>

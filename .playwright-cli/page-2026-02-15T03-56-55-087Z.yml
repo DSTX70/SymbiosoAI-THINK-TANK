@@ -1,0 +1,164 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=e253]:
+    - banner [ref=e254]:
+      - generic [ref=e256]:
+        - generic [ref=e257]:
+          - link "SymbiosoAi - Collaborative Intelligence, redefined" [ref=e258] [cursor=pointer]:
+            - /url: /
+            - img "SymbiosoAi - Collaborative Intelligence, redefined" [ref=e259]
+          - navigation [ref=e260]:
+            - link "Home" [ref=e261] [cursor=pointer]:
+              - /url: /
+            - link "Simple" [ref=e262] [cursor=pointer]:
+              - /url: /simple
+            - link "Guided" [ref=e263] [cursor=pointer]:
+              - /url: /guided
+            - link "Expert" [ref=e264] [cursor=pointer]:
+              - /url: /expert
+            - link "Trust" [ref=e265] [cursor=pointer]:
+              - /url: /trust-center
+        - generic [ref=e266]:
+          - link "Sessions" [ref=e267] [cursor=pointer]:
+            - /url: /sessions
+          - generic [ref=e268]:
+            - generic [ref=e269]: BETA
+            - generic [ref=e270]:
+              - button "Demo Login" [ref=e271] [cursor=pointer]:
+                - img
+                - text: Demo Login
+              - button "OAuth Sign In" [ref=e272] [cursor=pointer]
+            - button [ref=e273] [cursor=pointer]:
+              - img
+            - button [ref=e274] [cursor=pointer]:
+              - img
+            - generic [ref=e277]: API Connected
+    - main [ref=e278]:
+      - generic [ref=e279]:
+        - generic [ref=e281]:
+          - img [ref=e282]
+          - text: Collaborative Prompt
+        - generic [ref=e285]:
+          - textbox "Describe your challenge for collaborative AI thinking..." [ref=e286]
+          - generic [ref=e287]:
+            - generic [ref=e288]:
+              - generic [ref=e289]: Upload Document
+              - generic [ref=e290]:
+                - img [ref=e291]
+                - generic [ref=e293]: Max 10 MB, .pdf, .docx, .doc, .txt, .md
+            - button "Choose Document" [ref=e295] [cursor=pointer]:
+              - img
+              - text: Choose Document
+      - generic [ref=e298]:
+        - generic [ref=e299]:
+          - heading "Continue Previous Debate" [level=3] [ref=e300]
+          - paragraph [ref=e301]: Build upon insights from your previous discussions with enhanced Guided mode features
+        - button "Continue Previous Debate" [ref=e302] [cursor=pointer]:
+          - img
+          - text: Continue Previous Debate
+      - generic [ref=e303]:
+        - generic [ref=e306]:
+          - img [ref=e307]
+          - text: Agent Selection & Configuration
+        - generic [ref=e312]:
+          - heading "Experts" [level=3] [ref=e313]
+          - generic [ref=e314]:
+            - tablist [ref=e315]:
+              - tab "Smart" [selected] [ref=e316] [cursor=pointer]:
+                - img [ref=e317]
+                - text: Smart
+              - tab "Manual" [ref=e319] [cursor=pointer]:
+                - img [ref=e320]
+                - text: Manual
+              - tab "Domain" [ref=e324] [cursor=pointer]:
+                - img [ref=e325]
+                - text: Domain
+              - tab "Use Case" [ref=e328] [cursor=pointer]:
+                - img [ref=e329]
+                - text: Use Case
+            - tabpanel "Smart" [ref=e331]:
+              - generic [ref=e332]:
+                - img [ref=e333]
+                - heading "Smart Agent Selection" [level=3] [ref=e335]
+                - paragraph [ref=e336]: AI automatically selects the best agents for your prompt based on content analysis.
+      - generic [ref=e339]:
+        - generic [ref=e340]:
+          - generic [ref=e341]:
+            - switch "Require Citations" [ref=e342] [cursor=pointer]
+            - generic [ref=e343]: Require Citations
+          - generic [ref=e344]:
+            - switch "Live Web Search" [ref=e345] [cursor=pointer]
+            - generic [ref=e346]: Live Web Search
+        - generic [ref=e347]:
+          - generic [ref=e348]:
+            - switch "Enable Fact-checking" [ref=e349] [cursor=pointer]
+            - generic [ref=e350]: Enable Fact-checking
+          - generic [ref=e351]:
+            - switch "Real-time Streaming" [ref=e352] [cursor=pointer]
+            - generic [ref=e353]: Real-time Streaming
+      - button "Start Collaborative Thinking" [ref=e355] [cursor=pointer]:
+        - img
+        - text: Start Collaborative Thinking
+      - generic [ref=e356]:
+        - generic [ref=e358]:
+          - generic [ref=e359]:
+            - generic [ref=e361]:
+              - img [ref=e362]
+              - text: AI Consensus
+            - generic [ref=e368]: No consensus available yet.
+          - generic [ref=e369]:
+            - generic [ref=e370]:
+              - generic [ref=e372]:
+                - img [ref=e373]
+                - text: Dissenting Views
+              - paragraph [ref=e377]: No significant dissenting views identified.
+            - generic [ref=e378]:
+              - generic [ref=e380]:
+                - img [ref=e381]
+                - text: Unresolved Questions
+              - paragraph [ref=e386]: No major unresolved questions identified.
+          - generic [ref=e387]:
+            - generic [ref=e389]:
+              - img [ref=e390]
+              - text: Export & Share
+            - generic [ref=e397]:
+              - button "Share Link" [ref=e398] [cursor=pointer]:
+                - img
+                - text: Share Link
+              - button "Save Session" [ref=e399] [cursor=pointer]:
+                - img
+                - text: Save Session
+              - button "Print" [ref=e400] [cursor=pointer]:
+                - img
+                - text: Print
+              - button "Export PDF" [ref=e401] [cursor=pointer]:
+                - img
+                - text: Export PDF
+          - generic [ref=e402]:
+            - generic [ref=e404]:
+              - img [ref=e405]
+              - text: Ask a Question
+            - generic [ref=e407]:
+              - generic [ref=e408]:
+                - textbox "Ask the AI agents to explore a specific question..." [ref=e409]
+                - button "Ask" [disabled]:
+                  - img
+                  - text: Ask
+              - paragraph [ref=e410]: Your question will be debated by the AI agents and results will be merged with the current analysis.
+        - generic [ref=e412]:
+          - generic [ref=e416] [cursor=pointer]:
+            - generic [ref=e417]:
+              - img [ref=e418]
+              - text: Performance Telemetry
+            - img [ref=e420]
+          - generic [ref=e422]:
+            - generic [ref=e424]:
+              - img [ref=e425]
+              - text: AI Agents
+            - generic [ref=e430]:
+              - generic [ref=e432]: Analyst
+              - generic [ref=e435]: Critic
+              - generic [ref=e438]: Synthesizer
+    - contentinfo [ref=e440]:
+      - paragraph [ref=e442]: © 2025 SymbiosoAi ThinkTank. All rights reserved.

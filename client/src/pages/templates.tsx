@@ -56,6 +56,23 @@ function TemplateBrowse() {
         </Button>
       </div>
 
+      {(!templates || templates.length === 0) && (
+        <Card data-testid="templates-empty">
+          <CardHeader>
+            <CardTitle>No templates yet</CardTitle>
+            <CardDescription>
+              Create your first template or check back later for curated options.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button data-testid="create-template-empty">
+              <Plus className="h-4 w-4 mr-2" />
+              Create Template
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {templates?.map((template) => (
           <Card key={template.id} className="hover:shadow-md transition-shadow">

@@ -1,0 +1,121 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - img "SymbiosoAi" [ref=e11]
+        - paragraph [ref=e12]: Enterprise-grade collaborative intelligence platform that leverages multiple AI agents to conduct structured debates and generate consensus-driven insights.
+      - generic [ref=e13]:
+        - button "Get Started" [ref=e14] [cursor=pointer]:
+          - text: Get Started
+          - img
+        - link "Try Demo" [ref=e15] [cursor=pointer]:
+          - /url: /simple
+          - button "Try Demo" [ref=e16]
+      - generic [ref=e18]:
+        - paragraph [ref=e19]: "Quick Demo Access:"
+        - generic [ref=e20]:
+          - button "Demo Login" [ref=e21] [cursor=pointer]:
+            - img
+            - text: Demo Login
+          - button "OAuth Sign In" [ref=e22] [cursor=pointer]
+      - generic [ref=e23]:
+        - generic [ref=e24]:
+          - img [ref=e25]
+          - generic [ref=e27]: Enterprise-grade
+        - generic [ref=e28]:
+          - img [ref=e29]
+          - generic [ref=e32]: Multi-agent AI
+        - generic [ref=e33]:
+          - img [ref=e34]
+          - generic [ref=e37]: Real-time collaboration
+    - generic [ref=e38]:
+      - generic [ref=e39]:
+        - generic [ref=e40]:
+          - img [ref=e42]
+          - generic [ref=e52]: Multi-Agent AI Debates
+          - generic [ref=e53]: Four specialized AI agents (Analyst, Critic, Synthesizer, Domain Expert) conduct structured debates to reach nuanced conclusions.
+        - list [ref=e55]:
+          - listitem [ref=e56]:
+            - img [ref=e57]
+            - text: 18 specialized domain experts
+          - listitem [ref=e60]:
+            - img [ref=e61]
+            - text: Configurable debate rounds (1-10)
+          - listitem [ref=e64]:
+            - img [ref=e65]
+            - text: Advanced reasoning frameworks
+      - generic [ref=e68]:
+        - generic [ref=e69]:
+          - img [ref=e71]
+          - generic [ref=e76]: Team Collaboration
+          - generic [ref=e77]: Real-time workspace sharing, role-based access control, and session management for seamless team collaboration.
+        - list [ref=e79]:
+          - listitem [ref=e80]:
+            - img [ref=e81]
+            - text: Multi-workspace support
+          - listitem [ref=e84]:
+            - img [ref=e85]
+            - text: Real-time synchronization
+          - listitem [ref=e88]:
+            - img [ref=e89]
+            - text: Permission management
+      - generic [ref=e92]:
+        - generic [ref=e93]:
+          - img [ref=e95]
+          - generic [ref=e97]: Enterprise Features
+          - generic [ref=e98]: Interactive fact-checking, visual journey mapping, template management, and comprehensive analytics for enterprise needs.
+        - list [ref=e100]:
+          - listitem [ref=e101]:
+            - img [ref=e102]
+            - text: Interactive fact-checking
+          - listitem [ref=e105]:
+            - img [ref=e106]
+            - text: Visual journey timeline
+          - listitem [ref=e109]:
+            - img [ref=e110]
+            - text: Template library system
+    - generic [ref=e113]:
+      - heading "Three Progressive Complexity Levels" [level=2] [ref=e114]
+      - paragraph [ref=e115]: Choose the right level of analysis for your needs, from quick insights to comprehensive enterprise analysis.
+    - generic [ref=e116]:
+      - link "Simple Mode Quick analysis for immediate insights and rapid decision-making. • Fast 3-agent debate • Basic consensus building • Essential dissenting views • Perfect for quick decisions" [ref=e117] [cursor=pointer]:
+        - /url: /simple
+        - generic [ref=e118]:
+          - generic [ref=e119]:
+            - generic [ref=e120]: Simple Mode
+            - generic [ref=e121]: Quick analysis for immediate insights and rapid decision-making.
+          - list [ref=e123]:
+            - listitem [ref=e124]: • Fast 3-agent debate
+            - listitem [ref=e125]: • Basic consensus building
+            - listitem [ref=e126]: • Essential dissenting views
+            - listitem [ref=e127]: • Perfect for quick decisions
+      - link "Guided Mode Intermediate configuration options with enhanced analysis capabilities. • 4-agent structured debate • Configurable debate rounds • Citation management • Fact-checking integration" [ref=e128] [cursor=pointer]:
+        - /url: /guided
+        - generic [ref=e129]:
+          - generic [ref=e130]:
+            - generic [ref=e131]: Guided Mode
+            - generic [ref=e132]: Intermediate configuration options with enhanced analysis capabilities.
+          - list [ref=e134]:
+            - listitem [ref=e135]: • 4-agent structured debate
+            - listitem [ref=e136]: • Configurable debate rounds
+            - listitem [ref=e137]: • Citation management
+            - listitem [ref=e138]: • Fact-checking integration
+      - link "Expert Mode Comprehensive enterprise features with full customization and team collaboration. • 5-agent enterprise analysis • Domain expert selection • Template library access • Workspace management" [ref=e139] [cursor=pointer]:
+        - /url: /expert
+        - generic [ref=e140]:
+          - generic [ref=e141]:
+            - generic [ref=e142]: Expert Mode
+            - generic [ref=e143]: Comprehensive enterprise features with full customization and team collaboration.
+          - list [ref=e145]:
+            - listitem [ref=e146]: • 5-agent enterprise analysis
+            - listitem [ref=e147]: • Domain expert selection
+            - listitem [ref=e148]: • Template library access
+            - listitem [ref=e149]: • Workspace management
+    - generic [ref=e150]:
+      - heading "Ready to Transform Your Decision-Making?" [level=2] [ref=e151]
+      - paragraph [ref=e152]: Join leading organizations using SymbiosoAi ThinkTank for strategic analysis and collaborative intelligence.
+      - button "Start Free Trial" [ref=e153] [cursor=pointer]:
+        - text: Start Free Trial
+        - img

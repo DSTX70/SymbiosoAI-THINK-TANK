@@ -1,0 +1,18 @@
+[     300ms] [WARNING] Error with Permissions-Policy header: Invalid allowlist item(none) for feature camera. Allowlist item must be *, self or quoted url. @ :0
+[     300ms] [WARNING] Error with Permissions-Policy header: Invalid allowlist item(none) for feature microphone. Allowlist item must be *, self or quoted url. @ :0
+[     300ms] [WARNING] Error with Permissions-Policy header: Invalid allowlist item(none) for feature geolocation. Allowlist item must be *, self or quoted url. @ :0
+[     300ms] [WARNING] Error with Permissions-Policy header: Invalid allowlist item(none) for feature payment. Allowlist item must be *, self or quoted url. @ :0
+[     300ms] [WARNING] Error with Permissions-Policy header: Unrecognized feature: 'notifications'. @ :0
+[     812ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://symbioso-ai-v-4-12326.replit.app/api/auth/user:0
+[     819ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://symbioso-ai-v-4-12326.replit.app/api/tutorials/settings/my:0
+[     844ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://symbioso-ai-v-4-12326.replit.app/api/tutorials/progress/my:0
+[     893ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://symbioso-ai-v-4-12326.replit.app/api/auth/user:0
+[    1065ms] [ERROR] Failed to load resource: the server responded with a status of 500 () @ https://symbioso-ai-v-4-12326.replit.app/api/tutorials/recommendations:0
+[  262170ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://symbioso-ai-v-4-12326.replit.app/api/auth/user:0
+[  262172ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://symbioso-ai-v-4-12326.replit.app/api/user/onboarding-progress:0
+[  326825ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://symbioso-ai-v-4-12326.replit.app/api/auth/user:0
+[  371288ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://symbioso-ai-v-4-12326.replit.app/api/auth/user:0
+[  371290ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://symbioso-ai-v-4-12326.replit.app/api/reports:0
+[  371293ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://symbioso-ai-v-4-12326.replit.app/api/workspaces:0
+[  419843ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://symbioso-ai-v-4-12326.replit.app/api/auth/user:0
+[  480477ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://symbioso-ai-v-4-12326.replit.app/api/think:0

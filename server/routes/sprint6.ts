@@ -11,6 +11,7 @@ import {
   buildOrgScopedWhereClause,
   getDefaultOrganizationId
 } from "../middleware/tenantHardening";
+import { getSprint6FeatureFlags } from "../featureFlags";
 import {
   insertWorkflowDefinitionSchema, insertWorkflowExecutionSchema, insertWorkflowEventSchema,
   insertOrganizationAnalyticsSchema, insertOrganizationDailyReportSchema, insertEnhancedUsageMetricSchema,
@@ -48,18 +49,7 @@ export function registerSprint6Routes(app: Express): void {
   // Update feature flags for Sprint 6
   app.get('/api/sprint6/feature-flags', async (req, res) => {
     try {
-      const featureFlags = {
-        // Sprint 6 features
-        template_builder_enabled: true,
-        template_publishing_enabled: true,
-        workflow_automation_enabled: true,
-        organization_insights_enabled: true,
-        tenant_hardening_enabled: process.env.REQUIRE_ORG_HEADER === 'true',
-        enhanced_analytics_enabled: true,
-        workflow_webhooks_enabled: true,
-        daily_reports_enabled: true,
-      };
-
+      const featureFlags = getSprint6FeatureFlags();
       console.log('🏁 Sprint 6 feature flags requested:', featureFlags);
       res.json(featureFlags);
     } catch (error: any) {

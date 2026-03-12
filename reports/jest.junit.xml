@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="7" failures="7" errors="0" time="21.136">
+  <testsuite name="Sprint 1 - Queue + SSE" errors="0" failures="1" skipped="0" timestamp="2026-02-15T15:36:09" time="0.225" tests="1">
+    <testcase classname="Sprint 1 - Queue + SSE enqueue and stream to completion" name="Sprint 1 - Queue + SSE enqueue and stream to completion" time="0.001">
+      <failure>FetchError: request to http://localhost:5000/api/demo-login failed, reason: 
+    at ClientRequest.&lt;anonymous&gt; (/Users/personal/Desktop/SymbiosoAI THINK TANK/SymbiosoAi-v4-12326/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:508:20)
+    at emitErrorEvent (node:_http_client:108:11)
+    at Socket.socketErrorListener (node:_http_client:575:5)
+    at Socket.emit (node:events:508:20)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)</failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="Sprint 1 - Export + DLP" errors="0" failures="2" skipped="0" timestamp="2026-02-15T15:36:09" time="0.276" tests="2">
+    <testcase classname="Sprint 1 - Export + DLP clean export downloads with attachment header" name="Sprint 1 - Export + DLP clean export downloads with attachment header" time="0.002">
+      <failure>FetchError: request to http://localhost:5000/api/demo-login failed, reason: 
+    at ClientRequest.&lt;anonymous&gt; (/Users/personal/Desktop/SymbiosoAI THINK TANK/SymbiosoAi-v4-12326/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:508:20)
+    at emitErrorEvent (node:_http_client:108:11)
+    at Socket.socketErrorListener (node:_http_client:575:5)
+    at Socket.emit (node:events:508:20)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)</failure>
+    </testcase>
+    <testcase classname="Sprint 1 - Export + DLP DLP blocks P0 content" name="Sprint 1 - Export + DLP DLP blocks P0 content" time="0">
+      <failure>FetchError: request to http://localhost:5000/api/demo-login failed, reason: 
+    at ClientRequest.&lt;anonymous&gt; (/Users/personal/Desktop/SymbiosoAI THINK TANK/SymbiosoAi-v4-12326/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:508:20)
+    at emitErrorEvent (node:_http_client:108:11)
+    at Socket.socketErrorListener (node:_http_client:575:5)
+    at Socket.emit (node:events:508:20)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)</failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="Sprint 1 - Demo gate &amp; headers" errors="0" failures="2" skipped="0" timestamp="2026-02-15T15:36:09" time="0.348" tests="2">
+    <testcase classname="Sprint 1 - Demo gate &amp; headers demo route returns 403 when disabled" name="Sprint 1 - Demo gate &amp; headers demo route returns 403 when disabled" time="0.065">
+      <failure>FetchError: request to http://localhost:5000/auth/demo failed, reason: 
+    at ClientRequest.&lt;anonymous&gt; (/Users/personal/Desktop/SymbiosoAI THINK TANK/SymbiosoAi-v4-12326/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:508:20)
+    at emitErrorEvent (node:_http_client:108:11)
+    at Socket.socketErrorListener (node:_http_client:575:5)
+    at Socket.emit (node:events:508:20)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)</failure>
+    </testcase>
+    <testcase classname="Sprint 1 - Demo gate &amp; headers helmet sets basic headers" name="Sprint 1 - Demo gate &amp; headers helmet sets basic headers" time="0.024">
+      <failure>FetchError: request to http://localhost:5000/ failed, reason: 
+    at ClientRequest.&lt;anonymous&gt; (/Users/personal/Desktop/SymbiosoAI THINK TANK/SymbiosoAi-v4-12326/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:508:20)
+    at emitErrorEvent (node:_http_client:108:11)
+    at Socket.socketErrorListener (node:_http_client:575:5)
+    at Socket.emit (node:events:508:20)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)</failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="Infra smoke - demo login + /api/think" errors="0" failures="2" skipped="0" timestamp="2026-02-15T15:36:09" time="0.336" tests="2">
+    <testcase classname="Infra smoke - demo login + /api/think demo login is available when enabled" name="Infra smoke - demo login + /api/think demo login is available when enabled" time="0.002">
+      <failure>FetchError: request to http://localhost:5000/api/demo-login failed, reason: 
+    at ClientRequest.&lt;anonymous&gt; (/Users/personal/Desktop/SymbiosoAI THINK TANK/SymbiosoAi-v4-12326/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:508:20)
+    at emitErrorEvent (node:_http_client:108:11)
+    at Socket.socketErrorListener (node:_http_client:575:5)
+    at Socket.emit (node:events:508:20)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)</failure>
+    </testcase>
+    <testcase classname="Infra smoke - demo login + /api/think /api/think returns a response for simple mode" name="Infra smoke - demo login + /api/think /api/think returns a response for simple mode" time="0.001">
+      <failure>FetchError: request to http://localhost:5000/api/demo-login failed, reason: 
+    at ClientRequest.&lt;anonymous&gt; (/Users/personal/Desktop/SymbiosoAI THINK TANK/SymbiosoAi-v4-12326/node_modules/node-fetch/lib/index.js:1501:11)
+    at ClientRequest.emit (node:events:508:20)
+    at emitErrorEvent (node:_http_client:108:11)
+    at Socket.socketErrorListener (node:_http_client:575:5)
+    at Socket.emit (node:events:508:20)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at processTicksAndRejections (node:internal/process/task_queues:90:21)</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

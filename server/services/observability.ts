@@ -9,7 +9,7 @@ export function initObservability() {
   const metricsEndpoint = process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT;
   
   if (!traceEndpoint && !metricsEndpoint) {
-    console.log('📊 [observability] OTEL endpoints not configured, skipping observability setup');
+    console.log('📊 [observability] OTEL disabled (set OTEL_EXPORTER_OTLP_TRACES_ENDPOINT and/or OTEL_EXPORTER_OTLP_METRICS_ENDPOINT to enable)');
     return;
   }
 

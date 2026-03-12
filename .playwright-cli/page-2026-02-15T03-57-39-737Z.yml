@@ -1,0 +1,407 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=e3]:
+    - complementary [ref=e443]:
+      - generic [ref=e444]:
+        - generic [ref=e445]:
+          - heading "Analysis Modes" [level=3] [ref=e446]
+          - navigation [ref=e447]:
+            - link "Home Getting started" [ref=e448] [cursor=pointer]:
+              - /url: /
+              - generic [ref=e449]:
+                - img [ref=e450]
+                - generic [ref=e453]:
+                  - generic [ref=e455]: Home
+                  - paragraph [ref=e456]: Getting started
+            - link "Simple Mode Quick AI insights" [ref=e457] [cursor=pointer]:
+              - /url: /simple
+              - generic [ref=e458]:
+                - img [ref=e459]
+                - generic [ref=e462]:
+                  - generic [ref=e464]: Simple Mode
+                  - paragraph [ref=e465]: Quick AI insights
+            - link "Guided Mode Structured analysis" [ref=e466] [cursor=pointer]:
+              - /url: /guided
+              - generic [ref=e467]:
+                - img [ref=e468]
+                - generic [ref=e478]:
+                  - generic [ref=e480]: Guided Mode
+                  - paragraph [ref=e481]: Structured analysis
+            - link "Expert Mode PRO Advanced features" [ref=e482] [cursor=pointer]:
+              - /url: /expert
+              - generic [ref=e483]:
+                - img [ref=e484]
+                - generic [ref=e487]:
+                  - generic [ref=e488]:
+                    - generic [ref=e489]: Expert Mode
+                    - generic [ref=e490]: PRO
+                  - paragraph [ref=e491]: Advanced features
+        - generic [ref=e492]:
+          - heading "Expert Features" [level=3] [ref=e493]
+          - navigation [ref=e494]:
+            - link "Expert Analysis AI debate configuration" [ref=e495] [cursor=pointer]:
+              - /url: /expert?tab=analysis
+              - generic [ref=e496]:
+                - img [ref=e497]
+                - generic [ref=e507]:
+                  - generic [ref=e509]: Expert Analysis
+                  - paragraph [ref=e510]: AI debate configuration
+            - link "Template Library Pre-built analysis templates" [ref=e511] [cursor=pointer]:
+              - /url: /templates
+              - generic [ref=e512]:
+                - img [ref=e513]
+                - generic [ref=e516]:
+                  - generic [ref=e518]: Template Library
+                  - paragraph [ref=e519]: Pre-built analysis templates
+            - link "Workspace Team collaboration" [ref=e520] [cursor=pointer]:
+              - /url: /expert?tab=workspace
+              - generic [ref=e521]:
+                - img [ref=e522]
+                - generic [ref=e527]:
+                  - generic [ref=e529]: Workspace
+                  - paragraph [ref=e530]: Team collaboration
+            - link "Interactive Tutorials Step-by-step guides" [ref=e531] [cursor=pointer]:
+              - /url: /tutorials
+              - generic [ref=e532]:
+                - img [ref=e533]
+                - generic [ref=e535]:
+                  - generic [ref=e537]: Interactive Tutorials
+                  - paragraph [ref=e538]: Step-by-step guides
+            - link "Trust & Security Security & compliance center" [ref=e539] [cursor=pointer]:
+              - /url: /trust-center
+              - generic [ref=e540]:
+                - img [ref=e541]
+                - generic [ref=e543]:
+                  - generic [ref=e545]: Trust & Security
+                  - paragraph [ref=e546]: Security & compliance center
+        - generic [ref=e547]:
+          - heading "Enterprise Automation" [level=3] [ref=e548]
+          - navigation [ref=e549]:
+            - link "Automation Suite NEW Time tracking, invoicing & workflows" [ref=e550] [cursor=pointer]:
+              - /url: /automation
+              - generic [ref=e551]:
+                - img [ref=e552]
+                - generic [ref=e556]:
+                  - generic [ref=e557]:
+                    - generic [ref=e558]: Automation Suite
+                    - generic [ref=e559]: NEW
+                  - paragraph [ref=e560]: Time tracking, invoicing & workflows
+        - generic [ref=e562]:
+          - generic [ref=e563]:
+            - img [ref=e564]
+            - generic [ref=e566]: Quick Tip
+          - paragraph [ref=e567]: Use Expert mode's Agent Selection to customize AI personalities for your specific use case.
+    - generic [ref=e568]:
+      - banner [ref=e569]:
+        - generic [ref=e571]:
+          - generic [ref=e572]:
+            - link "SymbiosoAi - Collaborative Intelligence, redefined" [ref=e573] [cursor=pointer]:
+              - /url: /
+              - img "SymbiosoAi - Collaborative Intelligence, redefined" [ref=e574]
+            - navigation [ref=e575]:
+              - link "Home" [ref=e576] [cursor=pointer]:
+                - /url: /
+              - link "Simple" [ref=e577] [cursor=pointer]:
+                - /url: /simple
+              - link "Guided" [ref=e578] [cursor=pointer]:
+                - /url: /guided
+              - link "Expert" [ref=e579] [cursor=pointer]:
+                - /url: /expert
+              - link "Trust" [ref=e580] [cursor=pointer]:
+                - /url: /trust-center
+          - generic [ref=e581]:
+            - link "Sessions" [ref=e582] [cursor=pointer]:
+              - /url: /sessions
+            - generic [ref=e583]:
+              - generic [ref=e584]: BETA
+              - generic [ref=e585]:
+                - button "Demo Login" [ref=e586] [cursor=pointer]:
+                  - img
+                  - text: Demo Login
+                - button "OAuth Sign In" [ref=e587] [cursor=pointer]
+              - button [ref=e588] [cursor=pointer]:
+                - img
+              - button [ref=e589] [cursor=pointer]:
+                - img
+              - generic [ref=e592]: API Connected
+      - main [ref=e593]:
+        - complementary [ref=e594]:
+          - generic [ref=e595]:
+            - generic [ref=e596]:
+              - generic [ref=e598]:
+                - img [ref=e599]
+                - text: Expert Configuration
+              - generic [ref=e603]:
+                - button "Save" [ref=e604] [cursor=pointer]:
+                  - img
+                  - text: Save
+                - button "Load" [ref=e605] [cursor=pointer]
+            - generic [ref=e606]:
+              - generic [ref=e608]:
+                - generic [ref=e610] [cursor=pointer]:
+                  - generic [ref=e611]:
+                    - img [ref=e612]
+                    - text: AI Agent Selection
+                  - img [ref=e617]
+                - generic [ref=e621]:
+                  - generic [ref=e622]:
+                    - text: Selection Mode
+                    - combobox [ref=e623] [cursor=pointer]:
+                      - generic: Smart Selection
+                      - img [ref=e624]
+                  - generic [ref=e626]:
+                    - text: Creativity Level
+                    - generic [ref=e627]:
+                      - slider [ref=e632]
+                      - generic [ref=e633]:
+                        - generic [ref=e634]: Conservative
+                        - generic [ref=e635]: Balanced
+                        - generic [ref=e636]: Creative
+                        - generic [ref=e637]: Very Creative
+                  - generic [ref=e639]:
+                    - generic [ref=e640]:
+                      - generic [ref=e641]: Real-time Streaming
+                      - switch [ref=e642] [cursor=pointer]
+                    - paragraph [ref=e643]: Watch the analysis happen in real-time with live updates and progress tracking.
+              - generic [ref=e647] [cursor=pointer]:
+                - generic [ref=e648]:
+                  - img [ref=e649]
+                  - text: Reasoning Frameworks
+                - img [ref=e659]
+              - generic [ref=e664] [cursor=pointer]:
+                - generic [ref=e665]:
+                  - img [ref=e666]
+                  - text: Thinking Patterns
+                - img [ref=e670]
+              - generic [ref=e675] [cursor=pointer]:
+                - generic [ref=e676]:
+                  - img [ref=e677]
+                  - text: Enterprise AI Specialists
+                - img [ref=e681]
+              - generic [ref=e686] [cursor=pointer]:
+                - generic [ref=e687]:
+                  - img [ref=e688]
+                  - text: Agent Routing Weights
+                - img [ref=e690]
+              - generic [ref=e695] [cursor=pointer]:
+                - generic [ref=e696]:
+                  - img [ref=e697]
+                  - text: Knowledge Retrieval
+                - img [ref=e701]
+              - generic [ref=e706] [cursor=pointer]:
+                - generic [ref=e707]:
+                  - img [ref=e708]
+                  - text: Security & Privacy
+                - img [ref=e710]
+              - generic [ref=e715] [cursor=pointer]:
+                - generic [ref=e716]:
+                  - img [ref=e717]
+                  - text: Advanced Options
+                - img [ref=e719]
+              - generic [ref=e724] [cursor=pointer]:
+                - generic [ref=e725]:
+                  - img [ref=e726]
+                  - text: Export Formats
+                - img [ref=e729]
+        - generic [ref=e732]:
+          - tablist [ref=e733]:
+            - tab "Analysis" [selected] [ref=e734] [cursor=pointer]
+            - tab "AI Capabilities" [ref=e735] [cursor=pointer]
+            - tab "Integrations" [ref=e736] [cursor=pointer]
+            - tab "Analytics" [ref=e737] [cursor=pointer]
+            - tab "Workspace" [ref=e738] [cursor=pointer]
+          - tabpanel "Analysis" [ref=e739]:
+            - generic [ref=e740]:
+              - generic [ref=e742]:
+                - generic [ref=e743]:
+                  - img [ref=e744]
+                  - text: Agent Selection & Configuration
+                - button "Templates" [ref=e750] [cursor=pointer]:
+                  - img
+                  - text: Templates
+              - generic [ref=e751]:
+                - heading "Experts" [level=3] [ref=e752]
+                - generic [ref=e753]:
+                  - tablist [ref=e754]:
+                    - tab "Smart" [selected] [ref=e755] [cursor=pointer]:
+                      - img [ref=e756]
+                      - text: Smart
+                    - tab "Manual" [ref=e758] [cursor=pointer]:
+                      - img [ref=e759]
+                      - text: Manual
+                    - tab "Domain" [ref=e763] [cursor=pointer]:
+                      - img [ref=e764]
+                      - text: Domain
+                    - tab "Use Case" [ref=e767] [cursor=pointer]:
+                      - img [ref=e768]
+                      - text: Use Case
+                  - tabpanel "Smart" [ref=e770]:
+                    - generic [ref=e771]:
+                      - img [ref=e772]
+                      - heading "Smart Agent Selection" [level=3] [ref=e774]
+                      - paragraph [ref=e775]: AI automatically selects the best agents for your prompt based on content analysis.
+            - generic [ref=e778]:
+              - generic [ref=e779]:
+                - heading "Continue Previous Debate" [level=3] [ref=e780]
+                - paragraph [ref=e781]: Build upon insights from previous sessions with full Expert mode capabilities
+              - button "Continue Previous Debate" [ref=e782] [cursor=pointer]:
+                - img
+                - text: Continue Previous Debate
+            - generic [ref=e783]:
+              - generic [ref=e785]:
+                - img [ref=e786]
+                - text: Expert Analysis Request
+              - generic [ref=e797]:
+                - generic [ref=e798]:
+                  - text: Analysis Title (Optional)
+                  - textbox "Analysis Title (Optional)" [ref=e799]:
+                    - /placeholder: Brief title for this analysis session...
+                - generic [ref=e800]:
+                  - text: Primary Question or Challenge
+                  - textbox "Primary Question or Challenge" [ref=e801]:
+                    - /placeholder: Describe your complex challenge or question for expert AI analysis...
+                - generic [ref=e802]:
+                  - text: Additional Context (Optional)
+                  - textbox "Additional Context (Optional)" [ref=e803]:
+                    - /placeholder: Provide any relevant background, constraints, or specific requirements...
+                - button "Start Expert Analysis" [ref=e804] [cursor=pointer]:
+                  - img
+                  - text: Start Expert Analysis
+            - generic [ref=e805]:
+              - generic [ref=e807]:
+                - generic [ref=e808]:
+                  - img [ref=e809]
+                  - text: Analysis Results
+                - generic [ref=e811]:
+                  - button "PDF" [ref=e812] [cursor=pointer]:
+                    - img
+                    - text: PDF
+                  - button "Word" [ref=e813] [cursor=pointer]:
+                    - img
+                    - text: Word
+                  - button "JSON" [ref=e814] [cursor=pointer]:
+                    - img
+                    - text: JSON
+              - generic [ref=e816]:
+                - tablist [ref=e817]:
+                  - tab "Consensus" [ref=e818] [cursor=pointer]
+                  - tab "Dissents (0)" [ref=e819] [cursor=pointer]
+                  - tab "Unresolved (0)" [ref=e820] [cursor=pointer]
+                  - tab "Brainstorm" [ref=e821] [cursor=pointer]
+                  - tab "Reports" [selected] [ref=e822] [cursor=pointer]
+                  - tab "Sources (0)" [ref=e823] [cursor=pointer]
+                  - tab "Fact Check" [ref=e824] [cursor=pointer]
+                  - tab "Explore" [ref=e825] [cursor=pointer]
+                - tabpanel "Reports" [ref=e826]:
+                  - generic [ref=e830]:
+                    - generic [ref=e832]:
+                      - generic [ref=e834]:
+                        - img [ref=e835]
+                        - text: Report Generation
+                      - generic [ref=e839]:
+                        - img [ref=e840]
+                        - heading "No Results Available" [level=3] [ref=e842]
+                        - paragraph [ref=e843]: Complete a debate session first to generate comprehensive reports.
+                        - paragraph [ref=e844]: Start a debate session to unlock comprehensive report generation with AI-powered insights.
+                    - generic [ref=e846]:
+                      - generic [ref=e848]:
+                        - img [ref=e849]
+                        - text: Report History
+                      - paragraph [ref=e854]: Failed to load reports
+            - generic [ref=e855]:
+              - generic [ref=e857]:
+                - img [ref=e858]
+                - text: Session Management
+              - generic [ref=e862]:
+                - generic [ref=e863]:
+                  - generic [ref=e864]:
+                    - heading "Workspace Management" [level=3] [ref=e865]:
+                      - img [ref=e866]
+                      - text: Workspace Management
+                    - paragraph [ref=e871]: Collaborate with your team in real-time
+                  - button "Create Workspace" [ref=e872] [cursor=pointer]:
+                    - img
+                    - text: Create Workspace
+                - generic [ref=e873]:
+                  - generic [ref=e874]:
+                    - generic [ref=e875]:
+                      - heading "Your Workspaces" [level=4] [ref=e876]
+                      - paragraph [ref=e881]: No workspaces yet. Create your first one!
+                    - generic [ref=e882]:
+                      - generic [ref=e884]:
+                        - img [ref=e885]
+                        - text: Workspace Analytics
+                      - generic [ref=e889]:
+                        - generic [ref=e890]:
+                          - generic [ref=e891]: "135"
+                          - generic [ref=e892]: Total Debates
+                        - generic [ref=e893]:
+                          - generic [ref=e894]: "8.7"
+                          - generic [ref=e895]: Avg Quality
+                        - generic [ref=e896]:
+                          - generic [ref=e897]: "25"
+                          - generic [ref=e898]: Team Members
+                  - generic [ref=e899]:
+                    - generic [ref=e900]:
+                      - generic [ref=e902]:
+                        - img [ref=e903]
+                        - text: Create New Workspace
+                      - generic [ref=e904]:
+                        - generic [ref=e905]:
+                          - text: Workspace Name
+                          - textbox "Enter workspace name" [ref=e906]
+                        - generic [ref=e907]:
+                          - text: Description (Optional)
+                          - textbox "Describe your workspace" [ref=e908]
+                        - generic [ref=e909]:
+                          - switch "Private Workspace" [ref=e910] [cursor=pointer]
+                          - generic [ref=e911]: Private Workspace
+                        - button "Create Workspace" [disabled]
+                    - generic [ref=e912]:
+                      - generic [ref=e914]:
+                        - img [ref=e915]
+                        - text: Join Workspace
+                      - generic [ref=e919]:
+                        - generic [ref=e920]:
+                          - text: Session Code (Optional)
+                          - textbox "Enter 6-digit code to join existing session" [ref=e921]
+                        - button "Join Workspace" [disabled]
+                    - generic [ref=e922]:
+                      - generic [ref=e924]: Collaborative Features
+                      - generic [ref=e925]:
+                        - generic [ref=e926]:
+                          - generic [ref=e927]:
+                            - generic [ref=e928]:
+                              - img [ref=e929]
+                              - text: Real-time Sync
+                            - paragraph [ref=e934]: Share debate progress with team members in real-time
+                          - switch [checked] [ref=e935] [cursor=pointer]
+                        - generic [ref=e936]:
+                          - generic [ref=e937]:
+                            - generic [ref=e938]:
+                              - img [ref=e939]
+                              - text: Team Chat
+                            - paragraph [ref=e941]: Enable messaging during collaborative sessions
+                          - switch [ref=e942] [cursor=pointer]
+                        - generic [ref=e943]:
+                          - generic [ref=e944]:
+                            - text: Preserve Original
+                            - paragraph [ref=e945]: Keep original language response alongside translations
+                          - switch [checked] [ref=e946] [cursor=pointer]
+                        - generic [ref=e947]:
+                          - generic [ref=e948]:
+                            - text: Cultural Adaptation
+                            - paragraph [ref=e949]: Adapt responses for cultural context and conventions
+                          - switch [ref=e950] [cursor=pointer]
+                    - generic [ref=e951]:
+                      - generic [ref=e953]: Quick Actions
+                      - generic [ref=e954]:
+                        - button "Manage Permissions" [ref=e955] [cursor=pointer]:
+                          - img
+                          - text: Manage Permissions
+                        - button "Workspace Analytics" [ref=e956] [cursor=pointer]:
+                          - img
+                          - text: Workspace Analytics
+      - contentinfo [ref=e957]:
+        - paragraph [ref=e959]: © 2025 SymbiosoAi ThinkTank. All rights reserved.

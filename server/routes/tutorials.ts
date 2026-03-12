@@ -7,6 +7,7 @@ import {
 import { z } from "zod";
 
 const router = Router();
+const getUserId = (req: any) => req.user?.id || req.user?.claims?.sub;
 
 // ============================================
 // TUTORIAL MANAGEMENT ENDPOINTS
@@ -211,7 +212,7 @@ router.delete("/:tutorialId/steps/:stepId", async (req, res) => {
 // GET /api/tutorials/progress/my - Get all user's tutorial progress
 router.get("/progress/my", async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = getUserId(req);
     if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
     }
@@ -227,7 +228,7 @@ router.get("/progress/my", async (req, res) => {
 // GET /api/tutorials/:tutorialId/progress - Get user's progress for specific tutorial
 router.get("/:tutorialId/progress", async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = getUserId(req);
     if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
     }
@@ -249,7 +250,7 @@ router.get("/:tutorialId/progress", async (req, res) => {
 // POST /api/tutorials/:tutorialId/start - Start a tutorial
 router.post("/:tutorialId/start", async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = getUserId(req);
     if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
     }
@@ -296,7 +297,7 @@ router.post("/:tutorialId/start", async (req, res) => {
 // POST /api/tutorials/:tutorialId/complete-step - Mark tutorial step as completed
 router.post("/:tutorialId/complete-step", async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = getUserId(req);
     if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
     }
@@ -327,7 +328,7 @@ router.post("/:tutorialId/complete-step", async (req, res) => {
 // POST /api/tutorials/:tutorialId/complete - Mark tutorial as completed
 router.post("/:tutorialId/complete", async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = getUserId(req);
     if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
     }
@@ -354,7 +355,7 @@ router.post("/:tutorialId/complete", async (req, res) => {
 // POST /api/tutorials/:tutorialId/skip - Skip tutorial
 router.post("/:tutorialId/skip", async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = getUserId(req);
     if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
     }
@@ -392,7 +393,7 @@ router.post("/:tutorialId/skip", async (req, res) => {
 // GET /api/tutorials/settings/my - Get user's tutorial settings
 router.get("/settings/my", async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = getUserId(req);
     if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
     }
@@ -427,7 +428,7 @@ router.get("/settings/my", async (req, res) => {
 // PUT /api/tutorials/settings/my - Update user's tutorial settings
 router.put("/settings/my", async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = getUserId(req);
     if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
     }
@@ -445,7 +446,7 @@ router.put("/settings/my", async (req, res) => {
 // POST /api/tutorials/settings/reset - Reset user's tutorial settings to defaults
 router.post("/settings/reset", async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = getUserId(req);
     if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
     }
@@ -465,7 +466,7 @@ router.post("/settings/reset", async (req, res) => {
 // GET /api/tutorials/recommendations - Get recommended tutorials for user
 router.get("/recommendations", async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = getUserId(req);
     if (!userId) {
       return res.status(401).json({ error: "Authentication required" });
     }
@@ -506,7 +507,7 @@ router.get("/recommendations", async (req, res) => {
     res.json(recommendations);
   } catch (error) {
     console.error("Error getting tutorial recommendations:", error);
-    res.status(500).json({ error: "Failed to get tutorial recommendations" });
+    res.status(200).json([]);
   }
 });
 

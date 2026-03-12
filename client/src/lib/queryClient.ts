@@ -1,8 +1,23 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-async function throwIfResNotOk(res: Response) {
+function emitApiError(res: Response, text: string, url: string) {
+  if (typeof window === "undefined") return;
+  if (res.status === 401) return; // handled by auth flow, avoid spam
+  window.dispatchEvent(
+    new CustomEvent("api-error", {
+      detail: {
+        status: res.status,
+        message: text || res.statusText,
+        url,
+      },
+    }),
+  );
+}
+
+async function throwIfResNotOk(res: Response, url: string) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
+    emitApiError(res, text, url);
     throw new Error(`${res.status}: ${text}`);
   }
 }
@@ -19,7 +34,7 @@ export async function apiRequest(
     credentials: "include",
   });
 
-  await throwIfResNotOk(res);
+  await throwIfResNotOk(res, url);
   return res;
 }
 
@@ -29,7 +44,8 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    const url = queryKey.join("/") as string;
+    const res = await fetch(url, {
       credentials: "include",
     });
 
@@ -37,7 +53,7 @@ export const getQueryFn: <T>(options: {
       return null;
     }
 
-    await throwIfResNotOk(res);
+    await throwIfResNotOk(res, url);
     return await res.json();
   };
 

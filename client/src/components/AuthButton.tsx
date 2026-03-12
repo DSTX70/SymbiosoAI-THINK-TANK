@@ -108,27 +108,44 @@ function DemoLoginForm() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify(credentials),
       });
-      
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Login failed");
+        if (response.status === 404) {
+          throw new Error("Demo login is not enabled in this deployment.");
+        }
+        let message = "Login failed";
+        try {
+          const error = await response.json();
+          message = error.message || message;
+        } catch {
+          // ignore parse errors
+        }
+        throw new Error(message);
       }
-      
+
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "Success!",
         description: "Welcome to the If When Always Platform",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      try {
+        const userRes = await fetch("/api/auth/user", { credentials: "include" });
+        if (userRes.ok) {
+          const user = await userRes.json();
+          queryClient.setQueryData(["/api/auth/user"], user);
+        }
+      } catch {
+        // ignore, query will refetch when enabled
+      }
+      window.dispatchEvent(new Event("auth-changed"));
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
       setShowForm(false);
-      // Force a refresh of auth state without full page reload
-      setTimeout(() => {
-        queryClient.refetchQueries({ queryKey: ["/api/auth/user"] });
-      }, 100);
     },
     onError: (error: any) => {
       toast({

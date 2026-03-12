@@ -34,6 +34,7 @@ import { EnterpriseRateLimiter } from "./middleware/rateLimiting";
 import { PerformanceMonitor } from "./middleware/monitoring";
 import { registerAutomationRoutes } from "./routes/automation";
 import { registerSprint6Routes } from "./routes/sprint6";
+import { getFeatureFlags } from "./featureFlags";
 // Sprint 6 - Workers
 import { workflowWorker } from "./workers/workflowWorker";
 import { insightsWorker } from "./workers/insightsWorker";
@@ -310,16 +311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Sprint 5 - Feature flags API endpoint
   app.get('/api/feature-flags', async (req, res) => {
     try {
-      // Return feature flags for Sprint 5
-      const featureFlags = {
-        reviews_enabled: true,
-        retention_admin_enabled: true, 
-        scim_provisioning_enabled: true,
-        saml_auth_enabled: true,
-        advanced_analytics_enabled: false,
-        enterprise_features_enabled: true,
-      };
-
+      const featureFlags = getFeatureFlags();
       console.log('🏁 Feature flags requested:', featureFlags);
       res.json(featureFlags);
     } catch (error: any) {
@@ -348,10 +340,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use(performanceMonitor.errorTrackingMiddleware());
   */
 
-  // Demo login endpoint for easy access (development only)
+  // Demo login endpoint for easy access (development or explicitly enabled)
   app.post('/api/demo-login', async (req, res) => {
-    // Only enable demo login in development or when explicitly enabled
-    if (process.env.NODE_ENV === 'production' && process.env.ENABLE_DEMO_LOGIN !== 'true') {
+    const demoLoginEnabled =
+      process.env.NODE_ENV !== 'production' ||
+      process.env.ENABLE_DEMO_LOGIN === 'true' ||
+      process.env.DEMO_LOGIN_ENABLED === 'true';
+
+    if (!demoLoginEnabled) {
       return res.status(404).json({ message: "Not found" });
     }
     

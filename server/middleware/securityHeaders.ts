@@ -188,11 +188,10 @@ export function productionSecurityHeaders() {
       preload: true
     },
     permissionsPolicy: {
-      'camera': ['none'],
-      'microphone': ['none'],
-      'geolocation': ['none'],
-      'notifications': ['self'],
-      'payment': ['none']
+      'camera': [],
+      'microphone': [],
+      'geolocation': [],
+      'payment': []
     }
   });
 }

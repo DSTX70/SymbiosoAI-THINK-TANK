@@ -10,6 +10,7 @@ const VERIFY_API_KEY = process.env.VERIFY_API_KEY || "";
 const VERIFY_TIMEOUT_MS = Number(process.env.VERIFY_TIMEOUT_MS || 10000);
 const VERIFY_RETRY_MAX = Number(process.env.VERIFY_RETRY_MAX || 2);
 const VERIFY_RETRY_BASE_MS = Number(process.env.VERIFY_RETRY_BASE_MS || 400);
+const SSE_RETRY_MS = Number(process.env.SSE_RETRY_MS || 3000);
 
 const openai = new OpenAI({ 
   apiKey: process.env.OPENAI_API_KEY,
@@ -38,6 +39,8 @@ function setupSSE(res: Response) {
     'X-Accel-Buffering': 'no', // Disable nginx buffering
     'Transfer-Encoding': 'chunked'
   });
+
+  res.write(`retry: ${SSE_RETRY_MS}\n`);
   
   // Send initial heartbeat to establish connection
   res.write(`event: heartbeat\n`);
@@ -850,7 +853,7 @@ export function registerStreamingRoutes(app: Express) {
     // Connection timeout handler
     const timeoutId = setTimeout(() => {
       if (!connectionClosed) {
-        sendSSE(res, "timeout", { message: "Connection timeout" });
+        sendSSE(res, "timeout", { message: "Connection timeout", retry_ms: SSE_RETRY_MS });
         cleanup();
         res.end();
       }
@@ -869,7 +872,7 @@ export function registerStreamingRoutes(app: Express) {
     } catch (error) {
       console.error("Streaming error:", error);
       if (!connectionClosed) {
-        sendSSE(res, "error", { message: "Failed to process streaming request" });
+        sendSSE(res, "error", { message: "Failed to process streaming request", retry_ms: SSE_RETRY_MS });
       }
       clearTimeout(timeoutId);
     } finally {

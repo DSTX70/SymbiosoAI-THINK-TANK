@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import { storage } from '../storage';
+import { withRetry } from '../utils/withRetry';
 
 // Initialize Stripe with error handling
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -30,13 +31,15 @@ export class StripeService {
   static async createCustomer(user: { id: string; email: string; firstName?: string; lastName?: string }) {
     if (!stripe) throw new Error('Stripe not configured');
     
-    const customer = await stripe.customers.create({
-      email: user.email,
-      name: [user.firstName, user.lastName].filter(Boolean).join(' '),
-      metadata: {
-        userId: user.id,
-      },
-    });
+    const customer = await withRetry(() =>
+      stripe!.customers.create({
+        email: user.email,
+        name: [user.firstName, user.lastName].filter(Boolean).join(' '),
+        metadata: {
+          userId: user.id,
+        },
+      })
+    );
 
     return customer;
   }
@@ -68,7 +71,7 @@ export class StripeService {
       createParams.idempotency_key = params.idempotencyKey;
     }
     
-    const subscription = await stripe.subscriptions.create(createParams);
+    const subscription = await withRetry(() => stripe!.subscriptions.create(createParams));
 
     return subscription;
   }
@@ -79,15 +82,15 @@ export class StripeService {
   static async updateSubscription(subscriptionId: string, newPriceId: string) {
     if (!stripe) throw new Error('Stripe not configured');
 
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    const subscription = await withRetry(() => stripe!.subscriptions.retrieve(subscriptionId));
     
-    return await stripe.subscriptions.update(subscriptionId, {
+    return await withRetry(() => stripe!.subscriptions.update(subscriptionId, {
       items: [{
         id: subscription.items.data[0].id,
         price: newPriceId,
       }],
       proration_behavior: 'create_prorations',
-    });
+    }));
   }
 
   /**
@@ -97,11 +100,11 @@ export class StripeService {
     if (!stripe) throw new Error('Stripe not configured');
 
     if (immediate) {
-      return await stripe.subscriptions.cancel(subscriptionId);
+      return await withRetry(() => stripe!.subscriptions.cancel(subscriptionId));
     } else {
-      return await stripe.subscriptions.update(subscriptionId, {
+      return await withRetry(() => stripe!.subscriptions.update(subscriptionId, {
         cancel_at_period_end: true,
-      });
+      }));
     }
   }
 
@@ -111,10 +114,12 @@ export class StripeService {
   static async createBillingPortalSession(customerId: string, returnUrl: string) {
     if (!stripe) throw new Error('Stripe not configured');
 
-    return await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: returnUrl,
-    });
+    return await withRetry(() =>
+      stripe!.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: returnUrl,
+      })
+    );
   }
 
   /**
@@ -129,14 +134,16 @@ export class StripeService {
   }) {
     if (!stripe) throw new Error('Stripe not configured');
 
-    return await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      line_items: [{ price: params.priceId, quantity: 1 }],
-      customer: params.customerId,
-      success_url: params.successUrl,
-      cancel_url: params.cancelUrl,
-      metadata: params.metadata,
-    });
+    return await withRetry(() =>
+      stripe!.checkout.sessions.create({
+        mode: 'subscription',
+        line_items: [{ price: params.priceId, quantity: 1 }],
+        customer: params.customerId,
+        success_url: params.successUrl,
+        cancel_url: params.cancelUrl,
+        metadata: params.metadata,
+      })
+    );
   }
 
   /**
@@ -149,11 +156,13 @@ export class StripeService {
   }) {
     if (!stripe) throw new Error('Stripe not configured');
 
-    return await stripe.invoices.retrieveUpcoming({
-      customer: params.customerId,
-      subscription: params.subscriptionId,
-      subscription_items: params.subscriptionItems,
-    });
+    return await withRetry(() =>
+      stripe!.invoices.retrieveUpcoming({
+        customer: params.customerId,
+        subscription: params.subscriptionId,
+        subscription_items: params.subscriptionItems,
+      })
+    );
   }
 
   /**
@@ -186,17 +195,19 @@ export class StripeService {
   }) {
     if (!stripe) throw new Error('Stripe not configured');
 
-    const subscription = await stripe.subscriptions.retrieve(params.subscriptionId);
+    const subscription = await withRetry(() => stripe!.subscriptions.retrieve(params.subscriptionId));
     
     try {
-      const upcomingInvoice = await stripe.invoices.retrieveUpcoming({
-        customer: subscription.customer as string,
-        subscription: params.subscriptionId,
-        subscription_items: [{
-          id: subscription.items.data[0].id,
-          price: params.newPriceId,
-        }],
-      });
+      const upcomingInvoice = await withRetry(() =>
+        stripe!.invoices.retrieveUpcoming({
+          customer: subscription.customer as string,
+          subscription: params.subscriptionId,
+          subscription_items: [{
+            id: subscription.items.data[0].id,
+            price: params.newPriceId,
+          }],
+        })
+      );
 
       // Calculate immediate charge amount
       const immediateAmount = upcomingInvoice.lines.data

@@ -5,6 +5,7 @@ import { requireFeature, loadEntitlementsContext } from '../middleware/entitleme
 import { requireWorkspacePermission } from '../middleware/rbac';
 import { BILLING_FEATURES } from '../middleware/entitlements';
 import { WORKSPACE_PERMISSIONS } from '../middleware/rbac';
+import { withRetry } from '../utils/withRetry';
 
 const router = Router();
 
@@ -110,7 +111,7 @@ function formatDebateForJira(debateResults: any, sessionId: string) {
 async function createJiraIssue(config: any, issueData: any) {
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
   
-  const response = await fetch(`${config.baseUrl}/rest/api/3/issue`, {
+  const response = await withRetry(() => fetch(`${config.baseUrl}/rest/api/3/issue`, {
     method: 'POST',
     headers: {
       'Authorization': `Basic ${auth}`,
@@ -155,7 +156,7 @@ async function createJiraIssue(config: any, issueData: any) {
         ...issueData.customFields
       }
     }),
-  });
+  }));
 
   if (!response.ok) {
     const errorData = await response.json();
@@ -170,13 +171,13 @@ async function testJiraConnection(config: any) {
   const auth = Buffer.from(`${config.email}:${config.apiToken}`).toString('base64');
   
   // Test by getting project info
-  const response = await fetch(`${config.baseUrl}/rest/api/3/project/${config.projectKey}`, {
+  const response = await withRetry(() => fetch(`${config.baseUrl}/rest/api/3/project/${config.projectKey}`, {
     method: 'GET',
     headers: {
       'Authorization': `Basic ${auth}`,
       'Accept': 'application/json',
     },
-  });
+  }));
 
   if (!response.ok) {
     const errorData = await response.json();
@@ -301,13 +302,13 @@ router.get('/issue-types/:projectKey',
 
     const auth = Buffer.from(`${email}:${apiToken}`).toString('base64');
     
-    const response = await fetch(`${baseUrl}/rest/api/3/issue/createmeta?projectKeys=${projectKey}&expand=projects.issuetypes`, {
+    const response = await withRetry(() => fetch(`${baseUrl}/rest/api/3/issue/createmeta?projectKeys=${projectKey}&expand=projects.issuetypes`, {
       method: 'GET',
       headers: {
         'Authorization': `Basic ${auth}`,
         'Accept': 'application/json',
       },
-    });
+    }));
 
     if (!response.ok) {
       throw new Error(`Failed to fetch issue types: ${response.status}`);

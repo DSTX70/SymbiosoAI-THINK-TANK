@@ -17,6 +17,19 @@ interface AuthUser {
 }
 
 export function useAuth() {
+  const [authEnabled, setAuthEnabled] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof document !== "undefined") {
+      const hasSessionCookie = document.cookie.includes("connect.sid=");
+      setAuthEnabled(hasSessionCookie);
+    }
+
+    const onAuthChanged = () => setAuthEnabled(true);
+    window.addEventListener("auth-changed", onAuthChanged);
+    return () => window.removeEventListener("auth-changed", onAuthChanged);
+  }, []);
+
   const { data: user, isLoading, error } = useQuery<AuthUser | null>({
     queryKey: ["/api/auth/user"],
     queryFn: getQueryFn({ on401: "returnNull" }), // Don't throw on 401, just return null
@@ -29,7 +42,7 @@ export function useAuth() {
     staleTime: 0, // Always fetch fresh data
     gcTime: 10 * 60 * 1000, // 10 minutes (previously cacheTime)
     throwOnError: false, // Prevent unhandled promise rejections
-    enabled: true, // Always enabled but handle errors gracefully
+    enabled: authEnabled, // Avoid 401 spam until a session exists
   });
 
   // Simplified loading state - don't block the UI for too long

@@ -1,0 +1,86 @@
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=e960]:
+    - banner [ref=e961]:
+      - generic [ref=e963]:
+        - generic [ref=e964]:
+          - link "SymbiosoAi - Collaborative Intelligence, redefined" [ref=e965] [cursor=pointer]:
+            - /url: /
+            - img "SymbiosoAi - Collaborative Intelligence, redefined" [ref=e966]
+          - navigation [ref=e967]:
+            - link "Home" [ref=e968] [cursor=pointer]:
+              - /url: /
+            - link "Simple" [ref=e969] [cursor=pointer]:
+              - /url: /simple
+            - link "Guided" [ref=e970] [cursor=pointer]:
+              - /url: /guided
+            - link "Expert" [ref=e971] [cursor=pointer]:
+              - /url: /expert
+            - link "Trust" [ref=e972] [cursor=pointer]:
+              - /url: /trust-center
+        - generic [ref=e973]:
+          - link "Sessions" [ref=e974] [cursor=pointer]:
+            - /url: /sessions
+          - generic [ref=e975]:
+            - generic [ref=e976]: BETA
+            - generic [ref=e977]:
+              - button "Demo Login" [ref=e978] [cursor=pointer]:
+                - img
+                - text: Demo Login
+              - button "OAuth Sign In" [ref=e979] [cursor=pointer]
+            - button [ref=e980] [cursor=pointer]:
+              - img
+            - button [ref=e981] [cursor=pointer]:
+              - img
+            - generic [ref=e984]: API Connected
+    - main [ref=e985]:
+      - generic [ref=e986]:
+        - generic [ref=e988]:
+          - generic [ref=e991]:
+            - img [ref=e992]
+            - text: Collaborative Prompt
+          - generic [ref=e995]:
+            - textbox "Describe your challenge or question for collaborative AI analysis..." [ref=e996]
+            - generic [ref=e997]:
+              - generic [ref=e998]:
+                - generic [ref=e999]: Upload Document
+                - generic [ref=e1000]:
+                  - img [ref=e1001]
+                  - generic [ref=e1003]: Max 10 MB, .pdf, .docx, .doc, .txt, .md
+              - button "Choose Document" [ref=e1005] [cursor=pointer]:
+                - img
+                - text: Choose Document
+            - generic [ref=e1006]:
+              - generic [ref=e1007]:
+                - switch "Require Citations" [ref=e1008] [cursor=pointer]
+                - generic [ref=e1009]: Require Citations
+              - generic [ref=e1010]:
+                - switch "Enable Fact-checking" [ref=e1011] [cursor=pointer]
+                - generic [ref=e1012]: Enable Fact-checking
+              - generic [ref=e1013]:
+                - switch "Live Web Search" [ref=e1014] [cursor=pointer]
+                - generic [ref=e1015]: Live Web Search
+              - generic [ref=e1016]:
+                - switch "Real-time Streaming" [ref=e1017] [cursor=pointer]
+                - generic [ref=e1018]: Real-time Streaming
+            - button "Start Collaborative Thinking" [ref=e1019] [cursor=pointer]:
+              - img
+              - text: Start Collaborative Thinking
+        - complementary [ref=e1020]:
+          - generic [ref=e1021]:
+            - generic [ref=e1025] [cursor=pointer]:
+              - generic [ref=e1026]:
+                - img [ref=e1027]
+                - text: Performance Telemetry
+              - img [ref=e1029]
+            - generic [ref=e1031]:
+              - generic [ref=e1033]:
+                - img [ref=e1034]
+                - text: AI Agents
+              - generic [ref=e1039]:
+                - generic [ref=e1041]: Analyst
+                - generic [ref=e1044]: Critic
+                - generic [ref=e1047]: Synthesizer
+    - contentinfo [ref=e1049]:
+      - paragraph [ref=e1051]: © 2025 SymbiosoAi ThinkTank. All rights reserved.

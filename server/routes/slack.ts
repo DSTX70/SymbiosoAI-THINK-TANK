@@ -5,6 +5,7 @@ import { requireFeature, loadEntitlementsContext } from '../middleware/entitleme
 import { requireWorkspacePermission } from '../middleware/rbac';
 import { BILLING_FEATURES } from '../middleware/entitlements';
 import { WORKSPACE_PERMISSIONS } from '../middleware/rbac';
+import { withRetry } from '../utils/withRetry';
 
 const router = Router();
 
@@ -180,13 +181,13 @@ router.post('/notify',
     }
 
     // Send to Slack webhook
-    const slackResponse = await fetch(webhook_url, {
+    const slackResponse = await withRetry(() => fetch(webhook_url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(slackMessage),
-    });
+    }));
 
     if (!slackResponse.ok) {
       const errorText = await slackResponse.text();
@@ -258,13 +259,13 @@ router.post('/test',
       testMessage.channel = channel;
     }
 
-    const slackResponse = await fetch(webhook_url, {
+    const slackResponse = await withRetry(() => fetch(webhook_url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(testMessage),
-    });
+    }));
 
     if (!slackResponse.ok) {
       const errorText = await slackResponse.text();
