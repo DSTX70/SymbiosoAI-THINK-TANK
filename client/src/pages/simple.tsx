@@ -12,11 +12,12 @@ import TelemetryPanel from "@/components/TelemetryPanel";
 import ResultsSection from "@/components/ResultsSection";
 import LiveStreamingSection from "@/components/LiveStreamingSection";
 import TutorialHelpButton from "@/components/TutorialHelpButton";
+import { InlineActionError } from "@/components/InlineActionError";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import { createStreamUrl } from "@/lib/streamUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
+import { getActionableApiError, type ActionableApiError } from "@/lib/authUtils";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough";
 import { consumeWizardConfigForMode, mapEvidenceStrength } from "@/lib/firstAnalysisWizard";
@@ -37,6 +38,7 @@ export default function SimplePage() {
   const [isProcessingQuestion, setIsProcessingQuestion] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
   const [attachedDocument, setAttachedDocument] = useState<{fileName: string; fileUrl: string; fileSize: number} | null>(null);
+  const [submissionError, setSubmissionError] = useState<ActionableApiError | null>(null);
   const { toast } = useToast();
 
   // Onboarding setup
@@ -70,6 +72,7 @@ export default function SimplePage() {
       return response.json();
     },
     onSuccess: (data: ThinkResponse) => {
+      setSubmissionError(null);
       setResults(data);
       toast({ description: "Analysis completed successfully!" });
       
@@ -78,15 +81,17 @@ export default function SimplePage() {
       onboarding.triggerOnboarding({ completed_debate: true });
     },
     onError: (error: any) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Sign in required",
-          description: "Please sign in to start collaborative thinking",
-          variant: "destructive",
-        });
-        setTimeout(() => {
+      const actionableError = getActionableApiError(error, {
+        onLogin: () => {
           window.location.href = "/api/login";
-        }, 2000);
+        },
+        onUpgrade: () => {
+          window.location.href = "/billing";
+        },
+      });
+
+      if (actionableError) {
+        setSubmissionError(actionableError);
         return;
       }
       toast({ 
@@ -97,6 +102,8 @@ export default function SimplePage() {
   });
 
   const handleSubmit = () => {
+    setSubmissionError(null);
+
     if (!prompt.trim()) {
       toast({ 
         variant: "destructive",
@@ -117,7 +124,7 @@ export default function SimplePage() {
         enable_fact_check: enableFactCheck,
         live_web: enableLiveWeb,
         model_provider: selectedModel,
-        attached_document: attachedDocument,
+        attached_document: attachedDocument || undefined,
       };
       thinkMutation.mutate(requestData);
     }
@@ -182,7 +189,7 @@ export default function SimplePage() {
       enable_fact_check: enableFactCheck,
       live_web: enableLiveWeb,
       model_provider: selectedModel,
-      attached_document: attachedDocument, // Include document for follow-up questions too
+      attached_document: attachedDocument || undefined, // Include document for follow-up questions too
     };
 
     try {
@@ -326,6 +333,13 @@ export default function SimplePage() {
                     <Label htmlFor="streaming" className="text-sm">Real-time Streaming</Label>
                   </div>
                 </div>
+
+                {submissionError && (
+                  <InlineActionError
+                    error={submissionError}
+                    onDismiss={() => setSubmissionError(null)}
+                  />
+                )}
                 
                 <Button 
                   onClick={handleSubmit}

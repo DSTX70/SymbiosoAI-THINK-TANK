@@ -15,12 +15,13 @@ import TelemetryPanel from "@/components/TelemetryPanel";
 import ResultsSection from "@/components/ResultsSection";
 import LiveStreamingSection from "@/components/LiveStreamingSection";
 import TutorialHelpButton from "@/components/TutorialHelpButton";
+import { InlineActionError } from "@/components/InlineActionError";
 import { SessionTransfer } from "@/components/SessionTransfer";
 import { DocumentUploader } from "@/components/DocumentUploader";
 import { createStreamUrl } from "@/lib/streamUtils";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
+import { getActionableApiError, type ActionableApiError } from "@/lib/authUtils";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough";
 import { consumeWizardConfigForMode, mapEvidenceStrength } from "@/lib/firstAnalysisWizard";
@@ -53,6 +54,7 @@ export default function GuidedPage() {
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
   const [transferSessionId, setTransferSessionId] = useState<string | null>(null);
   const [attachedDocument, setAttachedDocument] = useState<{fileName: string; fileUrl: string; fileSize: number} | null>(null);
+  const [submissionError, setSubmissionError] = useState<ActionableApiError | null>(null);
   const { toast } = useToast();
 
   // Onboarding setup
@@ -104,6 +106,7 @@ export default function GuidedPage() {
       return response.json();
     },
     onSuccess: (data: ThinkResponse) => {
+      setSubmissionError(null);
       setResults(data);
       setTransferSessionId(null); // Clear transfer after successful completion
       toast({ 
@@ -113,15 +116,17 @@ export default function GuidedPage() {
       });
     },
     onError: (error: any) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Sign in required",
-          description: "Please sign in to start collaborative thinking",
-          variant: "destructive",
-        });
-        setTimeout(() => {
+      const actionableError = getActionableApiError(error, {
+        onLogin: () => {
           window.location.href = "/api/login";
-        }, 2000);
+        },
+        onUpgrade: () => {
+          window.location.href = "/billing";
+        },
+      });
+
+      if (actionableError) {
+        setSubmissionError(actionableError);
         return;
       }
       toast({ 
@@ -132,6 +137,8 @@ export default function GuidedPage() {
   });
 
   const handleSubmit = () => {
+    setSubmissionError(null);
+
     if (!prompt.trim()) {
       toast({ 
         variant: "destructive",
@@ -160,7 +167,7 @@ export default function GuidedPage() {
         enable_fact_check: enableFactCheck,
         live_web: enableLiveWeb,
         model_provider: selectedModel,
-        attached_document: attachedDocument,
+        attached_document: attachedDocument || undefined,
         verification: {
           fact_check: enableFactCheck,
           min_sources: 1,
@@ -248,7 +255,7 @@ export default function GuidedPage() {
       enable_fact_check: enableFactCheck,
       live_web: enableLiveWeb,
       model_provider: selectedModel,
-      attached_document: attachedDocument, // Include document for follow-up questions too
+      attached_document: attachedDocument || undefined, // Include document for follow-up questions too
       verification: {
         fact_check: enableFactCheck,
         min_sources: 1,
@@ -617,6 +624,13 @@ export default function GuidedPage() {
 
         {/* Start Collaborative Thinking Button - After Toggles */}
         <div className="mb-6">
+          {submissionError && (
+            <InlineActionError
+              error={submissionError}
+              onDismiss={() => setSubmissionError(null)}
+              className="mb-4"
+            />
+          )}
           <Button 
             onClick={handleSubmit}
             disabled={thinkMutation.isPending || isStreaming}

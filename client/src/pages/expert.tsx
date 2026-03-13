@@ -19,6 +19,7 @@ import { TemplateLibrary } from "@/components/TemplateLibrary";
 import { WorkspaceManagement } from "@/components/WorkspaceManagement";
 import LiveStreamingSection from "@/components/LiveStreamingSection";
 import TutorialHelpButton from "@/components/TutorialHelpButton";
+import { InlineActionError } from "@/components/InlineActionError";
 import { createStreamUrl } from "@/lib/streamUtils";
 import { LiveChat } from "@/components/LiveChat";
 import { SessionSharing } from "@/components/SessionSharing";
@@ -40,7 +41,7 @@ import { useCollaboration } from "@/hooks/useCollaboration";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { isUnauthorizedError } from "@/lib/authUtils";
+import { getActionableApiError, type ActionableApiError } from "@/lib/authUtils";
 import { consumeWizardConfigForMode, mapEvidenceStrength } from "@/lib/firstAnalysisWizard";
 import { useWorkspaceContext } from "@/components/WorkspaceContextProvider";
 import type { ThinkRequest, ThinkResponse, BrainstormResponse } from "@shared/schema";
@@ -61,6 +62,8 @@ export default function ExpertPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [attachedDocument, setAttachedDocument] = useState<{fileName: string; fileUrl: string; fileSize: number} | null>(null);
+  const [analysisTab, setAnalysisTab] = useState("analysis");
+  const [submissionError, setSubmissionError] = useState<ActionableApiError | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const { activeWorkspace, activeWorkspaceId } = useWorkspaceContext();
@@ -261,6 +264,7 @@ export default function ExpertPage() {
       return response.json();
     },
     onSuccess: (data: ThinkResponse & { sessionId?: string }) => {
+      setSubmissionError(null);
       setResults(data);
       setProcessingProgress(100);
       if (data.sessionId) {
@@ -270,15 +274,22 @@ export default function ExpertPage() {
     },
     onError: (error: any) => {
       setProcessingProgress(0);
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Sign in required",
-          description: "Please sign in to start collaborative thinking",
-          variant: "destructive",
-        });
-        setTimeout(() => {
+      const actionableError = getActionableApiError(error, {
+        onLogin: () => {
           window.location.href = "/api/login";
-        }, 2000);
+        },
+        onOpenWorkspace: () => {
+          setAnalysisTab("workspace");
+        },
+        onUpgrade: () => {
+          window.location.href = activeWorkspaceId
+            ? `/billing?workspaceId=${activeWorkspaceId}`
+            : "/billing";
+        },
+      });
+
+      if (actionableError) {
+        setSubmissionError(actionableError);
         return;
       }
       toast({ 
@@ -301,6 +312,8 @@ export default function ExpertPage() {
   }, [thinkMutation.isPending]);
 
   const handleSubmit = () => {
+    setSubmissionError(null);
+
     if (!prompt.trim()) {
       toast({ 
         variant: "destructive",
@@ -553,7 +566,7 @@ export default function ExpertPage() {
 
         {/* Center (fills remaining width) */}
         <section className="min-w-0 overflow-y-auto px-4 md:px-6 py-6">
-          <Tabs defaultValue="analysis" className="space-y-6">
+          <Tabs value={analysisTab} onValueChange={setAnalysisTab} className="space-y-6">
             {activeWorkspace && (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-100">
                 Active workspace: <span className="font-semibold">{activeWorkspace.name}</span>
@@ -863,6 +876,13 @@ export default function ExpertPage() {
                       data-testid="input-context"
                     />
                   </div>
+
+                  {submissionError && (
+                    <InlineActionError
+                      error={submissionError}
+                      onDismiss={() => setSubmissionError(null)}
+                    />
+                  )}
                   
                   <Button 
                     onClick={handleSubmit}
