@@ -26,6 +26,8 @@ See the setup guide for full details: `docs/SETUP.md`.
 ## Documentation
 - Setup: `docs/SETUP.md`
 - API: `docs/API.md`
+- Product overview: `docs/PRODUCT_OVERVIEW.md`
+- Roadmap: `docs/ROADMAP.md`
 - User manual: `USER_MANUAL.md`
 - Platform overview: `PLATFORM_OVERVIEW.md`
 - Runbook: `docs/DR_Runbook_Sprint11.md`
