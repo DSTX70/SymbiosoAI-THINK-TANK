@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useWorkspaceContext } from "@/components/WorkspaceContextProvider";
 import { 
   Plus, 
   Users, 
@@ -90,9 +91,10 @@ export function WorkspaceManagement() {
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { activeWorkspaceId, setActiveWorkspaceId } = useWorkspaceContext();
 
   // Fetch user's workspaces
-  const { data: workspaces = [], isLoading, error } = useQuery({
+  const { data: workspaces = [], isLoading, error } = useQuery<any[]>({
     queryKey: ['/api/workspaces'],
     retry: false
   });
@@ -103,11 +105,14 @@ export function WorkspaceManagement() {
       const response = await apiRequest("POST", "/api/workspaces", data);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (workspace) => {
       queryClient.invalidateQueries({ queryKey: ['/api/workspaces'] });
       setWorkspaceName("");
       setWorkspaceDescription("");
       setIsPrivateWorkspace(false);
+      if (workspace?.id) {
+        setActiveWorkspaceId(workspace.id);
+      }
       toast({ description: "Workspace created successfully!" });
     },
     onError: (error: any) => {
@@ -127,6 +132,9 @@ export function WorkspaceManagement() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/workspaces'] });
       setSessionCode("");
+      if (data?.workspace?.id) {
+        setActiveWorkspaceId(data.workspace.id);
+      }
       toast({ description: data.message || "Successfully joined workspace!" });
     },
     onError: (error: any) => {
@@ -228,6 +236,11 @@ export function WorkspaceManagement() {
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <CardTitle className="text-base">{workspace.name}</CardTitle>
+                            {activeWorkspaceId === workspace.id && (
+                              <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-100">
+                                ACTIVE
+                              </Badge>
+                            )}
                             <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100">
                               OWNER
                             </Badge>
@@ -272,6 +285,14 @@ export function WorkspaceManagement() {
                       </div>
 
                       <div className="flex gap-2">
+                        <Button
+                          variant={activeWorkspaceId === workspace.id ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setActiveWorkspaceId(workspace.id)}
+                          data-testid={`set-active-${workspace.id}`}
+                        >
+                          {activeWorkspaceId === workspace.id ? "Selected" : "Set Active"}
+                        </Button>
                         <Button 
                           variant="outline" 
                           size="sm"

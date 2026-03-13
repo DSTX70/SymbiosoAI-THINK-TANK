@@ -36,6 +36,7 @@ import { EntitlementsProvider } from "@/components/EntitlementsProvider";
 import { registerServiceWorker } from "@/lib/swRegister";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ApiErrorToaster } from "@/components/ApiErrorToaster";
+import { WorkspaceContextProvider } from "@/components/WorkspaceContextProvider";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -97,15 +98,17 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
         <EntitlementsProvider>
-          <TooltipProvider>
-            <TutorialSystem>
-              <Toaster />
-              <ApiErrorToaster />
-              <ErrorBoundary>
-                <Router />
-              </ErrorBoundary>
-            </TutorialSystem>
-          </TooltipProvider>
+          <WorkspaceContextProvider>
+            <TooltipProvider>
+              <TutorialSystem>
+                <Toaster />
+                <ApiErrorToaster />
+                <ErrorBoundary>
+                  <Router />
+                </ErrorBoundary>
+              </TutorialSystem>
+            </TooltipProvider>
+          </WorkspaceContextProvider>
         </EntitlementsProvider>
       </I18nProvider>
     </QueryClientProvider>

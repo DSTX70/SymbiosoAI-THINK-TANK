@@ -42,6 +42,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { consumeWizardConfigForMode, mapEvidenceStrength } from "@/lib/firstAnalysisWizard";
+import { useWorkspaceContext } from "@/components/WorkspaceContextProvider";
 import type { ThinkRequest, ThinkResponse, BrainstormResponse } from "@shared/schema";
 
 export default function ExpertPage() {
@@ -62,6 +63,7 @@ export default function ExpertPage() {
   const [attachedDocument, setAttachedDocument] = useState<{fileName: string; fileUrl: string; fileSize: number} | null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { activeWorkspace, activeWorkspaceId } = useWorkspaceContext();
 
   // Template usage handler
   const handleUseTemplate = (template: any) => {
@@ -75,7 +77,7 @@ export default function ExpertPage() {
       setDomainExperts(template.config.domainExperts as any);
       
       // Update configuration
-      setConfiguration(prev => ({
+      setConfiguration((prev: any) => ({
         ...prev,
         frameworks: [template.config.reasoningFramework],
         max_steps: template.config.debateRounds,
@@ -139,7 +141,7 @@ export default function ExpertPage() {
   const { isConnected: isCollaborating, participantCount } = useCollaboration(currentSessionCode);
 
   // Expert Mode Configuration State
-  const [configuration, setConfiguration] = useState({
+  const [configuration, setConfiguration] = useState<any>({
     frameworks: ["systems_thinking", "first_principles"],
     routing: {
       analyst: 25,
@@ -218,26 +220,26 @@ export default function ExpertPage() {
 
     if (wizardConfig.selection_mode) {
       setSelectionMode(wizardConfig.selection_mode);
-      setConfiguration(prev => ({
+      setConfiguration((prev: any) => ({
         ...prev,
         selection_mode: wizardConfig.selection_mode || prev.selection_mode,
       }));
     }
     if (wizardConfig.selection_mode === "manual" && wizardConfig.manual_agents) {
       setManualAgents(wizardConfig.manual_agents as any);
-      setConfiguration(prev => ({ ...prev, manual_agents: wizardConfig.manual_agents as any }));
+      setConfiguration((prev: any) => ({ ...prev, manual_agents: wizardConfig.manual_agents as any }));
     }
     if (wizardConfig.selection_mode === "domain" && wizardConfig.domain_expert) {
       setDomainExperts([wizardConfig.domain_expert as any]);
-      setConfiguration(prev => ({ ...prev, domain_experts: [wizardConfig.domain_expert as any] }));
+      setConfiguration((prev: any) => ({ ...prev, domain_experts: [wizardConfig.domain_expert as any] }));
     }
     if (wizardConfig.selection_mode === "usecase" && wizardConfig.usecase_type) {
       setUsecaseType(wizardConfig.usecase_type as any);
-      setConfiguration(prev => ({ ...prev, usecase_type: wizardConfig.usecase_type || "" }));
+      setConfiguration((prev: any) => ({ ...prev, usecase_type: wizardConfig.usecase_type || "" }));
     }
 
     const evidence = mapEvidenceStrength(wizardConfig.evidence_strength);
-    setConfiguration(prev => ({
+    setConfiguration((prev: any) => ({
       ...prev,
       evidence_per_claim: evidence.evidence_per_claim,
       advanced_fact_check: {
@@ -248,7 +250,7 @@ export default function ExpertPage() {
 
     if (wizardConfig.export_format) {
       const mappedFormat = wizardConfig.export_format === "word" ? "txt" : wizardConfig.export_format;
-      setConfiguration(prev => ({ ...prev, export_formats: [mappedFormat] }));
+      setConfiguration((prev: any) => ({ ...prev, export_formats: [mappedFormat] }));
     }
   }, []);
 
@@ -313,6 +315,7 @@ export default function ExpertPage() {
       const requestData: ThinkRequest = {
         prompt: prompt.trim(),
         mode: "expert",
+        workspaceId: activeWorkspaceId || undefined,
         context: context.trim() || undefined,
         debate_title: debateTitle.trim() || undefined,
         temperature: 0.2,
@@ -352,6 +355,7 @@ export default function ExpertPage() {
   const handleStreamingSubmit = () => {
     const settings = {
       mode: "expert",
+      workspaceId: activeWorkspaceId || undefined,
       context: context.trim() || undefined,
       debate_title: debateTitle.trim() || undefined,
       require_citations: true,
@@ -550,6 +554,11 @@ export default function ExpertPage() {
         {/* Center (fills remaining width) */}
         <section className="min-w-0 overflow-y-auto px-4 md:px-6 py-6">
           <Tabs defaultValue="analysis" className="space-y-6">
+            {activeWorkspace && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-100">
+                Active workspace: <span className="font-semibold">{activeWorkspace.name}</span>
+              </div>
+            )}
             <TabsList className="grid w-full grid-cols-3 gap-1 h-auto">
               <TabsTrigger value="analysis" data-testid="tab-analysis">Analysis</TabsTrigger>
               <TabsTrigger value="ai-capabilities" data-testid="tab-ai-capabilities">AI Capabilities</TabsTrigger>
@@ -592,7 +601,7 @@ export default function ExpertPage() {
                   <Tabs value={selectionMode} onValueChange={(value: string) => {
                     const mode = value as "smart" | "manual" | "domain" | "usecase";
                     setSelectionMode(mode);
-                    setConfiguration(prev => ({
+                    setConfiguration((prev: any) => ({
                       ...prev,
                       selection_mode: mode,
                       manual_agents: mode === "manual" ? manualAgents : [],
@@ -652,7 +661,7 @@ export default function ExpertPage() {
                                     newAgents = manualAgents.filter(id => id !== agent.id);
                                   }
                                   setManualAgents(newAgents);
-                                  setConfiguration(prev => ({
+                                  setConfiguration((prev: any) => ({
                                     ...prev,
                                     manual_agents: newAgents
                                   }));
@@ -707,7 +716,7 @@ export default function ExpertPage() {
                                     newExperts = domainExperts.filter(id => id !== expert.id);
                                   }
                                   setDomainExperts(newExperts);
-                                  setConfiguration(prev => ({
+                                  setConfiguration((prev: any) => ({
                                     ...prev,
                                     domain_experts: newExperts
                                   }));
@@ -753,7 +762,7 @@ export default function ExpertPage() {
                               onClick={() => {
                                 const newType = usecase.id as any;
                                 setUsecaseType(newType);
-                                setConfiguration(prev => ({
+                                setConfiguration((prev: any) => ({
                                   ...prev,
                                   usecase_type: newType
                                 }));
@@ -892,8 +901,8 @@ export default function ExpertPage() {
                 results={results}
                 isProcessing={thinkMutation.isPending || isStreaming}
                 onExport={handleExport}
-                sessionId={sessionId}
-                brainstormResults={brainstormResults}
+                sessionId={sessionId || undefined}
+                brainstormResults={brainstormResults || undefined}
                 onBrainstormComplete={(brainstormData) => {
                   setBrainstormResults(brainstormData);
                   toast({
@@ -922,13 +931,13 @@ export default function ExpertPage() {
                 isEnabled={configuration.deep_analysis_enabled}
                 config={configuration.deep_analysis_config}
                 onToggle={(enabled) => 
-                  setConfiguration(prev => ({
+                  setConfiguration((prev: any) => ({
                     ...prev,
                     deep_analysis_enabled: enabled
                   }))
                 }
                 onChange={(deepConfig) => 
-                  setConfiguration(prev => ({
+                  setConfiguration((prev: any) => ({
                     ...prev,
                     deep_analysis_config: deepConfig
                   }))
@@ -938,7 +947,7 @@ export default function ExpertPage() {
               <CustomThinkingPatterns
                 selectedPatterns={configuration.custom_thinking_patterns}
                 onChange={(patterns) => 
-                  setConfiguration(prev => ({
+                  setConfiguration((prev: any) => ({
                     ...prev,
                     custom_thinking_patterns: patterns
                   }))
@@ -948,7 +957,7 @@ export default function ExpertPage() {
               <EnterpriseSpecialists
                 selectedSpecialists={configuration.enterprise_specialists}
                 onChange={(specialists) => 
-                  setConfiguration(prev => ({
+                  setConfiguration((prev: any) => ({
                     ...prev,
                     enterprise_specialists: specialists
                   }))
@@ -959,13 +968,13 @@ export default function ExpertPage() {
                 isEnabled={configuration.rag_enabled}
                 config={configuration.rag_config}
                 onToggle={(enabled) => 
-                  setConfiguration(prev => ({
+                  setConfiguration((prev: any) => ({
                     ...prev,
                     rag_enabled: enabled
                   }))
                 }
                 onChange={(ragConfig) => 
-                  setConfiguration(prev => ({
+                  setConfiguration((prev: any) => ({
                     ...prev,
                     rag_config: ragConfig
                   }))
@@ -1068,7 +1077,7 @@ export default function ExpertPage() {
               <AdvancedFactCheckConfig
                 config={configuration.advanced_fact_check}
                 onChange={(factCheckConfig) => 
-                  setConfiguration(prev => ({
+                  setConfiguration((prev: any) => ({
                     ...prev,
                     advanced_fact_check: factCheckConfig
                   }))

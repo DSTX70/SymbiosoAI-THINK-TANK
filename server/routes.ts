@@ -1851,7 +1851,7 @@ Please build upon the previous discussion while addressing the new question.`
           sourceSessionId: result.transfer_from_session_id || null,
           transferCount: sourceSession?.transferCount ? (sourceSession.transferCount + 1) : 0,
           userId: userId,
-          workspaceId: null
+          workspaceId: result.workspaceId || null
         };
 
         const createdSession = await storage.createAnalysisSession(sessionData);

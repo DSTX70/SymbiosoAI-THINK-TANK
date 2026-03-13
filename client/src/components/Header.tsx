@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Sun, Moon, HelpCircle, Brain, Menu } from "lucide-react";
+import { Sun, Moon, HelpCircle, Menu, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AuthButton } from "@/components/AuthButton";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useWorkspaceContext } from "@/components/WorkspaceContextProvider";
 // import logoImage from "../assets/symbiosoai-logo.png";
 const logoImage = "/symbiosoai-logo.png";
 
@@ -14,6 +16,7 @@ export default function Header() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const isMobile = useIsMobile();
   const isExpertMode = location.startsWith("/expert");
+  const { workspaces, activeWorkspace, activeWorkspaceId, setActiveWorkspaceId, isLoading } = useWorkspaceContext();
 
   // Dark mode effect
   useEffect(() => {
@@ -105,6 +108,33 @@ export default function Header() {
           
           {/* Right side: Sessions + Dropdown */}
           <div className="flex items-center gap-2">
+            {!isMobile && (isExpertMode || activeWorkspace || workspaces.length > 0) && (
+              <div className="hidden lg:flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2">
+                <Briefcase className="h-4 w-4 text-white/80" />
+                <div className="min-w-[220px]">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-white/60">Workspace</div>
+                  <Select
+                    value={activeWorkspaceId || undefined}
+                    onValueChange={(value) => setActiveWorkspaceId(value)}
+                    disabled={isLoading || workspaces.length === 0}
+                  >
+                    <SelectTrigger
+                      className="h-auto border-0 bg-transparent px-0 py-0 text-sm font-medium text-white shadow-none ring-0 focus:ring-0 focus:ring-offset-0"
+                      data-testid="header-workspace-switcher"
+                    >
+                      <SelectValue placeholder={isLoading ? "Loading workspaces..." : "Select workspace"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {workspaces.map((workspace) => (
+                        <SelectItem key={workspace.id} value={workspace.id}>
+                          {workspace.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
             <Link 
               href="/sessions" 
               className={`mode-pill ${location.startsWith("/sessions") ? "active" : ""}`}
@@ -170,6 +200,17 @@ export default function Header() {
                     </div>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
+                  {(isExpertMode || activeWorkspace) && (
+                    <>
+                      <DropdownMenuItem className="flex flex-col items-start">
+                        <span className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Workspace</span>
+                        <span className="text-sm font-medium">
+                          {activeWorkspace?.name || (isLoading ? "Loading workspaces..." : "No workspace selected")}
+                        </span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
                   <DropdownMenuItem>
                     <AuthButton />
                   </DropdownMenuItem>

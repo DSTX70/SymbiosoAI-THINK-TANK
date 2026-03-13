@@ -510,6 +510,7 @@ export const workspaceRoleSchema = z.enum(["owner", "admin", "member", "viewer"]
 export const thinkRequestSchema = z.object({
   prompt: z.string().min(1),
   mode: z.enum(["simple", "guided", "expert"]),
+  workspaceId: z.string().optional(),
   transfer_from_session_id: z.string().optional(), // ID of previous session to transfer from
   // Document attachment
   attached_document: z.object({
