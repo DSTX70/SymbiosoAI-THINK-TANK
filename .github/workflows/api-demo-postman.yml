@@ -26,10 +26,18 @@ jobs:
 
     env:
       NODE_ENV: development
+      PORT: 5000
+      BASE_URL: http://localhost:5000
       ENABLE_DEMO_LOGIN: "true"
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/app
-      BASE_URL: http://localhost:3000
       PGSSL: "false"
+      OPENAI_API_KEY: test-openai-key
+      SESSION_SECRET: test-session-secret
+      JWT_SECRET: test-jwt-secret
+      ENCRYPTION_KEY: 12345678901234567890123456789012
+      WEBHOOK_SECRET: test-webhook-secret
+      REPLIT_DOMAINS: localhost:5000
+      REPL_ID: test-repl-id
 
     steps:
       - uses: actions/checkout@v4
@@ -46,22 +54,8 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: DB migrate
-        run: npm run db:migrate
-
-      - name: DB seed (demo user/workspace/docs)
-        run: npm run db:seed
-
-      - name: Run Jest tests
-        run: npm run test:ci
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage/lcov.info
-          flags: unittests
-          fail_ci_if_error: true
+      - name: DB push
+        run: npm run db:push
 
       - name: Start API server
         run: |
@@ -75,8 +69,20 @@ jobs:
             echo "Waiting for API..."; sleep 2;
           done
 
+      - name: Run Jest tests
+        run: bash ./scripts/ci-test.sh
+
       - name: Run Newman
-        run: npm run postman:test
+        run: bash ./scripts/ci-postman-test.sh
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          flags: unittests
+          fail_ci_if_error: true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
