@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough";
+import { consumeWizardConfigForMode, mapEvidenceStrength } from "@/lib/firstAnalysisWizard";
 import type { ThinkRequest, ThinkResponse } from "@shared/schema";
 
 export default function SimplePage() {
@@ -28,6 +29,8 @@ export default function SimplePage() {
   const [enableLiveWeb, setEnableLiveWeb] = useState(false);
   const [selectedModel, setSelectedModel] = useState<"openai" | "anthropic">("openai");
   const [useStreaming, setUseStreaming] = useState(false); // Default OFF
+  const [responseLength, setResponseLength] = useState<"brief" | "moderate" | "detailed">("moderate");
+  const [wizardContext, setWizardContext] = useState("");
   const [results, setResults] = useState<ThinkResponse | null>(null);
   const [streamingResult, setStreamingResult] = useState<any>(null);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -46,6 +49,20 @@ export default function SimplePage() {
       no_sessions: true 
     });
   }, [onboarding.triggerOnboarding]);
+
+  useEffect(() => {
+    const wizardConfig = consumeWizardConfigForMode("simple");
+    if (!wizardConfig) return;
+
+    setPrompt(wizardConfig.prompt || "");
+    setWizardContext(wizardConfig.context || "");
+    setResponseLength(wizardConfig.output_format);
+
+    const evidence = mapEvidenceStrength(wizardConfig.evidence_strength);
+    setRequireCitations(evidence.require_citations);
+    setEnableFactCheck(evidence.enable_fact_check);
+    setEnableLiveWeb(evidence.live_web);
+  }, []);
 
   const thinkMutation = useMutation({
     mutationFn: async (data: ThinkRequest) => {
@@ -94,6 +111,8 @@ export default function SimplePage() {
       const requestData: ThinkRequest = {
         prompt: prompt.trim(),
         mode: "simple",
+        context: wizardContext.trim() || undefined,
+        response_length: responseLength,
         require_citations: requireCitations,
         enable_fact_check: enableFactCheck,
         live_web: enableLiveWeb,
@@ -107,11 +126,12 @@ export default function SimplePage() {
   const handleStreamingSubmit = () => {
     const settings = {
       mode: "simple",
+      context: wizardContext.trim() || undefined,
       require_citations: requireCitations,
       enable_fact_check: enableFactCheck,
       live_web: enableLiveWeb,
       turns: "1",
-      response_length: "moderate"
+      response_length: responseLength
     };
 
     setIsStreaming(true);

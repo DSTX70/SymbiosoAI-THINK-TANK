@@ -5,6 +5,8 @@ import { Link } from "wouter";
 import symbiosoLogo from "@assets/SymbiosoAi Horizontal Logo with Tag_1756950480614.png";
 import { AuthButton } from "@/components/AuthButton";
 import { useAuth } from "@/hooks/useAuth";
+import { FirstAnalysisWizard } from "@/components/FirstAnalysisWizard";
+import { useState } from "react";
 
 function AuthStatusPanel() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -35,6 +37,8 @@ function AuthStatusPanel() {
 }
 
 export default function Landing() {
+  const [wizardOpen, setWizardOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-900 dark:to-indigo-900">
       {/* Hero Section */}
@@ -63,6 +67,15 @@ export default function Landing() {
             >
               Get Started
               <ArrowRight className="ml-2 w-5 h-5" />
+            </Button>
+            <Button 
+              variant="secondary" 
+              size="lg" 
+              className="text-lg px-8 py-6 h-auto"
+              onClick={() => setWizardOpen(true)}
+              data-testid="button-first-analysis-wizard"
+            >
+              Start with Wizard
             </Button>
             <Link href="/simple">
               <Button variant="outline" size="lg" className="text-lg px-8 py-6 h-auto" data-testid="button-try-demo">
@@ -272,6 +285,8 @@ export default function Landing() {
           </Button>
         </div>
       </div>
+
+      <FirstAnalysisWizard open={wizardOpen} onOpenChange={setWizardOpen} />
     </div>
   );
 }

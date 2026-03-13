@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { OnboardingWalkthrough } from "@/components/OnboardingWalkthrough";
+import { consumeWizardConfigForMode, mapEvidenceStrength } from "@/lib/firstAnalysisWizard";
 import type { ThinkRequest, ThinkResponse } from "@shared/schema";
 
 export default function GuidedPage() {
@@ -31,6 +32,8 @@ export default function GuidedPage() {
   const [enableFactCheck, setEnableFactCheck] = useState(false);
   const [enableLiveWeb, setEnableLiveWeb] = useState(false);
   const [selectedModel, setSelectedModel] = useState<"openai" | "anthropic">("openai");
+  const [responseLength, setResponseLength] = useState<"brief" | "moderate" | "detailed">("moderate");
+  const [wizardContext, setWizardContext] = useState("");
   
   // Agent Selection State
   const [selectionMode, setSelectionMode] = useState<"smart" | "manual" | "domain" | "usecase">("smart");
@@ -62,6 +65,33 @@ export default function GuidedPage() {
   //     has_sessions: true 
   //   });
   // }, [onboarding.triggerOnboarding]);
+
+  useEffect(() => {
+    const wizardConfig = consumeWizardConfigForMode("guided");
+    if (!wizardConfig) return;
+
+    setPrompt(wizardConfig.prompt || "");
+    setWizardContext(wizardConfig.context || "");
+    setResponseLength(wizardConfig.output_format);
+
+    if (wizardConfig.selection_mode) {
+      setSelectionMode(wizardConfig.selection_mode);
+    }
+    if (wizardConfig.selection_mode === "manual" && wizardConfig.manual_agents) {
+      setManualAgents(wizardConfig.manual_agents as any);
+    }
+    if (wizardConfig.selection_mode === "domain" && wizardConfig.domain_expert) {
+      setDomainExperts([wizardConfig.domain_expert as any]);
+    }
+    if (wizardConfig.selection_mode === "usecase" && wizardConfig.usecase_type) {
+      setUsecaseType(wizardConfig.usecase_type as any);
+    }
+
+    const evidence = mapEvidenceStrength(wizardConfig.evidence_strength);
+    setRequireCitations(evidence.require_citations);
+    setEnableFactCheck(evidence.enable_fact_check);
+    setEnableLiveWeb(evidence.live_web);
+  }, []);
 
   const thinkMutation = useMutation({
     mutationFn: async (data: ThinkRequest) => {
@@ -116,11 +146,12 @@ export default function GuidedPage() {
       const requestData: ThinkRequest = {
         prompt: prompt.trim(),
         mode: "guided",
+        context: wizardContext.trim() || undefined,
         selection_mode: selectionMode,
         manual_agents: selectionMode === "manual" ? manualAgents : undefined,
         domain_experts: selectionMode === "domain" ? domainExperts : undefined,
         usecase_type: selectionMode === "usecase" && usecaseType !== "" ? usecaseType as any : undefined,
-        response_length: "moderate",
+        response_length: responseLength,
         turns: 1,
         debate_format: "collaborative",
         require_evidence: false,
@@ -143,11 +174,12 @@ export default function GuidedPage() {
   const handleStreamingSubmit = () => {
     const settings = {
       mode: "guided",
+      context: wizardContext.trim() || undefined,
       selection_mode: selectionMode,
       manual_agents: selectionMode === "manual" ? manualAgents : undefined,
       domain_experts: selectionMode === "domain" ? domainExperts : undefined,
       usecase_type: selectionMode === "usecase" && usecaseType !== "" ? usecaseType as any : undefined,
-      response_length: "moderate",
+      response_length: responseLength,
       turns: "1",
       debate_format: "collaborative",
       require_evidence: false,

@@ -41,12 +41,14 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { consumeWizardConfigForMode, mapEvidenceStrength } from "@/lib/firstAnalysisWizard";
 import type { ThinkRequest, ThinkResponse, BrainstormResponse } from "@shared/schema";
 
 export default function ExpertPage() {
   const [prompt, setPrompt] = useState("");
   const [context, setContext] = useState("");
   const [debateTitle, setDebateTitle] = useState("");
+  const [responseLength, setResponseLength] = useState<"brief" | "moderate" | "detailed">("detailed");
   const [results, setResults] = useState<ThinkResponse | null>(null);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [useStreaming, setUseStreaming] = useState(false);
@@ -206,6 +208,50 @@ export default function ExpertPage() {
     sso_providers: [] as string[],
   });
 
+  useEffect(() => {
+    const wizardConfig = consumeWizardConfigForMode("expert");
+    if (!wizardConfig) return;
+
+    setPrompt(wizardConfig.prompt || "");
+    setContext(wizardConfig.context || "");
+    setResponseLength(wizardConfig.output_format);
+
+    if (wizardConfig.selection_mode) {
+      setSelectionMode(wizardConfig.selection_mode);
+      setConfiguration(prev => ({
+        ...prev,
+        selection_mode: wizardConfig.selection_mode || prev.selection_mode,
+      }));
+    }
+    if (wizardConfig.selection_mode === "manual" && wizardConfig.manual_agents) {
+      setManualAgents(wizardConfig.manual_agents as any);
+      setConfiguration(prev => ({ ...prev, manual_agents: wizardConfig.manual_agents as any }));
+    }
+    if (wizardConfig.selection_mode === "domain" && wizardConfig.domain_expert) {
+      setDomainExperts([wizardConfig.domain_expert as any]);
+      setConfiguration(prev => ({ ...prev, domain_experts: [wizardConfig.domain_expert as any] }));
+    }
+    if (wizardConfig.selection_mode === "usecase" && wizardConfig.usecase_type) {
+      setUsecaseType(wizardConfig.usecase_type as any);
+      setConfiguration(prev => ({ ...prev, usecase_type: wizardConfig.usecase_type || "" }));
+    }
+
+    const evidence = mapEvidenceStrength(wizardConfig.evidence_strength);
+    setConfiguration(prev => ({
+      ...prev,
+      evidence_per_claim: evidence.evidence_per_claim,
+      advanced_fact_check: {
+        ...prev.advanced_fact_check,
+        minimumSources: Math.max(prev.advanced_fact_check.minimumSources, evidence.min_sources),
+      }
+    }));
+
+    if (wizardConfig.export_format) {
+      const mappedFormat = wizardConfig.export_format === "word" ? "txt" : wizardConfig.export_format;
+      setConfiguration(prev => ({ ...prev, export_formats: [mappedFormat] }));
+    }
+  }, []);
+
 
   const thinkMutation = useMutation({
     mutationFn: async (data: ThinkRequest) => {
@@ -296,7 +342,7 @@ export default function ExpertPage() {
         enable_fact_check: true,
         turns: 1, // Keep performance optimization
         debate_format: "collaborative",
-        response_length: "detailed",
+        response_length: responseLength,
       };
 
       thinkMutation.mutate(requestData);
@@ -311,7 +357,7 @@ export default function ExpertPage() {
       require_citations: true,
       enable_fact_check: true,
       turns: "1",
-      response_length: "detailed",
+      response_length: responseLength,
       selection_mode: configuration.selection_mode,
       manual_agents: configuration.selection_mode === "manual" ? configuration.manual_agents : undefined,
       domain_experts: configuration.selection_mode === "domain" ? configuration.domain_experts : undefined,
