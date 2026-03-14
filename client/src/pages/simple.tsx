@@ -58,6 +58,7 @@ export default function SimplePage() {
 
     setPrompt(wizardConfig.prompt || "");
     setWizardContext(wizardConfig.context || "");
+    setAttachedDocument(wizardConfig.attached_document || null);
     setResponseLength(wizardConfig.output_format);
 
     const evidence = mapEvidenceStrength(wizardConfig.evidence_strength);

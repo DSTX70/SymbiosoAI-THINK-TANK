@@ -219,6 +219,7 @@ export default function ExpertPage() {
 
     setPrompt(wizardConfig.prompt || "");
     setContext(wizardConfig.context || "");
+    setAttachedDocument(wizardConfig.attached_document || null);
     setResponseLength(wizardConfig.output_format);
 
     if (wizardConfig.selection_mode) {

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DocumentUploader } from "@/components/DocumentUploader";
 import { saveWizardConfig, type EvidenceStrength, type FirstAnalysisWizardConfig, type OutputFormat, type SelectionMode, type WizardMode } from "@/lib/firstAnalysisWizard";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -54,6 +55,7 @@ export function FirstAnalysisWizard({ open, onOpenChange }: FirstAnalysisWizardP
   const [prompt, setPrompt] = useState("");
   const [context, setContext] = useState("");
   const [exportFormat, setExportFormat] = useState<"pdf" | "word" | "markdown">("pdf");
+  const [attachedDocument, setAttachedDocument] = useState<{ fileName: string; fileUrl: string; fileSize: number } | null>(null);
 
   const canProceed = useMemo(() => {
     if (step < 3) return true;
@@ -65,6 +67,7 @@ export function FirstAnalysisWizard({ open, onOpenChange }: FirstAnalysisWizardP
       mode,
       prompt: prompt.trim(),
       context: context.trim() || undefined,
+      attached_document: attachedDocument || undefined,
       evidence_strength: evidenceStrength,
       output_format: outputFormat,
       selection_mode: selectionMode,
@@ -259,6 +262,10 @@ export function FirstAnalysisWizard({ open, onOpenChange }: FirstAnalysisWizardP
                 onChange={(e) => setContext(e.target.value)}
               />
             </div>
+            <DocumentUploader
+              onFileUpload={setAttachedDocument}
+              onFileRemove={() => setAttachedDocument(null)}
+            />
           </div>
         )}
 

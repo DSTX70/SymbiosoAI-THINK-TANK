@@ -3,10 +3,17 @@ export type EvidenceStrength = "low" | "medium" | "high";
 export type OutputFormat = "brief" | "moderate" | "detailed";
 export type SelectionMode = "smart" | "manual" | "domain" | "usecase";
 
+export interface WizardAttachedDocument {
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+}
+
 export interface FirstAnalysisWizardConfig {
   mode: WizardMode;
   prompt: string;
   context?: string;
+  attached_document?: WizardAttachedDocument;
   evidence_strength: EvidenceStrength;
   output_format: OutputFormat;
   selection_mode?: SelectionMode;
